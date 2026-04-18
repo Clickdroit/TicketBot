@@ -88,7 +88,7 @@ public class AutoModListener extends ListenerAdapter {
                                 null,
                                 member,
                                 result.logReason(),
-                                result.logDetails() + "\nRègle: " + result.ruleKey()
+                                result.logDetails() + "\nRegle: " + result.ruleKey()
                         );
 
                         sendNoticeWithCooldown(event, member, result.ruleKey(), result.publicNotice());
@@ -225,7 +225,7 @@ public class AutoModListener extends ListenerAdapter {
                             null,
                             member,
                             "Seuil AutoMod atteint",
-                            "Règle: " + ruleKey + " • Strikes=" + state.count + " • Durée=" + timeoutMinutes + " min"
+                            "Regle: " + ruleKey + " • Strikes=" + state.count + " • Duree=" + timeoutMinutes + " min"
                     );
                     event.getChannel().sendMessage(member.getAsMention() + " ⏳ Timeout automatique appliqué (" + timeoutMinutes + " min).")
                             .queue();
