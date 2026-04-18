@@ -14,7 +14,7 @@ import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
+
 
 public class ClearWarningsCommand implements ICommand {
 
@@ -59,34 +59,27 @@ public class ClearWarningsCommand implements ICommand {
 
         logger.info("/clearwarnings demande: modId={}, targetId={}", event.getUser().getId(), target.getId());
 
-        try {
-            int removed = warningService.clearWarnings(event.getGuild().getId(), target.getId());
-            if (removed == 0) {
-                logger.info("/clearwarnings aucun warning a supprimer targetId={}", target.getId());
-                event.reply("ℹ️ Aucun warning a supprimer pour **" + target.getUser().getName() + "**.")
-                        .setEphemeral(true)
-                        .queue();
-                return;
-            }
-
-            event.reply("✅ " + removed + " warning(s) supprime(s) pour **" + target.getUser().getName() + "**.")
-                    .queue();
-            logger.info("/clearwarnings reussi: targetId={}, removed={}", target.getId(), removed);
-
-            moderationLogger.logInGuild(
-                    event.getGuild(),
-                    "CLEARWARN",
-                    event.getMember(),
-                    target,
-                    "Reset des warnings",
-                    removed + " warning(s) retire(s)"
-            );
-        } catch (IOException ex) {
-            logger.error("/clearwarnings echec JSON: modId={}, targetId={}", event.getUser().getId(), target.getId(), ex);
-            event.reply("❌ Impossible de supprimer les warnings (erreur JSON).")
+        int removed = warningService.clearWarnings(event.getGuild().getId(), target.getId());
+        if (removed == 0) {
+            logger.info("/clearwarnings aucun warning a supprimer targetId={}", target.getId());
+            event.reply("ℹ️ Aucun warning a supprimer pour **" + target.getUser().getName() + "**.")
                     .setEphemeral(true)
                     .queue();
+            return;
         }
+
+        event.reply("✅ " + removed + " warning(s) supprime(s) pour **" + target.getUser().getName() + "**.")
+                .queue();
+        logger.info("/clearwarnings reussi: targetId={}, removed={}", target.getId(), removed);
+
+        moderationLogger.logInGuild(
+                event.getGuild(),
+                "CLEARWARN",
+                event.getMember(),
+                target,
+                "Reset des warnings",
+                removed + " warning(s) retire(s)"
+        );
     }
 }
 

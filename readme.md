@@ -34,10 +34,13 @@ Ce bot a été spécialement conçu pour fonctionner **uniquement sur un seul se
    WELCOME_IMAGE_URL=url_optionnelle_de_l_image_de_bienvenue
    LOG_CHANNEL_ID=id_du_salon_de_logs_moderation
    WARNINGS_FILE_PATH=data/warnings.json
+   DATABASE_URL=jdbc:sqlite:data/sakura.db
    ```
 
    `WELCOME_IMAGE_URL` est optionnelle et permet de changer l'image de bienvenue sans recompiler.
    `WARNINGS_FILE_PATH` est optionnel (par défaut : `data/warnings.json`).
+   `DATABASE_URL` est optionnelle (par défaut/fallback : `jdbc:sqlite:data/sakura.db`).
+   Sakura accepte aussi une URL PostgreSQL au format `postgresql://user:password@host:5432/database` (ou `jdbc:postgresql://...`).
 
 ## ⚙️ Comment lancer le bot ?
 
@@ -66,6 +69,25 @@ Le style des embeds est centralisé dans `src/main/java/fr/sakura/bot/utils/Embe
   - Limites de longueur et footer harmonisés via `EmbedStyle`
 
 Pour modifier l’apparence globale des embeds, mettez à jour `EmbedStyle` plutôt que chaque commande individuellement.
+
+## 📈 XP / Levels
+
+Le bot attribue automatiquement de l'XP aux membres actifs via les messages de salon texte.
+
+- `/rank` : affiche le niveau et l'XP d'un membre (ou le vôtre par défaut)
+- `/leaderboard` : affiche le top XP du serveur
+
+L'attribution d'XP applique un cooldown anti-farm et ignore les messages trop courts ou ressemblant à des commandes.
+
+## 🎫 Tickets
+
+Le système de tickets permet d'ouvrir un salon privé via un panel Discord.
+
+- `/ticketpanel` : publie le panneau avec le bouton d'ouverture
+- Bouton `🎫 Ouvrir un ticket` : crée un salon privé par membre
+- Dans le salon ticket : boutons pour prendre en charge ou fermer le ticket
+
+Le bot essaie de détecter automatiquement un salon de support ou une catégorie adaptée si aucun réglage spécifique n'est fourni.
 
 ## 🛡️ Fonctionnalité d'exclusivité (Mono-Serveur)
 

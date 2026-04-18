@@ -14,7 +14,7 @@ import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
+
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -61,61 +61,53 @@ public class WarningsCommand implements ICommand {
 
         logger.info("/warnings demande: modId={}, targetId={}", event.getUser().getId(), target.getId());
 
-        try {
-            List<WarningEntry> warnings = warningService.getWarnings(event.getGuild().getId(), target.getId());
+        List<WarningEntry> warnings = warningService.getWarnings(event.getGuild().getId(), target.getId());
 
-            if (warnings.isEmpty()) {
-                logger.info("/warnings aucun resultat pour targetId={}", target.getId());
-                event.reply("ℹ️ Aucun avertissement pour **" + target.getUser().getName() + "**.")
-                        .setEphemeral(true)
-                        .queue();
-                return;
-            }
-
-            int total = warnings.size();
-            int displayed = Math.min(10, total);
-
-            StringBuilder message = new StringBuilder();
-            message.append("📋 Warnings de **")
-                    .append(target.getUser().getName())
-                    .append("** (total: ")
-                    .append(total)
-                    .append(")\n\n");
-
-            for (int i = 0; i < displayed; i++) {
-                WarningEntry warning = warnings.get(i);
-
-                // Formatage du timestamp ISO en date lisible, avec fallback si invalide
-                String formattedDate;
-                try {
-                    formattedDate = OffsetDateTime.parse(warning.getTimestamp()).format(TIMESTAMP_FORMATTER);
-                } catch (Exception e) {
-                    formattedDate = warning.getTimestamp();
-                }
-
-                String moderatorDisplay = formatModerator(event, warning.getModeratorId());
-
-                message.append("`").append(i + 1).append(".` ")
-                        .append(warning.getReason())
-                        .append("\n")
-                        .append("   › Mod : ").append(moderatorDisplay)
-                        .append(" • ").append(formattedDate)
-                        .append("\n\n");
-            }
-
-            if (total > displayed) {
-                message.append("*… et ").append(total - displayed).append(" warning(s) supplémentaire(s).*");
-            }
-
-            event.reply(message.toString()).setEphemeral(true).queue();
-            logger.info("/warnings reussi: targetId={}, total={}", target.getId(), total);
-
-        } catch (IOException ex) {
-            logger.error("/warnings echec JSON: modId={}, targetId={}", event.getUser().getId(), target.getId(), ex);
-            event.reply("❌ Impossible de lire les warnings (erreur JSON).")
+        if (warnings.isEmpty()) {
+            logger.info("/warnings aucun resultat pour targetId={}", target.getId());
+            event.reply("ℹ️ Aucun avertissement pour **" + target.getUser().getName() + "**.")
                     .setEphemeral(true)
                     .queue();
+            return;
         }
+
+        int total = warnings.size();
+        int displayed = Math.min(10, total);
+
+        StringBuilder message = new StringBuilder();
+        message.append("📋 Warnings de **")
+                .append(target.getUser().getName())
+                .append("** (total: ")
+                .append(total)
+                .append(")\n\n");
+
+        for (int i = 0; i < displayed; i++) {
+            WarningEntry warning = warnings.get(i);
+
+            // Formatage du timestamp ISO en date lisible, avec fallback si invalide
+            String formattedDate;
+            try {
+                formattedDate = OffsetDateTime.parse(warning.getTimestamp()).format(TIMESTAMP_FORMATTER);
+            } catch (Exception e) {
+                formattedDate = warning.getTimestamp();
+            }
+
+            String moderatorDisplay = formatModerator(event, warning.getModeratorId());
+
+            message.append("`").append(i + 1).append(".` ")
+                    .append(warning.getReason())
+                    .append("\n")
+                    .append("   › Mod : ").append(moderatorDisplay)
+                    .append(" • ").append(formattedDate)
+                    .append("\n\n");
+        }
+
+        if (total > displayed) {
+            message.append("*… et ").append(total - displayed).append(" warning(s) supplémentaire(s).*");
+        }
+
+        event.reply(message.toString()).setEphemeral(true).queue();
+        logger.info("/warnings reussi: targetId={}, total={}", target.getId(), total);
     }
 
     private String formatModerator(SlashCommandInteractionEvent event, String moderatorId) {

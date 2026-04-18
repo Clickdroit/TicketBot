@@ -89,7 +89,10 @@ public class ModerationLogger {
             Map.entry("VOICE_GUILD_MUTE",     new ActionStyle(new Color(230, 126, 34),  "🛡️")),
             Map.entry("VOICE_GUILD_UNMUTE",   new ActionStyle(new Color(230, 126, 34),  "🛡️")),
             Map.entry("VOICE_GUILD_DEAFEN",   new ActionStyle(new Color(230, 126, 34),  "🛡️")),
-            Map.entry("VOICE_GUILD_UNDEAFEN", new ActionStyle(new Color(230, 126, 34),  "🛡️"))
+            Map.entry("VOICE_GUILD_UNDEAFEN", new ActionStyle(new Color(230, 126, 34),  "🛡️")),
+            Map.entry("TICKET_CREATE",         new ActionStyle(new Color(52, 152, 219),  "🎫")),
+            Map.entry("TICKET_CLAIM",          new ActionStyle(new Color(46, 204, 113),  "✅")),
+            Map.entry("TICKET_CLOSE",          new ActionStyle(new Color(231, 76, 60),   "🔒"))
     );
 
     private static final ActionStyle DEFAULT_STYLE = new ActionStyle(new Color(128, 128, 128), "📋");
@@ -106,13 +109,21 @@ public class ModerationLogger {
         String timestamp = EmbedStyle.moderationTimestampNow();
 
         EmbedBuilder embed = new EmbedBuilder();
-        embed.setTitle(EmbedStyle.truncate(style.emoji() + " Action de Modération : " + actionKey, 256));
+        boolean isSelfAction = moderator != null && target != null && moderator.getId().equals(target.getId());
+        String titlePrefix = isSelfAction ? style.emoji() + " Log Serveur : " : style.emoji() + " Log Modération : ";
+        if (moderator == null && target == null) titlePrefix = style.emoji() + " Log Système : ";
+        
+        embed.setTitle(EmbedStyle.truncate(titlePrefix + actionKey, 256));
         embed.setColor(style.color());
 
-        embed.addField("👮 Modérateur", EmbedStyle.truncate(moderator != null ? moderator.getAsMention() : "Inconnu / Système", 1024), true);
+        if (isSelfAction) {
+            embed.addField("👤 Utilisateur", EmbedStyle.truncate(moderator.getAsMention(), 1024), true);
+        } else {
+            embed.addField("👮 Modérateur", EmbedStyle.truncate(moderator != null ? moderator.getAsMention() : "Inconnu / Système", 1024), true);
 
-        if (target != null) {
-            embed.addField("🎯 Cible", EmbedStyle.truncate(target.getUser().getName() + " (<@" + target.getId() + ">)", 1024), true);
+            if (target != null) {
+                embed.addField("🎯 Cible", EmbedStyle.truncate(target.getUser().getName() + " (<@" + target.getId() + ">)", 1024), true);
+            }
         }
 
         if (reason != null && !reason.isBlank()) {

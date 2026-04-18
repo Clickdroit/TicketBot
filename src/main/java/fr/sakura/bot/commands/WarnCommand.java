@@ -14,7 +14,7 @@ import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
+
 
 public class WarnCommand implements ICommand {
 
@@ -72,31 +72,24 @@ public class WarnCommand implements ICommand {
         logger.info("/warn demande: modId={}, targetId={}, reasonLength={}",
                 event.getUser().getId(), target.getId(), reason.length());
 
-        try {
-            int totalWarnings = warningService.addWarning(
-                    event.getGuild().getId(),
-                    target.getId(),
-                    event.getMember().getId(),
-                    reason
-            );
+        int totalWarnings = warningService.addWarning(
+                event.getGuild().getId(),
+                target.getId(),
+                event.getMember().getId(),
+                reason
+        );
 
-            event.reply("✅ **" + target.getUser().getName() + "** a recu un avertissement. Total: " + totalWarnings).queue();
-            logger.info("/warn reussi: modId={}, targetId={}, total={}", event.getUser().getId(), target.getId(), totalWarnings);
+        event.reply("✅ **" + target.getUser().getName() + "** a recu un avertissement. Total: " + totalWarnings).queue();
+        logger.info("/warn reussi: modId={}, targetId={}, total={}", event.getUser().getId(), target.getId(), totalWarnings);
 
-            moderationLogger.logInGuild(
-                    event.getGuild(),
-                    "WARN",
-                    event.getMember(),
-                    target,
-                    reason,
-                    "Total warnings: " + totalWarnings
-            );
-        } catch (IOException ex) {
-            logger.error("/warn echec JSON: modId={}, targetId={}", event.getUser().getId(), target.getId(), ex);
-            event.reply("❌ Impossible d'enregistrer le warning (erreur JSON).")
-                    .setEphemeral(true)
-                    .queue();
-        }
+        moderationLogger.logInGuild(
+                event.getGuild(),
+                "WARN",
+                event.getMember(),
+                target,
+                reason,
+                "Total warnings: " + totalWarnings
+        );
     }
 }
 

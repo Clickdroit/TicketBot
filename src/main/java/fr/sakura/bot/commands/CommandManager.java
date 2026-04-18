@@ -1,6 +1,9 @@
 package fr.sakura.bot.commands;
 
+import fr.sakura.bot.database.SettingsManager;
+import fr.sakura.bot.utils.TicketService;
 import fr.sakura.bot.utils.ModerationLogger;
+import fr.sakura.bot.utils.LevelService;
 import fr.sakura.bot.utils.WarningService;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -24,7 +27,7 @@ public class CommandManager extends ListenerAdapter {
     private final String guildId;
     private final Map<String, ICommand> commands = new HashMap<>();
 
-    public CommandManager(String guildId, ModerationLogger moderationLogger, String warningsFilePath) {
+    public CommandManager(String guildId, ModerationLogger moderationLogger, String warningsFilePath, SettingsManager settingsManager, LevelService levelService, TicketService ticketService) {
         this.guildId = guildId;
         WarningService warningService = new WarningService(warningsFilePath);
 
@@ -45,6 +48,10 @@ public class CommandManager extends ListenerAdapter {
         addCommand(new WarnCommand(moderationLogger, warningService));
         addCommand(new WarningsCommand(warningService));
         addCommand(new ClearWarningsCommand(moderationLogger, warningService));
+        addCommand(new ConfigCommand(settingsManager));
+        addCommand(new RankCommand(levelService));
+        addCommand(new LeaderboardCommand(levelService));
+        addCommand(new TicketPanelCommand(ticketService));
     }
 
     private void addCommand(ICommand command) {

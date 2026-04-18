@@ -1,153 +1,91 @@
 package fr.sakura.bot.utils;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonSyntaxException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import fr.sakura.bot.database.DatabaseManager;
 
-import java.io.IOException;
-import java.nio.file.AtomicMoveNotSupportedException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
-import java.time.Instant;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
- * Stockage JSON local des warnings.
+ * Stockage SQLite des warnings.
  */
 public class WarningStore {
 
     private static final Logger logger = LoggerFactory.getLogger(WarningStore.class);
 
-    private static final String DEFAULT_FILE = "data/warnings.json";
-
-    private final Path filePath;
-    private final Gson gson;
-
+    // Conservé pour compatibilité avec CommandManager
     public WarningStore(String warningsFilePath) {
-        String resolvedPath = (warningsFilePath == null || warningsFilePath.isEmpty())
-                ? DEFAULT_FILE
-                : warningsFilePath;
-        this.filePath = Path.of(resolvedPath);
-        this.gson = new GsonBuilder().setPrettyPrinting().create();
-        logger.info("WarningStore initialise sur {}", this.filePath.toAbsolutePath());
+        logger.info("WarningStore utilise desormais SQLite via DatabaseManager");
     }
 
-    public synchronized List<WarningEntry> getWarnings(String guildId, String userId) throws IOException {
-        WarningPayload payload = loadPayload();
-        Map<String, List<WarningEntry>> guildWarnings = payload.guildWarnings.get(guildId);
-        if (guildWarnings == null) {
-            logger.debug("Aucun warning trouve pour guildId={}", guildId);
-            return List.of();
-        }
-
-        List<WarningEntry> warnings = guildWarnings.get(userId);
-        if (warnings == null) {
-            logger.debug("Aucun warning trouve pour guildId={}, userId={}", guildId, userId);
-            return List.of();
-        }
-
-        logger.debug("Warnings charges: guildId={}, userId={}, total={}", guildId, userId, warnings.size());
-        return new ArrayList<>(warnings);
-    }
-
-    public synchronized int addWarning(String guildId, String userId, WarningEntry warningEntry) throws IOException {
-        WarningPayload payload = loadPayload();
-
-        Map<String, List<WarningEntry>> guildWarnings = payload.guildWarnings.computeIfAbsent(guildId, id -> new HashMap<>());
-        List<WarningEntry> userWarnings = guildWarnings.computeIfAbsent(userId, id -> new ArrayList<>());
-        userWarnings.add(warningEntry);
-
-        savePayload(payload);
-        logger.info("Warning ajoute: guildId={}, userId={}, total={}", guildId, userId, userWarnings.size());
-        return userWarnings.size();
-    }
-
-    public synchronized int clearWarnings(String guildId, String userId) throws IOException {
-        WarningPayload payload = loadPayload();
-
-        Map<String, List<WarningEntry>> guildWarnings = payload.guildWarnings.get(guildId);
-        if (guildWarnings == null) {
-            logger.debug("clearWarnings ignore: guildId={} absent", guildId);
-            return 0;
-        }
-
-        List<WarningEntry> removed = guildWarnings.remove(userId);
-        if (removed == null) {
-            logger.debug("clearWarnings ignore: aucun warning pour guildId={}, userId={}", guildId, userId);
-            return 0;
-        }
-
-        if (guildWarnings.isEmpty()) {
-            payload.guildWarnings.remove(guildId);
-        }
-
-        savePayload(payload);
-        logger.info("Warnings supprimes: guildId={}, userId={}, removed={}", guildId, userId, removed.size());
-        return removed.size();
-    }
-
-    private WarningPayload loadPayload() throws IOException {
-        if (!Files.exists(filePath)) {
-            logger.debug("Fichier warnings absent, initialisation vide: {}", filePath.toAbsolutePath());
-            return new WarningPayload();
-        }
-
-        String rawJson = Files.readString(filePath);
-        if (rawJson == null || rawJson.isBlank()) {
-            logger.debug("Fichier warnings vide: {}", filePath.toAbsolutePath());
-            return new WarningPayload();
-        }
-
-        try {
-            WarningPayload payload = gson.fromJson(rawJson, WarningPayload.class);
-            if (payload == null || payload.guildWarnings == null) {
-                logger.warn("Payload warnings invalide, reset en memoire: {}", filePath.toAbsolutePath());
-                return new WarningPayload();
+    public synchronized List<WarningEntry> getWarnings(String guildId, String userId) {
+        List<WarningEntry> warnings = new ArrayList<>();
+        String sql = "SELECT moderator_id, reason, timestamp FROM warnings WHERE guild_id = ? AND user_id = ?";
+        
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setString(1, guildId);
+            pstmt.setString(2, userId);
+            
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                warnings.add(new WarningEntry(
+                        rs.getString("moderator_id"),
+                        rs.getString("reason"),
+                        rs.getString("timestamp")
+                ));
             }
-            logger.debug("Payload warnings charge depuis {}", filePath.toAbsolutePath());
-            return payload;
-        } catch (JsonSyntaxException ex) {
-            logger.error("JSON warnings corrompu, backup automatique en cours: {}", filePath.toAbsolutePath(), ex);
-            backupCorruptedFile();
-            return new WarningPayload();
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la recuperation des warnings pour guildId={}, userId={}", guildId, userId, e);
         }
+        return warnings;
     }
 
-    private void savePayload(WarningPayload payload) throws IOException {
-        Path parent = filePath.getParent();
-        if (parent != null) {
-            Files.createDirectories(parent);
+    public synchronized int addWarning(String guildId, String userId, WarningEntry warningEntry) {
+        String insertSql = "INSERT INTO warnings (guild_id, user_id, reason, timestamp, moderator_id) VALUES (?, ?, ?, ?, ?)";
+        
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(insertSql)) {
+            
+            pstmt.setString(1, guildId);
+            pstmt.setString(2, userId);
+            pstmt.setString(3, warningEntry.getReason());
+            pstmt.setString(4, warningEntry.getTimestamp());
+            pstmt.setString(5, warningEntry.getModeratorId());
+            
+            pstmt.executeUpdate();
+            
+        } catch (SQLException e) {
+            logger.error("Erreur lors de l'ajout d'un warning pour guildId={}, userId={}", guildId, userId, e);
         }
 
-        Path tempPath = Files.createTempFile(filePath.getParent(), "warnings-", ".tmp");
-        String json = gson.toJson(payload);
-        Files.writeString(tempPath, json, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        // Retourne le nouveau nombre total
+        return getWarnings(guildId, userId).size();
+    }
 
-        try {
-            Files.move(tempPath, filePath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-        } catch (AtomicMoveNotSupportedException ignored) {
-            Files.move(tempPath, filePath, StandardCopyOption.REPLACE_EXISTING);
+    public synchronized int clearWarnings(String guildId, String userId) {
+        int count = getWarnings(guildId, userId).size();
+        if (count == 0) return 0;
+
+        String deleteSql = "DELETE FROM warnings WHERE guild_id = ? AND user_id = ?";
+        
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(deleteSql)) {
+            
+            pstmt.setString(1, guildId);
+            pstmt.setString(2, userId);
+            pstmt.executeUpdate();
+            
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la suppression des warnings pour guildId={}, userId={}", guildId, userId, e);
         }
-
-        logger.debug("Payload warnings ecrit sur {}", filePath.toAbsolutePath());
-    }
-
-    private void backupCorruptedFile() throws IOException {
-        String fileName = filePath.getFileName().toString();
-        Path backupPath = filePath.resolveSibling(fileName + ".corrupt-" + Instant.now().toEpochMilli());
-        Files.move(filePath, backupPath, StandardCopyOption.REPLACE_EXISTING);
-        logger.warn("Fichier warnings deplace vers backup: {}", backupPath.toAbsolutePath());
-    }
-
-    private static class WarningPayload {
-        private Map<String, Map<String, List<WarningEntry>>> guildWarnings = new HashMap<>();
+        
+        return count;
     }
 }
-

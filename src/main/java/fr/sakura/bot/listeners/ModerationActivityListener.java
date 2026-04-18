@@ -45,9 +45,9 @@ public class ModerationActivityListener extends ListenerAdapter {
         if (event.getAuthor().isBot()) return;
         String content = event.getMessage().getContentDisplay();
         String reason = "Message modifie";
-        String extra = "messageId=" + event.getMessageId()
-                + " | channelId=" + event.getChannel().getId()
-                + " | contenu=" + (content.isBlank() ? "(indisponible/vide)" : truncate(content, 300));
+        String extra = "📌 **Salon :** <#" + event.getChannel().getId() + ">\n"
+                + "🆔 **Message :** `" + event.getMessageId() + "`\n"
+                + "📝 **Contenu :** " + (content.isBlank() ? "*(indisponible/vide)*" : truncate(content, 300));
 
         moderationLogger.logInGuild(event.getGuild(), "MESSAGE_EDIT", author, author, reason, extra);
         logger.info("Message modifie: guildId={}, channelId={}, messageId={}, authorId={}",
@@ -63,7 +63,8 @@ public class ModerationActivityListener extends ListenerAdapter {
             return;
         }
 
-        String extra = "messageId=" + event.getMessageId() + " | channelId=" + event.getChannel().getId();
+        String extra = "📌 **Salon :** <#" + event.getChannel().getId() + ">\n"
+                + "🆔 **Message :** `" + event.getMessageId() + "`";
         moderationLogger.logInGuild(event.getGuild(), "MESSAGE_DELETE", null, null, "Message supprime", extra);
 
         logger.info("Message supprime: guildId={}, channelId={}, messageId={}",
@@ -75,6 +76,11 @@ public class ModerationActivityListener extends ListenerAdapter {
         Guild guild = event.getGuild();
         Member member = event.getMember();
 
+        if (event.getChannelLeft() != null && event.getChannelJoined() != null 
+                && event.getChannelLeft().getId().equals(event.getChannelJoined().getId())) {
+            return; // No actual channel change
+        }
+
         if (event.getChannelLeft() == null && event.getChannelJoined() != null) {
             moderationLogger.logInGuild(
                     guild,
@@ -82,7 +88,7 @@ public class ModerationActivityListener extends ListenerAdapter {
                     member,
                     member,
                     "Connexion vocale",
-                    "channel=" + event.getChannelJoined().getName() + " (" + event.getChannelJoined().getId() + ")"
+                    "🔊 **Salon :** " + event.getChannelJoined().getName()
             );
             logger.info("Connexion vocale: guildId={}, memberId={}, channelId={}", guild.getId(), member.getId(), event.getChannelJoined().getId());
             return;
@@ -95,7 +101,7 @@ public class ModerationActivityListener extends ListenerAdapter {
                     member,
                     member,
                     "Deconnexion vocale",
-                    "from=" + event.getChannelLeft().getName() + " (" + event.getChannelLeft().getId() + ")"
+                    "🔇 **Depuis :** " + event.getChannelLeft().getName()
             );
             logger.info("Deconnexion vocale: guildId={}, memberId={}, channelId={}", guild.getId(), member.getId(), event.getChannelLeft().getId());
             tryLogModeratorVoiceDisconnect(event);
@@ -109,7 +115,7 @@ public class ModerationActivityListener extends ListenerAdapter {
                     member,
                     member,
                     "Deplacement vocal",
-                    "from=" + event.getChannelLeft().getName() + " -> to=" + event.getChannelJoined().getName()
+                    "📤 **De :** " + event.getChannelLeft().getName() + "\n📥 **Vers :** " + event.getChannelJoined().getName()
             );
             logger.info("Deplacement vocal: guildId={}, memberId={}, from={}, to={}",
                     guild.getId(), member.getId(), event.getChannelLeft().getId(), event.getChannelJoined().getId());
@@ -138,7 +144,7 @@ public class ModerationActivityListener extends ListenerAdapter {
     public void onGuildVoiceGuildMute(@NotNull GuildVoiceGuildMuteEvent event) {
         String action = event.isGuildMuted() ? "VOICE_GUILD_MUTE" : "VOICE_GUILD_UNMUTE";
         String reason = event.isGuildMuted() ? "Mute serveur" : "Demute serveur";
-        moderationLogger.logInGuild(event.getGuild(), action, null, event.getMember(), reason, "Source: moderation/permissions serveur");
+        moderationLogger.logInGuild(event.getGuild(), action, null, event.getMember(), reason, "🛡️ *Action serveur (modération/permissions)*");
         logger.info("Guild mute change: guildId={}, memberId={}, guildMuted={}",
                 event.getGuild().getId(), event.getMember().getId(), event.isGuildMuted());
     }
@@ -147,7 +153,7 @@ public class ModerationActivityListener extends ListenerAdapter {
     public void onGuildVoiceGuildDeafen(@NotNull GuildVoiceGuildDeafenEvent event) {
         String action = event.isGuildDeafened() ? "VOICE_GUILD_DEAFEN" : "VOICE_GUILD_UNDEAFEN";
         String reason = event.isGuildDeafened() ? "Mute casque serveur" : "Demute casque serveur";
-        moderationLogger.logInGuild(event.getGuild(), action, null, event.getMember(), reason, "Source: moderation/permissions serveur");
+        moderationLogger.logInGuild(event.getGuild(), action, null, event.getMember(), reason, "🛡️ *Action serveur (modération/permissions)*");
         logger.info("Guild deaf change: guildId={}, memberId={}, guildDeafened={}",
                 event.getGuild().getId(), event.getMember().getId(), event.isGuildDeafened());
     }
