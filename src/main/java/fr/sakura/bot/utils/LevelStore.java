@@ -88,8 +88,16 @@ public class LevelStore {
     }
 
     private LevelProfile upsertProfile(String guildId, String userId, long xp, int level) {
-        String sql = "INSERT INTO levels (guild_id, user_id, xp, level) VALUES (?, ?, ?, ?) " +
-                "ON CONFLICT(guild_id, user_id) DO UPDATE SET xp = excluded.xp, level = excluded.level";
+        /*
+         * SQLite  : ON CONFLICT(col) DO UPDATE SET col = excluded.col  (minuscule, pas d'espaces)
+         * PostgreSQL : ON CONFLICT (col) DO UPDATE SET col = EXCLUDED.col (majuscule, espaces)
+         * Les deux dialectes sont couverts ici pour garantir la compatibilité.
+         */
+        String sql = DatabaseManager.isPostgres()
+                ? "INSERT INTO levels (guild_id, user_id, xp, level) VALUES (?, ?, ?, ?) " +
+                  "ON CONFLICT (guild_id, user_id) DO UPDATE SET xp = EXCLUDED.xp, level = EXCLUDED.level"
+                : "INSERT INTO levels (guild_id, user_id, xp, level) VALUES (?, ?, ?, ?) " +
+                  "ON CONFLICT(guild_id, user_id) DO UPDATE SET xp = excluded.xp, level = excluded.level";
 
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {

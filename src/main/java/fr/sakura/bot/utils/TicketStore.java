@@ -16,6 +16,13 @@ public class TicketStore {
 
     private static final Logger logger = LoggerFactory.getLogger(TicketStore.class);
 
+    /**
+     * Constructeur sans argument requis par TicketService(SettingsManager).
+     * Utilise DatabaseManager via ses méthodes statiques — aucune init locale nécessaire.
+     */
+    public TicketStore() {
+    }
+
     public synchronized TicketEntry getActiveTicket(String guildId, String userId) {
         String sql = "SELECT * FROM tickets WHERE guild_id = ? AND user_id = ? AND status IN ('OPEN', 'CLAIMED') ORDER BY id DESC LIMIT 1";
         try (Connection conn = DatabaseManager.getConnection();
