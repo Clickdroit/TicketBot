@@ -24,23 +24,23 @@ public class SecurityListener extends ListenerAdapter {
     @Override
     public void onReady(@NotNull ReadyEvent event) {
         logger.info("Bot connecte en tant que {}", event.getJDA().getSelfUser().getName());
+        logger.info("Verification mono-serveur de {} guild(s)", event.getJDA().getGuilds().size());
 
-        // Purge des commandes globales pour éviter d'avoir les commandes en double (global + serveur local)
+        // On attend la confirmation de la purge globale avant d'enregistrer
+        // les commandes guild, pour éviter tout doublon temporaire côté Discord
         event.getJDA().updateCommands().queue(
-                success -> logger.info("Commandes globales purgees"),
+                success -> {
+                    logger.info("Commandes globales purgees");
+                    for (Guild guild : event.getJDA().getGuilds()) {
+                        checkAndLeaveUnauthorizedGuilds(guild);
+                    }
+                },
                 error -> logger.error("Echec de purge des commandes globales", error)
         );
-
-        // Vérification de tous les serveurs sur lesquels le bot est déjà présent
-        logger.info("Verification mono-serveur de {} guild(s)", event.getJDA().getGuilds().size());
-        for (Guild guild : event.getJDA().getGuilds()) {
-            checkAndLeaveUnauthorizedGuilds(guild);
-        }
     }
 
     @Override
     public void onGuildJoin(@NotNull GuildJoinEvent event) {
-        // Se déclenche si quelqu'un essaie d'inviter le bot sur un autre serveur après son démarrage
         logger.warn("Invitation detectee sur la guilde {} ({})", event.getGuild().getName(), event.getGuild().getId());
         checkAndLeaveUnauthorizedGuilds(event.getGuild());
     }
@@ -50,12 +50,10 @@ public class SecurityListener extends ListenerAdapter {
             logger.warn("Serveur non autorise detecte: {} ({}) - depart automatique", guild.getName(), guild.getId());
             guild.leave().queue(
                     success -> logger.info("Depart reussi du serveur non autorise {} ({})", guild.getName(), guild.getId()),
-                    error -> logger.error("Echec du depart du serveur non autorise {} ({})", guild.getName(), guild.getId(), error)
+                    error   -> logger.error("Echec du depart du serveur non autorise {} ({})", guild.getName(), guild.getId(), error)
             );
         } else {
             logger.info("Serveur autorise confirme: {} ({})", guild.getName(), guild.getId());
-
-            // Enregistrement des commandes pour ce serveur
             commandManager.registerCommands(guild);
         }
     }

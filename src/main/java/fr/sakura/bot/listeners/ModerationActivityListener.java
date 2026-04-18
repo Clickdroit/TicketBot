@@ -40,7 +40,9 @@ public class ModerationActivityListener extends ListenerAdapter {
             return;
         }
 
+
         Member author = event.getMember();
+        if (event.getAuthor().isBot()) return;
         String content = event.getMessage().getContentDisplay();
         String reason = "Message modifie";
         String extra = "messageId=" + event.getMessageId()

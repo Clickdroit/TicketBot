@@ -15,11 +15,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 public class WarningsCommand implements ICommand {
 
     private static final Logger logger = LoggerFactory.getLogger(WarningsCommand.class);
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy à HH:mm");
 
     private final WarningService warningService;
 
@@ -60,6 +63,7 @@ public class WarningsCommand implements ICommand {
 
         try {
             List<WarningEntry> warnings = warningService.getWarnings(event.getGuild().getId(), target.getId());
+
             if (warnings.isEmpty()) {
                 logger.info("/warnings aucun resultat pour targetId={}", target.getId());
                 event.reply("ℹ️ Aucun avertissement pour **" + target.getUser().getName() + "**.")
@@ -68,29 +72,42 @@ public class WarningsCommand implements ICommand {
                 return;
             }
 
-            StringBuilder message = new StringBuilder();
-            message.append("📋 Warnings de **").append(target.getUser().getName()).append("** (total: ")
-                    .append(warnings.size()).append(")\n");
+            int total = warnings.size();
+            int displayed = Math.min(10, total);
 
-            int max = Math.min(10, warnings.size());
-            for (int i = 0; i < max; i++) {
+            StringBuilder message = new StringBuilder();
+            message.append("📋 Warnings de **")
+                    .append(target.getUser().getName())
+                    .append("** (total: ")
+                    .append(total)
+                    .append(")\n\n");
+
+            for (int i = 0; i < displayed; i++) {
                 WarningEntry warning = warnings.get(i);
-                message.append(i + 1)
-                        .append(". ")
+
+                // Formatage du timestamp ISO en date lisible, avec fallback si invalide
+                String formattedDate;
+                try {
+                    formattedDate = OffsetDateTime.parse(warning.getTimestamp()).format(TIMESTAMP_FORMATTER);
+                } catch (Exception e) {
+                    formattedDate = warning.getTimestamp();
+                }
+
+                message.append("`").append(i + 1).append(".` ")
                         .append(warning.getReason())
-                        .append(" | mod: ")
-                        .append(warning.getModeratorId())
-                        .append(" | ")
-                        .append(warning.getTimestamp())
-                        .append("\n");
+                        .append("\n")
+                        .append("   › Mod : <@").append(warning.getModeratorId()).append(">")
+                        .append(" • ").append(formattedDate)
+                        .append("\n\n");
             }
 
-            if (warnings.size() > max) {
-                message.append("... et ").append(warnings.size() - max).append(" warning(s) supplementaire(s).\n");
+            if (total > displayed) {
+                message.append("*… et ").append(total - displayed).append(" warning(s) supplémentaire(s).*");
             }
 
             event.reply(message.toString()).setEphemeral(true).queue();
-            logger.info("/warnings reussi: targetId={}, total={}", target.getId(), warnings.size());
+            logger.info("/warnings reussi: targetId={}, total={}", target.getId(), total);
+
         } catch (IOException ex) {
             logger.error("/warnings echec JSON: modId={}, targetId={}", event.getUser().getId(), target.getId(), ex);
             event.reply("❌ Impossible de lire les warnings (erreur JSON).")
@@ -99,4 +116,3 @@ public class WarningsCommand implements ICommand {
         }
     }
 }
-

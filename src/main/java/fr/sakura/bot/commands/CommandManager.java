@@ -24,16 +24,14 @@ public class CommandManager extends ListenerAdapter {
     private final String guildId;
     private final Map<String, ICommand> commands = new HashMap<>();
 
-    public CommandManager(String guildId, String logChannelId, String warningsFilePath) {
+    public CommandManager(String guildId, ModerationLogger moderationLogger, String warningsFilePath) {
         this.guildId = guildId;
-        ModerationLogger moderationLogger = new ModerationLogger(logChannelId);
         WarningService warningService = new WarningService(warningsFilePath);
-        logger.info("Initialisation CommandManager guildId={}, logChannelId={}, warningsFilePath={}",
+
+        logger.info("Initialisation CommandManager guildId={}, warningsFilePath={}",
                 guildId,
-                logChannelId,
                 (warningsFilePath == null || warningsFilePath.isEmpty()) ? "data/warnings.json" : warningsFilePath);
 
-        // Enregistrement des commandes dans le routeur
         addCommand(new PingCommand());
         addCommand(new HelpCommand());
         addCommand(new AvatarCommand());
@@ -54,12 +52,9 @@ public class CommandManager extends ListenerAdapter {
         logger.debug("Commande enregistree dans le routeur: {}", command.getName());
     }
 
-    /**
-     * Enregistre les commandes Slash pour un serveur spécifique
-     */
     public void registerCommands(Guild guild) {
         List<SlashCommandData> commandDataList = new ArrayList<>();
-        
+
         for (ICommand command : commands.values()) {
             commandDataList.add(command.getCommandData());
         }

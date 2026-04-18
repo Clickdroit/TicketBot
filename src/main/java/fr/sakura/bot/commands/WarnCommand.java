@@ -62,7 +62,7 @@ public class WarnCommand implements ICommand {
             return;
         }
 
-        if (!event.getMember().canInteract(target)) {
+        if (event.getMember() == null || !event.getMember().canInteract(target)) {
             logger.warn("/warn refuse hierarchie: modId={}, targetId={}", event.getUser().getId(), target.getId());
             event.reply("❌ Vous ne pouvez pas avertir cet utilisateur (role superieur).")
                     .setEphemeral(true)

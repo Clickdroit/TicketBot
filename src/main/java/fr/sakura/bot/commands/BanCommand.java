@@ -3,6 +3,7 @@ package fr.sakura.bot.commands;
 import fr.sakura.bot.utils.ModerationLogger;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
@@ -44,17 +45,33 @@ public class BanCommand implements ICommand {
     @Override
     public void execute(SlashCommandInteractionEvent event) {
         logger.debug("Execution /ban par userId={}", event.getUser().getId());
-        Member target = event.getOption("membre").getAsMember();
+
+        OptionMapping memberOption = event.getOption("membre");
         OptionMapping reasonOption = event.getOption("raison");
         String reason = reasonOption != null ? reasonOption.getAsString() : "Aucune raison spécifiée";
 
+        Member target = memberOption.getAsMember();
+
+        // L'utilisateur a peut-être quitté le serveur : fallback sur User pour quand même bannir
         if (target == null) {
-            logger.warn("/ban cible introuvable userId={}", event.getUser().getId());
-            event.reply("❌ Utilisateur introuvable dans ce serveur.").setEphemeral(true).queue();
+            User targetUser = memberOption.getAsUser();
+            logger.warn("/ban cible non membre du serveur, tentative ban par userId={} demandeurId={}",
+                    targetUser.getId(), event.getUser().getId());
+
+            event.getGuild().ban(targetUser, 0, TimeUnit.SECONDS).reason(reason).queue(
+                    success -> {
+                        event.reply("✅ **" + targetUser.getName() + "** a été banni (hors serveur). Raison : " + reason).queue();
+                        logger.info("/ban reussi (hors serveur): modId={}, targetId={}", event.getUser().getId(), targetUser.getId());
+                    },
+                    error -> {
+                        logger.error("/ban echec API (hors serveur): modId={}, targetId={}", event.getUser().getId(), targetUser.getId(), error);
+                        event.reply("❌ Impossible de bannir cet utilisateur.").setEphemeral(true).queue();
+                    }
+            );
             return;
         }
 
-        if (!event.getMember().canInteract(target)) {
+        if (event.getMember() == null || !event.getMember().canInteract(target)) {
             logger.warn("/ban refuse hierarchie: modId={}, targetId={}", event.getUser().getId(), target.getId());
             event.reply("❌ Vous ne pouvez pas bannir cet utilisateur (rôle supérieur).").setEphemeral(true).queue();
             return;
@@ -63,19 +80,19 @@ public class BanCommand implements ICommand {
         logger.info("/ban demande: modId={}, targetId={}, reason={}", event.getUser().getId(), target.getId(), reason);
 
         event.getGuild().ban(target, 0, TimeUnit.SECONDS).reason(reason).queue(
-            success -> {
-                event.reply("✅ **" + target.getUser().getName() + "** a été banni. Raison : " + reason).queue();
-                logger.info("/ban reussi: modId={}, targetId={}", event.getUser().getId(), target.getId());
+                success -> {
+                    event.reply("✅ **" + target.getUser().getName() + "** a été banni. Raison : " + reason).queue();
+                    logger.info("/ban reussi: modId={}, targetId={}", event.getUser().getId(), target.getId());
 
-                if (moderationLogger.isEnabled()) {
-                    TextChannel logChannel = event.getGuild().getTextChannelById(moderationLogger.getLogChannelId());
-                    moderationLogger.log(logChannel, "BAN", event.getMember(), target, reason, null);
+                    if (moderationLogger.isEnabled()) {
+                        TextChannel logChannel = event.getGuild().getTextChannelById(moderationLogger.getLogChannelId());
+                        moderationLogger.log(logChannel, "BAN", event.getMember(), target, reason, null);
+                    }
+                },
+                error -> {
+                    logger.error("/ban echec API: modId={}, targetId={}", event.getUser().getId(), target.getId(), error);
+                    event.reply("❌ Une erreur est survenue (Ai-je les bonnes permissions ?).").setEphemeral(true).queue();
                 }
-            },
-            error -> {
-                logger.error("/ban echec API: modId={}, targetId={}", event.getUser().getId(), target.getId(), error);
-                event.reply("❌ Une erreur est survenue (Ai-je les bonnes permissions ?). ").setEphemeral(true).queue();
-            }
         );
     }
 }

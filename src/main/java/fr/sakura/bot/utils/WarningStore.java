@@ -126,7 +126,7 @@ public class WarningStore {
             Files.createDirectories(parent);
         }
 
-        Path tempPath = filePath.resolveSibling(filePath.getFileName() + ".tmp");
+        Path tempPath = Files.createTempFile(filePath.getParent(), "warnings-", ".tmp");
         String json = gson.toJson(payload);
         Files.writeString(tempPath, json, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
 

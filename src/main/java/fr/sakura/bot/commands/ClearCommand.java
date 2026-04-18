@@ -38,6 +38,7 @@ public class ClearCommand implements ICommand {
     @Override
     public void execute(SlashCommandInteractionEvent event) {
         logger.debug("Execution /clear par userId={}", event.getUser().getId());
+
         if (event.getOption("montant") == null) {
             logger.warn("/clear invalide: montant absent userId={}", event.getUser().getId());
             event.reply("❌ Le montant est requis.").setEphemeral(true).queue();
@@ -46,11 +47,20 @@ public class ClearCommand implements ICommand {
 
         int amount = event.getOption("montant").getAsInt();
         logger.info("/clear demande amount={} par userId={} channelId={}", amount, event.getUser().getId(), event.getChannel().getId());
-        
+
+        // Defer immédiat pour éviter l'expiration des 3 secondes pendant le fetchAsync
+        event.deferReply(true).queue();
+
         event.getChannel().getIterableHistory().takeAsync(amount).thenAccept(messages -> {
+            if (messages.isEmpty()) {
+                logger.info("/clear aucun message a supprimer userId={} channelId={}", event.getUser().getId(), event.getChannel().getId());
+                event.getHook().sendMessage("ℹ️ Aucun message à supprimer.").queue();
+                return;
+            }
+
             try {
                 event.getChannel().purgeMessages(messages);
-                event.reply("✅ " + messages.size() + " messages supprimés !").setEphemeral(true).queue();
+                event.getHook().sendMessage("✅ " + messages.size() + " message(s) supprimé(s) !").queue();
                 logger.info("/clear reussi: deleted={} userId={} channelId={}", messages.size(), event.getUser().getId(), event.getChannel().getId());
 
                 if (event.getGuild() != null && moderationLogger.isEnabled()) {
@@ -65,12 +75,12 @@ public class ClearCommand implements ICommand {
                     );
                 }
             } catch (IllegalArgumentException e) {
-                logger.warn("/clear impossible (messages >14 jours probablement): userId={}, amount={}", event.getUser().getId(), amount, e);
-                event.reply("❌ Impossible de supprimer ces messages (ils datent probablement de plus de 14 jours).").setEphemeral(true).queue();
+                logger.warn("/clear impossible (messages >14 jours): userId={}, amount={}", event.getUser().getId(), amount, e);
+                event.getHook().sendMessage("❌ Impossible de supprimer ces messages (ils datent de plus de 14 jours).").queue();
             }
         }).exceptionally(error -> {
             logger.error("/clear echec recuperation historique: userId={}, amount={}", event.getUser().getId(), amount, error);
-            event.reply("❌ Une erreur est survenue pendant la suppression.").setEphemeral(true).queue();
+            event.getHook().sendMessage("❌ Une erreur est survenue pendant la suppression.").queue();
             return null;
         });
     }

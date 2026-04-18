@@ -7,12 +7,14 @@ import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.UserSnowflake;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
+import net.dv8tion.jda.api.requests.ErrorResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,6 +46,7 @@ public class UnbanCommand implements ICommand {
     @Override
     public void execute(SlashCommandInteractionEvent event) {
         logger.debug("Execution /unban par userId={}", event.getUser().getId());
+
         Guild guild = event.getGuild();
         if (guild == null) {
             logger.warn("/unban appelee hors serveur userId={}", event.getUser().getId());
@@ -60,55 +63,54 @@ public class UnbanCommand implements ICommand {
             return;
         }
 
-        String finalReason = (reason == null || reason.isEmpty()) ? "Aucune raison specifiee" : reason;
+        String finalReason = (reason == null || reason.isBlank()) ? "Aucune raison specifiee" : reason;
         logger.info("/unban demande: modId={}, targetId={}, reason={}", event.getUser().getId(), userId, finalReason);
 
-        guild.retrieveBanList().queue(bans -> {
-            boolean isBanned = bans.stream().anyMatch(ban -> ban.getUser().getId().equals(userId));
-            if (!isBanned) {
-                logger.warn("/unban refuse: cible non bannie targetId={}", userId);
-                event.reply("❌ Cet utilisateur n'est pas banni.").setEphemeral(true).queue();
-                return;
-            }
+        // Defer immédiat : retrieveBan est asynchrone et peut dépasser les 3 secondes
+        event.deferReply(false).queue();
 
-            guild.unban(UserSnowflake.fromId(userId)).reason(finalReason).queue(
-                    success -> {
-                        event.getJDA().retrieveUserById(userId).queue(
-                                user -> sendSuccessWithLog(event, guild, user, finalReason),
-                                error -> {
-                                    event.reply("✅ Utilisateur debanni (ID: " + userId + "). Raison : " + finalReason).queue();
-                                    logger.info("/unban reussi sans details user object: targetId={}", userId);
-                                    sendFallbackLog(event, guild, userId, finalReason);
+        // retrieveBan cible directement l'utilisateur — pas besoin de charger toute la liste
+        guild.retrieveBan(UserSnowflake.fromId(userId)).queue(
+                ban -> {
+                    // L'utilisateur est bien banni, on procède au unban
+                    User bannedUser = ban.getUser();
+                    logger.info("/unban cible confirmee bannie: targetId={}", userId);
+
+                    guild.unban(UserSnowflake.fromId(userId)).reason(finalReason).queue(
+                            success -> {
+                                event.getHook().sendMessage(
+                                        "✅ **" + bannedUser.getName() + "** a été débanni. Raison : " + finalReason
+                                ).queue();
+                                logger.info("/unban reussi: modId={}, targetId={}", event.getUser().getId(), userId);
+
+                                if (moderationLogger.isEnabled()) {
+                                    TextChannel logChannel = guild.getTextChannelById(moderationLogger.getLogChannelId());
+                                    moderationLogger.log(
+                                            logChannel,
+                                            "UNBAN",
+                                            event.getMember(),
+                                            null,
+                                            finalReason,
+                                            "Utilisateur: " + bannedUser.getName() + " (" + userId + ")"
+                                    );
                                 }
-                        );
-                    },
-                    error -> {
-                        logger.error("/unban echec API: modId={}, targetId={}", event.getUser().getId(), userId, error);
-                        event.reply("❌ Une erreur est survenue pendant le deban.").setEphemeral(true).queue();
+                            },
+                            error -> {
+                                logger.error("/unban echec API: modId={}, targetId={}", event.getUser().getId(), userId, error);
+                                event.getHook().sendMessage("❌ Une erreur est survenue pendant le deban.").queue();
+                            }
+                    );
+                },
+                error -> {
+                    // ErrorResponse.UNKNOWN_BAN = l'utilisateur n'est pas banni
+                    if (error instanceof ErrorResponseException ere && ere.getErrorResponse() == ErrorResponse.UNKNOWN_BAN) {
+                        logger.warn("/unban refuse: cible non bannie targetId={}", userId);
+                        event.getHook().sendMessage("❌ Cet utilisateur n'est pas banni.").queue();
+                    } else {
+                        logger.error("/unban echec retrieveBan: modId={}, targetId={}", event.getUser().getId(), userId, error);
+                        event.getHook().sendMessage("❌ Impossible de vérifier le bannissement de cet utilisateur.").queue();
                     }
-            );
-        }, error -> {
-            logger.error("/unban echec retrieveBanList: modId={}, targetId={}", event.getUser().getId(), userId, error);
-            event.reply("❌ Impossible de verifier la liste des bannissements.").setEphemeral(true).queue();
-        });
-    }
-
-    private void sendSuccessWithLog(SlashCommandInteractionEvent event, Guild guild, User user, String reason) {
-        event.reply("✅ **" + user.getName() + "** a ete debanni. Raison : " + reason).queue();
-        logger.info("/unban reussi: modId={}, targetId={}", event.getUser().getId(), user.getId());
-
-        if (moderationLogger.isEnabled()) {
-            TextChannel logChannel = guild.getTextChannelById(moderationLogger.getLogChannelId());
-            moderationLogger.log(logChannel, "UNBAN", event.getMember(), null, reason, "Utilisateur: " + user.getName() + " (" + user.getId() + ")");
-        }
-    }
-
-    private void sendFallbackLog(SlashCommandInteractionEvent event, Guild guild, String userId, String reason) {
-        logger.debug("/unban fallback log utilise targetId={}", userId);
-        if (moderationLogger.isEnabled()) {
-            TextChannel logChannel = guild.getTextChannelById(moderationLogger.getLogChannelId());
-            moderationLogger.log(logChannel, "UNBAN", event.getMember(), null, reason, "Utilisateur ID: " + userId);
-        }
+                }
+        );
     }
 }
-

@@ -16,9 +16,11 @@ public class WelcomeListener extends ListenerAdapter {
     private static final Logger logger = LoggerFactory.getLogger(WelcomeListener.class);
 
     private final String welcomeChannelId;
+    private final String welcomeImageUrl;
 
-    public WelcomeListener(String welcomeChannelId) {
+    public WelcomeListener(String welcomeChannelId, String welcomeImageUrl) {
         this.welcomeChannelId = welcomeChannelId;
+        this.welcomeImageUrl = welcomeImageUrl;
     }
 
     @Override
@@ -40,29 +42,32 @@ public class WelcomeListener extends ListenerAdapter {
                 event.getGuild().getName(),
                 event.getGuild().getId());
 
-        // URL de l'image centrale (à remplacer par celle que tu souhaites, ex: Giyu Tomioka)
-        String imageUrl = "https://media.giphy.com/media/fTN0rPZuY9tT40Xn1c/giphy.gif"; 
-
-        EmbedBuilder embed = new EmbedBuilder();
-        embed.setTitle("Bienvenue !");
-        embed.setDescription("Bienvenue " + event.getMember().getAsMention() + " sur **" + event.getGuild().getName() + "** !");
-        embed.setColor(new Color(43, 45, 49)); // Couleur de fond sombre Discord par défaut ou personnalisée
-        
-        if (event.getMember().getUser().getAvatarUrl() != null) {
-            embed.setThumbnail(event.getMember().getUser().getAvatarUrl());
-        }
-
-        embed.setImage(imageUrl);
-
-        // Formatage de l'heure d'arrivée
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
         String joinTime = event.getMember().getTimeJoined().format(formatter);
         int memberCount = event.getGuild().getMemberCount();
 
-        embed.setFooter("Arrivée à " + event.getMember().getTimeJoined().format(DateTimeFormatter.ofPattern("HH:mm")) 
-                + " • Membre n°" + memberCount 
-                + " • " + joinTime, 
-                event.getMember().getUser().getEffectiveAvatarUrl());
+        EmbedBuilder embed = new EmbedBuilder();
+        embed.setTitle("Bienvenue !");
+        embed.setDescription("Bienvenue " + event.getMember().getAsMention() + " sur **" + event.getGuild().getName() + "** !");
+        embed.setColor(new Color(43, 45, 49));
+
+        if (event.getMember().getUser().getAvatarUrl() != null) {
+            embed.setThumbnail(event.getMember().getUser().getAvatarUrl());
+        }
+
+        // Image optionnelle : ignorée si non configurée dans le .env
+        if (welcomeImageUrl != null && !welcomeImageUrl.isBlank()) {
+            embed.setImage(welcomeImageUrl);
+        } else {
+            logger.debug("Aucune image de bienvenue configuree (WELCOME_IMAGE_URL absent)");
+        }
+
+        embed.setFooter(
+                "Arrivée à " + event.getMember().getTimeJoined().format(DateTimeFormatter.ofPattern("HH:mm"))
+                        + " • Membre n°" + memberCount
+                        + " • " + joinTime,
+                event.getMember().getUser().getEffectiveAvatarUrl()
+        );
 
         channel.sendMessageEmbeds(embed.build()).queue(
                 success -> logger.info("Message de bienvenue envoye pour {} dans #{}",
