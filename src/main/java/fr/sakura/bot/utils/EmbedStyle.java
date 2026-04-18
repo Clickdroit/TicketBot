@@ -47,6 +47,10 @@ public final class EmbedStyle {
         embed.setFooter(APP_MARK + " • " + fallback(footerText, UNKNOWN));
     }
 
+    public static void setFooter(EmbedBuilder embed, String footerText, String iconUrl) {
+        embed.setFooter(APP_MARK + " • " + fallback(footerText, UNKNOWN), iconUrl);
+    }
+
     public static String fallback(String value, String fallbackValue) {
         return value == null || value.isBlank() ? fallbackValue : value;
     }

@@ -15,6 +15,11 @@ public class WelcomeListener extends ListenerAdapter {
 
     private static final Logger logger = LoggerFactory.getLogger(WelcomeListener.class);
     private static final DateTimeFormatter HOUR_MINUTE_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
+    private static final DateTimeFormatter FOOTER_DATE_FORMATTER  = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+
+    /** GIF de bienvenue utilisé si WELCOME_IMAGE_URL n'est pas défini dans .env */
+    private static final String DEFAULT_WELCOME_GIF_URL =
+            "https://cdn.discordapp.com/attachments/1403497537914146908/1456657012787122261/1CDB944C-1FB2-4C6E-8620-73F2FF63770E.gif";
 
     private final String welcomeChannelId;
     private final String welcomeImageUrl;
@@ -43,7 +48,6 @@ public class WelcomeListener extends ListenerAdapter {
                 event.getGuild().getName(),
                 event.getGuild().getId());
 
-        String joinTime = EmbedStyle.formatInfoDate(event.getMember().getTimeJoined());
         int memberCount = event.getGuild().getMemberCount();
 
         EmbedBuilder embed = EmbedStyle.newInfoEmbed("🌸", "Bienvenue !");
@@ -53,17 +57,18 @@ public class WelcomeListener extends ListenerAdapter {
             embed.setThumbnail(event.getMember().getUser().getAvatarUrl());
         }
 
-        // Image optionnelle : ignorée si non configurée dans le .env
-        if (welcomeImageUrl != null && !welcomeImageUrl.isBlank()) {
-            embed.setImage(welcomeImageUrl);
-        } else {
-            logger.debug("Aucune image de bienvenue configuree (WELCOME_IMAGE_URL absent)");
-        }
+        // GIF : URL configurée ou GIF par défaut
+        String imageUrl = (welcomeImageUrl != null && !welcomeImageUrl.isBlank())
+                ? welcomeImageUrl
+                : DEFAULT_WELCOME_GIF_URL;
+        embed.setImage(imageUrl);
 
         String arrivalTime = event.getMember().getTimeJoined().toLocalTime().format(HOUR_MINUTE_FORMATTER);
+        String fullDate    = event.getMember().getTimeJoined().format(FOOTER_DATE_FORMATTER);
         EmbedStyle.setFooter(
                 embed,
-                "Arrivée à " + arrivalTime + " • Membre n°" + memberCount + " • " + joinTime
+                "📥 Arrivée à " + arrivalTime + " • Membre n°" + memberCount + " • " + fullDate,
+                event.getGuild().getIconUrl()
         );
 
         channel.sendMessageEmbeds(embed.build()).queue(

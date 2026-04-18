@@ -120,27 +120,37 @@ public class ModerationLogger {
 
         boolean isSelfAction = moderator != null && target != null && moderator.getId().equals(target.getId());
         if (isSelfAction) {
-            embed.addField("Utilisateur", EmbedStyle.truncate(moderator.getAsMention(), 1024), true);
+            embed.addField("👤 Utilisateur", EmbedStyle.truncate(moderator.getAsMention(), 1024), true);
         } else {
-            embed.addField("Modérateur", EmbedStyle.truncate(moderator != null ? moderator.getAsMention() : "Système", 1024), true);
+            embed.addField("👮 Modérateur", EmbedStyle.truncate(moderator != null ? moderator.getAsMention() : "Système", 1024), true);
             if (target != null) {
-                embed.addField("Cible", EmbedStyle.truncate(target.getAsMention(), 1024), true);
+                embed.addField("👤 Cible", EmbedStyle.truncate(target.getAsMention(), 1024), true);
             }
         }
 
         if (reason != null && !reason.isBlank()) {
-            embed.addField("Raison", EmbedStyle.truncate(reason, 1024), false);
+            embed.addField("📝 Raison", EmbedStyle.truncate(reason, 1024), false);
         }
 
         if (extra != null && !extra.isBlank()) {
-            embed.addField("Détails", EmbedStyle.truncate(extra, 1024), false);
+            embed.addField("📋 Détails", EmbedStyle.truncate(extra, 1024), false);
         }
 
-        EmbedStyle.setFooter(embed, "Journal modération • " + timestamp);
+        String footerIds = buildFooterIds(moderator, target);
+        EmbedStyle.setFooter(embed, footerIds + " • " + timestamp);
 
         channel.sendMessageEmbeds(embed.build()).queue(
                 success -> logger.debug("Log moderation envoye: action={}, channelId={}", actionKey, channel.getId()),
                 error  -> logger.error("Echec envoi log moderation: action={}, channelId={}", actionKey, channel.getId(), error)
         );
+    }
+
+    private static String buildFooterIds(Member moderator, Member target) {
+        if (moderator != null && target != null && !moderator.getId().equals(target.getId())) {
+            return "👤 ID cible: " + target.getId() + " • 👮 ID modérateur: " + moderator.getId();
+        } else if (moderator != null) {
+            return "👤 ID: " + moderator.getId();
+        }
+        return "Journal modération";
     }
 }
