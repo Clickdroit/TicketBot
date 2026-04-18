@@ -1,5 +1,7 @@
 package fr.sakura.bot.commands;
 
+import fr.sakura.bot.utils.EmbedStyle;
+import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
@@ -23,21 +25,20 @@ public class HelpCommand implements ICommand {
     @Override
     public void execute(SlashCommandInteractionEvent event) {
         logger.debug("Execution /help par userId={}", event.getUser().getId());
-        String helpMessage = "\uD83C\uDF38 **Liste des commandes de Sakura Bot :**\n"
-                + "`/ping` - Vérifie si le bot répond et affiche sa latence.\n"
-                + "`/help` - Affiche ce message d'aide.\n"
-                + "`/avatar [membre]` - Affiche l'avatar d'un membre.\n"
-                + "`/userinfo [membre]` - Affiche les infos d'un membre.\n"
-                + "`/serverinfo` - Affiche les infos du serveur.\n"
-                + "`/clear <montant>` - [MOD] Supprime les messages récents.\n"
-                + "`/kick <membre>` - [MOD] Expulse un membre.\n"
-                + "`/ban <membre>` - [MOD] Bannit un membre.\n"
-                + "`/timeout <membre> <minutes>` - [MOD] Mute temporairement un membre.\n"
-                + "`/unban <user_id>` - [MOD] Retire un bannissement.\n"
-                + "`/warn <membre> <raison>` - [MOD] Ajoute un avertissement (JSON).\n"
-                + "`/warnings <membre>` - [MOD] Liste les avertissements d'un membre.\n"
-                + "`/clearwarnings <membre>` - [MOD] Supprime les avertissements d'un membre.";
-        event.reply(helpMessage).setEphemeral(true).queue();
+
+        EmbedBuilder embed = EmbedStyle.newInfoEmbed("🌸", "Guide des commandes Sakura");
+        embed.setDescription("Voici les commandes principales disponibles sur ce serveur.");
+        embed.addField("Informations", "`/ping`, `/help`, `/avatar`, `/userinfo`, `/serverinfo`", false);
+        embed.addField("Modération", "`/clear`, `/kick`, `/ban`, `/timeout`, `/unban`, `/warn`, `/warnings`, `/clearwarnings`", false);
+        embed.addField("Auto-mod & config", "`/config antispam|antilink|giflinks|spamlimit|spamwindow|strikes|timeout|strikereset|noticecooldown|xpcooldown|xpminlen|xpminalnum|xpgain`", false);
+        embed.addField("XP & niveaux", "`/rank`, `/leaderboard`, `/xpadmin set|add|reset|roleset|roleremove|rolelist`", false);
+        embed.addField("Tickets & staff", "`/ticketpanel`, `/lock`, `/unlock`, `/slowmode`, `/say`", false);
+        if (event.getJDA().getSelfUser().getEffectiveAvatarUrl() != null) {
+            embed.setThumbnail(event.getJDA().getSelfUser().getEffectiveAvatarUrl());
+        }
+        EmbedStyle.setFooter(embed, "Demandé par " + event.getUser().getName());
+
+        event.replyEmbeds(embed.build()).setEphemeral(true).queue();
         logger.info("/help envoye userId={}", event.getUser().getId());
     }
 }

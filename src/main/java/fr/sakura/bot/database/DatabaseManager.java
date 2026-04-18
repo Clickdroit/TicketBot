@@ -6,7 +6,9 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.net.URI;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -29,6 +31,14 @@ public class DatabaseManager {
 
     public static String getDbUrl() {
         return dbUrl;
+    }
+
+    public static boolean isPostgres() {
+        return dbDialect == DbDialect.POSTGRES;
+    }
+
+    public static boolean isSqlite() {
+        return dbDialect == DbDialect.SQLITE;
     }
 
     public static void configure(String configuredDbUrl) {
@@ -73,38 +83,16 @@ public class DatabaseManager {
             }
         }
 
-        try (Connection conn = getConnection(); Statement stmt = conn.createStatement()) {
-            
-            // Table des avertissements (warnings)
-            stmt.execute(createWarningsTableSql());
+        try (Connection conn = getConnection()) {
+            conn.setAutoCommit(false);
 
-            // Table des parametres par serveur (settings)
-            stmt.execute(createSettingsTableSql());
+            ensureSchemaMigrationsTable(conn);
+            applyMigrations(conn);
 
-            // Migration idempotente pour les bases deja existantes
-            addColumnIfMissing(stmt, "settings", "anti_link_enabled", "INTEGER DEFAULT 1");
-            addColumnIfMissing(stmt, "settings", "allow_gif_links", "INTEGER DEFAULT 1");
-            addColumnIfMissing(stmt, "settings", "spam_limit", "INTEGER DEFAULT 5");
-            addColumnIfMissing(stmt, "settings", "spam_window_ms", "INTEGER DEFAULT 5000");
-            addColumnIfMissing(stmt, "settings", "automod_strikes_to_timeout", "INTEGER DEFAULT 3");
-            addColumnIfMissing(stmt, "settings", "automod_timeout_minutes", "INTEGER DEFAULT 10");
-
-            // Table pour le systeme d'XP et niveaux (levels)
-            stmt.execute(createLevelsTableSql());
-
-            // Table pour les tickets (tickets)
-            stmt.execute(createTicketsTableSql());
-
-            addColumnIfMissing(stmt, "tickets", "created_at", "TEXT");
-            addColumnIfMissing(stmt, "tickets", "claimed_by", "TEXT");
-            addColumnIfMissing(stmt, "tickets", "closed_by", "TEXT");
-            addColumnIfMissing(stmt, "tickets", "closed_at", "TEXT");
-            addColumnIfMissing(stmt, "tickets", "close_reason", "TEXT");
-
-            logger.info("Base de donnees SQLite initialisee avec succes.");
-
+            conn.commit();
+            logger.info("Base de donnees initialisee avec succes (dialect={})", dbDialect);
         } catch (SQLException e) {
-            logger.error("Erreur lors de l'initialisation de la base SQLite", e);
+            logger.error("Erreur lors de l'initialisation de la base", e);
         }
     }
 
@@ -116,28 +104,116 @@ public class DatabaseManager {
         return DriverManager.getConnection(dbUrl);
     }
 
-    private static void addColumnIfMissing(Statement stmt, String tableName, String columnName, String columnDefinition) throws SQLException {
-        if (dbDialect == DbDialect.POSTGRES) {
-            stmt.execute("ALTER TABLE " + tableName + " ADD COLUMN IF NOT EXISTS " + columnName + " " + columnDefinition);
-            return;
-        }
+    private static void applyMigrations(Connection conn) throws SQLException {
+        applyMigration(conn, 1, "create core tables", () -> {
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute(createWarningsTableSql());
+                stmt.execute(createSettingsTableSql());
+                stmt.execute(createLevelsTableSql());
+                stmt.execute(createTicketsTableSql());
+                stmt.execute(createLevelRolesTableSql());
+            }
+        });
 
-        if (hasColumn(stmt, tableName, columnName)) {
-            return;
-        }
+        applyMigration(conn, 2, "add settings and tickets columns", () -> {
+            addColumnIfMissing(conn, "settings", "anti_link_enabled", "INTEGER DEFAULT 1");
+            addColumnIfMissing(conn, "settings", "allow_gif_links", "INTEGER DEFAULT 1");
+            addColumnIfMissing(conn, "settings", "spam_limit", "INTEGER DEFAULT 5");
+            addColumnIfMissing(conn, "settings", "spam_window_ms", "INTEGER DEFAULT 5000");
+            addColumnIfMissing(conn, "settings", "automod_strikes_to_timeout", "INTEGER DEFAULT 3");
+            addColumnIfMissing(conn, "settings", "automod_timeout_minutes", "INTEGER DEFAULT 10");
+            addColumnIfMissing(conn, "settings", "automod_strike_reset_minutes", "INTEGER DEFAULT 10");
+            addColumnIfMissing(conn, "settings", "automod_notice_cooldown_seconds", "INTEGER DEFAULT 15");
+            addColumnIfMissing(conn, "settings", "xp_cooldown_ms", "INTEGER DEFAULT 60000");
+            addColumnIfMissing(conn, "settings", "xp_min_message_length", "INTEGER DEFAULT 5");
+            addColumnIfMissing(conn, "settings", "xp_min_alnum_count", "INTEGER DEFAULT 3");
+            addColumnIfMissing(conn, "settings", "xp_min_gain", "INTEGER DEFAULT 15");
+            addColumnIfMissing(conn, "settings", "xp_max_gain", "INTEGER DEFAULT 25");
 
-        stmt.execute("ALTER TABLE " + tableName + " ADD COLUMN " + columnName + " " + columnDefinition);
-        logger.info("Migration SQLite: colonne ajoutee {}.{}", tableName, columnName);
+            addColumnIfMissing(conn, "tickets", "created_at", "TEXT");
+            addColumnIfMissing(conn, "tickets", "claimed_by", "TEXT");
+            addColumnIfMissing(conn, "tickets", "claimed_at", "TEXT");
+            addColumnIfMissing(conn, "tickets", "closed_by", "TEXT");
+            addColumnIfMissing(conn, "tickets", "closed_at", "TEXT");
+            addColumnIfMissing(conn, "tickets", "close_reason", "TEXT");
+        });
+
+        applyMigration(conn, 3, "create performance indexes", () -> {
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_warnings_guild_user_time ON warnings(guild_id, user_id, timestamp)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_levels_guild_level_xp ON levels(guild_id, level DESC, xp DESC)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tickets_guild_status_created ON tickets(guild_id, status, created_at)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_tickets_channel ON tickets(guild_id, channel_id)");
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_level_roles_guild_level ON level_roles(guild_id, level)");
+                // Contrainte d'unicite logique: un seul ticket actif (OPEN/CLAIMED) par utilisateur et par guilde.
+                // Cette regle depend du CHECK de statut defini sur la table tickets.
+                stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_tickets_single_active_per_user ON tickets(guild_id, user_id) WHERE status IN ('OPEN', 'CLAIMED')");
+            }
+        });
     }
 
-    private static boolean hasColumn(Statement stmt, String tableName, String columnName) throws SQLException {
-        try (ResultSet rs = stmt.executeQuery("PRAGMA table_info(" + tableName + ")")) {
-            while (rs.next()) {
-                if (columnName.equalsIgnoreCase(rs.getString("name"))) {
-                    return true;
-                }
+    private static void applyMigration(Connection conn, int version, String description, Migration migration) throws SQLException {
+        if (isMigrationApplied(conn, version)) {
+            return;
+        }
+
+        migration.apply();
+        recordMigration(conn, version, description);
+        logger.info("Migration appliquee v{}: {}", version, description);
+    }
+
+    private static boolean isMigrationApplied(Connection conn, int version) throws SQLException {
+        try (PreparedStatement pstmt = conn.prepareStatement("SELECT 1 FROM schema_migrations WHERE version = ?")) {
+            pstmt.setInt(1, version);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next();
             }
-            return false;
+        }
+    }
+
+    private static void recordMigration(Connection conn, int version, String description) throws SQLException {
+        try (PreparedStatement pstmt = conn.prepareStatement(
+                "INSERT INTO schema_migrations (version, description, applied_at) VALUES (?, ?, CURRENT_TIMESTAMP)")) {
+            pstmt.setInt(1, version);
+            pstmt.setString(2, description);
+            pstmt.executeUpdate();
+        }
+    }
+
+    private static void ensureSchemaMigrationsTable(Connection conn) throws SQLException {
+        String sql = "CREATE TABLE IF NOT EXISTS schema_migrations (" +
+                "version INTEGER PRIMARY KEY," +
+                "description TEXT NOT NULL," +
+                "applied_at TEXT NOT NULL" +
+                ")";
+        try (Statement stmt = conn.createStatement()) {
+            stmt.execute(sql);
+        }
+    }
+
+    private static void addColumnIfMissing(Connection conn, String tableName, String columnName, String columnDefinition) throws SQLException {
+        if (hasColumn(conn, tableName, columnName)) {
+            return;
+        }
+
+        String sql = "ALTER TABLE " + tableName + " ADD COLUMN " + columnName + " " + columnDefinition;
+        try (Statement stmt = conn.createStatement()) {
+            stmt.execute(sql);
+        }
+        logger.info("Migration: colonne ajoutee {}.{}", tableName, columnName);
+    }
+
+    private static boolean hasColumn(Connection conn, String tableName, String columnName) throws SQLException {
+        DatabaseMetaData metaData = conn.getMetaData();
+
+        try (ResultSet rs = metaData.getColumns(null, null, tableName, columnName)) {
+            if (rs.next()) {
+                return true;
+            }
+        }
+
+        try (ResultSet rs = metaData.getColumns(null, null, tableName.toLowerCase(), columnName.toLowerCase())) {
+            return rs.next();
         }
     }
 
@@ -204,6 +280,13 @@ public class DatabaseManager {
                 "spam_window_ms INTEGER DEFAULT 5000," +
                 "automod_strikes_to_timeout INTEGER DEFAULT 3," +
                 "automod_timeout_minutes INTEGER DEFAULT 10," +
+                "automod_strike_reset_minutes INTEGER DEFAULT 10," +
+                "automod_notice_cooldown_seconds INTEGER DEFAULT 15," +
+                "xp_cooldown_ms INTEGER DEFAULT 60000," +
+                "xp_min_message_length INTEGER DEFAULT 5," +
+                "xp_min_alnum_count INTEGER DEFAULT 3," +
+                "xp_min_gain INTEGER DEFAULT 15," +
+                "xp_max_gain INTEGER DEFAULT 25," +
                 "log_channel_id TEXT," +
                 "welcome_channel_id TEXT" +
                 ");";
@@ -226,9 +309,10 @@ public class DatabaseManager {
                     "guild_id TEXT NOT NULL," +
                     "user_id TEXT NOT NULL," +
                     "channel_id TEXT NOT NULL," +
-                    "status TEXT DEFAULT 'OPEN'," +
+                    "status TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'CLAIMED', 'CLOSED'))," +
                     "created_at TEXT," +
                     "claimed_by TEXT," +
+                    "claimed_at TEXT," +
                     "closed_by TEXT," +
                     "closed_at TEXT," +
                     "close_reason TEXT" +
@@ -240,12 +324,27 @@ public class DatabaseManager {
                 "guild_id TEXT NOT NULL," +
                 "user_id TEXT NOT NULL," +
                 "channel_id TEXT NOT NULL," +
-                "status TEXT DEFAULT 'OPEN'," +
+                "status TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'CLAIMED', 'CLOSED'))," +
                 "created_at TEXT," +
                 "claimed_by TEXT," +
+                "claimed_at TEXT," +
                 "closed_by TEXT," +
                 "closed_at TEXT," +
                 "close_reason TEXT" +
                 ");";
+    }
+
+    private static String createLevelRolesTableSql() {
+        return "CREATE TABLE IF NOT EXISTS level_roles (" +
+                "guild_id TEXT NOT NULL," +
+                "level INTEGER NOT NULL," +
+                "role_id TEXT NOT NULL," +
+                "PRIMARY KEY (guild_id, level)" +
+                ");";
+    }
+
+    @FunctionalInterface
+    private interface Migration {
+        void apply() throws SQLException;
     }
 }

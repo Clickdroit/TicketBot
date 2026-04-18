@@ -52,6 +52,11 @@ public class CommandManager extends ListenerAdapter {
         addCommand(new RankCommand(levelService));
         addCommand(new LeaderboardCommand(levelService));
         addCommand(new TicketPanelCommand(ticketService));
+        addCommand(new XpAdminCommand(levelService, settingsManager));
+        addCommand(new LockCommand(moderationLogger));
+        addCommand(new UnlockCommand(moderationLogger));
+        addCommand(new SlowmodeCommand(moderationLogger));
+        addCommand(new SayCommand(moderationLogger));
     }
 
     private void addCommand(ICommand command) {

@@ -8,9 +8,9 @@ public record TicketEntry(
         String status,
         String createdAt,
         String claimedBy,
+        String claimedAt,
         String closedBy,
         String closedAt,
         String closeReason
 ) {
 }
-

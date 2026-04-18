@@ -28,6 +28,8 @@ dependencies {
 
     // PostgreSQL JDBC pour la base distante Supabase
     implementation 'org.postgresql:postgresql:42.7.7'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
 }
 
 application {
@@ -36,4 +38,8 @@ application {
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
+}
+
+test {
+    useJUnitPlatform()
 }

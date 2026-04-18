@@ -40,7 +40,11 @@ public class TicketPanelCommand implements ICommand {
 
         EmbedBuilder embed = EmbedStyle.newInfoEmbed("🎫", "Support / Tickets");
         embed.setDescription("Clique sur le bouton ci-dessous pour ouvrir un ticket privé avec l'équipe de support.");
-        embed.addField("ℹ️ Infos", "Un seul ticket ouvert par membre à la fois.", false);
+        embed.addField("Disponibilité", "Un seul ticket actif par membre.", true);
+        embed.addField("Confidentialité", "Salon privé visible uniquement par toi et le staff.", true);
+        if (event.getJDA().getSelfUser().getEffectiveAvatarUrl() != null) {
+            embed.setThumbnail(event.getJDA().getSelfUser().getEffectiveAvatarUrl());
+        }
         EmbedStyle.setFooter(embed, "Panel de tickets");
 
         event.getChannel().sendMessageEmbeds(embed.build())
@@ -57,4 +61,3 @@ public class TicketPanelCommand implements ICommand {
                 );
     }
 }
-

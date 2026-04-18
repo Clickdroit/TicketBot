@@ -10,10 +10,12 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Instant;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
@@ -21,27 +23,38 @@ import java.util.regex.Pattern;
 public class AutoModListener extends ListenerAdapter {
 
     private static final Logger logger = LoggerFactory.getLogger(AutoModListener.class);
-    
+
     private final ModerationLogger moderationLogger;
     private final SettingsManager settingsManager;
 
-    // Pattern URL simplifie
     private static final Pattern URL_PATTERN = Pattern.compile("https?://\\S+");
-    // Domaines de GIF autorises ou urls finissant par .gif
     private static final Pattern GIF_PATTERN = Pattern.compile(".*(tenor\\.com|giphy\\.com|\\.gif)(\\?.*)?$", Pattern.CASE_INSENSITIVE);
 
     private final Map<String, Deque<Long>> spamWindows = new ConcurrentHashMap<>();
     private final Map<String, StrikeState> strikeStates = new ConcurrentHashMap<>();
-    private static final long STRIKE_RESET_MS = 10 * 60 * 1000L;
+    private final Map<String, Long> lastNoticeByRuleMember = new ConcurrentHashMap<>();
+    private final List<Rule> rules;
 
     private static final class StrikeState {
         private int count;
         private long lastUpdateMs;
     }
 
+    private record RuleResult(boolean triggered, String ruleKey, String logReason, String logDetails, String strikeReason, String publicNotice) {
+        static RuleResult none() {
+            return new RuleResult(false, null, null, null, null, null);
+        }
+    }
+
+    @FunctionalInterface
+    private interface Rule {
+        RuleResult evaluate(MessageReceivedEvent event, Member member, String guildId, String memberKey, String content);
+    }
+
     public AutoModListener(ModerationLogger moderationLogger, SettingsManager settingsManager) {
         this.moderationLogger = moderationLogger;
         this.settingsManager = settingsManager;
+        this.rules = buildRulePipeline();
     }
 
     @Override
@@ -55,45 +68,89 @@ public class AutoModListener extends ListenerAdapter {
         String content = event.getMessage().getContentRaw();
         String memberKey = guildId + ":" + member.getId();
 
-        // Ignorer les admins pour l'Automod
-        if (member.hasPermission(net.dv8tion.jda.api.Permission.ADMINISTRATOR)) {
+        if (member.hasPermission(Permission.ADMINISTRATOR)
+                || member.hasPermission(Permission.MANAGE_SERVER)
+                || member.hasPermission(Permission.MESSAGE_MANAGE)) {
             return;
         }
 
-        // 1) Anti-liens configurable
-        if (settingsManager.isAntiLinkEnabled(guildId) && URL_PATTERN.matcher(content).find()) {
-            boolean isGif = GIF_PATTERN.matcher(content).find();
-            boolean gifAllowed = settingsManager.isGifLinksAllowed(guildId);
-
-            if (!(gifAllowed && isGif)) {
-                event.getMessage().delete().queue(
-                        success -> {
-                            moderationLogger.logInGuild(event.getGuild(), "WARN", null, member, "Systeme: Lien interdit supprime", "Contenu bloque: " + truncate(content, 300));
-                            event.getChannel().sendMessage(member.getAsMention() + " ❌ Les liens ne sont pas autorisés ici (sauf les GIFs).").queue();
-                            logger.info("AutoMod: Lien supprime msgId={} userId={}", event.getMessageId(), member.getId());
-                            applyStrikeAndEscalate(event, member, memberKey, "Lien interdit");
-                        },
-                        error -> logger.warn("AutoMod: Impossible de supprimer message lien", error)
-                );
-                return; // Bloque l'execution du reste si le message est deja supprime
+        for (Rule rule : rules) {
+            RuleResult result = rule.evaluate(event, member, guildId, memberKey, content);
+            if (!result.triggered()) {
+                continue;
             }
+
+            event.getMessage().delete().queue(
+                    success -> {
+                        moderationLogger.logInGuild(
+                                event.getGuild(),
+                                "WARN",
+                                null,
+                                member,
+                                result.logReason(),
+                                result.logDetails() + "\nRegle: " + result.ruleKey()
+                        );
+
+                        sendNoticeWithCooldown(event, member, result.ruleKey(), result.publicNotice());
+                        applyStrikeAndEscalate(event, member, memberKey, result.strikeReason(), result.ruleKey());
+                    },
+                    error -> logger.warn("AutoMod: suppression impossible rule={} msgId={} userId={}", result.ruleKey(), event.getMessageId(), member.getId(), error)
+            );
+            return;
+        }
+    }
+
+    private List<Rule> buildRulePipeline() {
+        List<Rule> pipeline = new ArrayList<>();
+        pipeline.add(this::evaluateLinkRule);
+        pipeline.add(this::evaluateSpamRule);
+        return pipeline;
+    }
+
+    private RuleResult evaluateLinkRule(MessageReceivedEvent event, Member member, String guildId, String memberKey, String content) {
+        if (!settingsManager.isAntiLinkEnabled(guildId)) {
+            return RuleResult.none();
         }
 
-        // 2) Anti-spam configurable
-        if (settingsManager.isAntiSpamEnabled(guildId)) {
-            int spamLimit = settingsManager.getSpamLimit(guildId);
-            long spamWindowMs = settingsManager.getSpamWindowMs(guildId);
-            if (isSpamming(memberKey, spamLimit, spamWindowMs)) {
-                event.getMessage().delete().queue(
-                        success -> {
-                            moderationLogger.logInGuild(event.getGuild(), "WARN", null, member, "Systeme: Spam detecte", "Limite: " + spamLimit + " msg / " + (spamWindowMs / 1000) + "s");
-                            event.getChannel().sendMessage(member.getAsMention() + " ⚠️ Arrête de spammer !").queue();
-                            applyStrikeAndEscalate(event, member, memberKey, "Spam detecte");
-                        },
-                        error -> {}
-                );
-            }
+        if (!URL_PATTERN.matcher(content).find()) {
+            return RuleResult.none();
         }
+
+        boolean isGif = GIF_PATTERN.matcher(content).find();
+        boolean gifAllowed = settingsManager.isGifLinksAllowed(guildId);
+        if (gifAllowed && isGif) {
+            return RuleResult.none();
+        }
+
+        return new RuleResult(
+                true,
+                "anti_link",
+                "Lien non autorisé supprimé",
+                "Contenu bloqué: " + truncate(content, 300),
+                "Lien interdit",
+                member.getAsMention() + " ❌ Les liens ne sont pas autorisés ici (GIF autorisés selon config)."
+        );
+    }
+
+    private RuleResult evaluateSpamRule(MessageReceivedEvent event, Member member, String guildId, String memberKey, String content) {
+        if (!settingsManager.isAntiSpamEnabled(guildId)) {
+            return RuleResult.none();
+        }
+
+        int spamLimit = settingsManager.getSpamLimit(guildId);
+        long spamWindowMs = settingsManager.getSpamWindowMs(guildId);
+        if (!isSpamming(memberKey, spamLimit, spamWindowMs)) {
+            return RuleResult.none();
+        }
+
+        return new RuleResult(
+                true,
+                "anti_spam",
+                "Spam détecté",
+                "Limite: " + spamLimit + " msg / " + (spamWindowMs / 1000) + "s",
+                "Spam détecté",
+                member.getAsMention() + " ⚠️ Ralentis le rythme des messages, s'il te plaît."
+        );
     }
 
     private boolean isSpamming(String memberKey, int spamLimit, long spamWindowMs) {
@@ -108,22 +165,45 @@ public class AutoModListener extends ListenerAdapter {
         return queue.size() >= spamLimit;
     }
 
-    private void applyStrikeAndEscalate(MessageReceivedEvent event, Member member, String memberKey, String reason) {
+    private void sendNoticeWithCooldown(MessageReceivedEvent event, Member member, String ruleKey, String notice) {
+        if (notice == null || notice.isBlank()) {
+            return;
+        }
+
+        int cooldownSeconds = settingsManager.getAutomodNoticeCooldownSeconds(event.getGuild().getId());
+        long cooldownMs = cooldownSeconds * 1000L;
         long now = Instant.now().toEpochMilli();
+
+        String key = event.getGuild().getId() + ":" + member.getId() + ":" + ruleKey;
+        long last = lastNoticeByRuleMember.getOrDefault(key, 0L);
+        if (now - last < cooldownMs) {
+            return;
+        }
+
+        lastNoticeByRuleMember.put(key, now);
+        event.getChannel().sendMessage(notice).queue();
+    }
+
+    private void applyStrikeAndEscalate(MessageReceivedEvent event, Member member, String memberKey, String reason, String ruleKey) {
+        long now = Instant.now().toEpochMilli();
+        String guildId = event.getGuild().getId();
         StrikeState state = strikeStates.computeIfAbsent(memberKey, k -> new StrikeState());
 
-        if (now - state.lastUpdateMs > STRIKE_RESET_MS) {
+        int strikeResetMinutes = settingsManager.getAutomodStrikeResetMinutes(guildId);
+        long strikeResetMs = strikeResetMinutes * 60_000L;
+
+        if (now - state.lastUpdateMs > strikeResetMs) {
             state.count = 0;
         }
 
         state.count++;
         state.lastUpdateMs = now;
 
-        String guildId = event.getGuild().getId();
         int threshold = settingsManager.getAutomodStrikesToTimeout(guildId);
         int timeoutMinutes = settingsManager.getAutomodTimeoutMinutes(guildId);
 
         if (state.count < threshold) {
+            logger.info("AutoMod strike guildId={}, userId={}, rule={}, count={}/{}", guildId, member.getId(), ruleKey, state.count, threshold);
             return;
         }
 
@@ -137,22 +217,22 @@ public class AutoModListener extends ListenerAdapter {
             return;
         }
 
-        member.timeoutFor(Duration.ofMinutes(timeoutMinutes)).reason("AutoMod: " + reason).queue(
+        member.timeoutFor(Duration.ofMinutes(timeoutMinutes)).reason("AutoMod: " + reason + " (" + ruleKey + ")").queue(
                 success -> {
                     moderationLogger.logInGuild(
                             event.getGuild(),
                             "TIMEOUT",
                             null,
                             member,
-                            "AutoMod: seuil d'infractions atteint",
-                            "Strikes=" + state.count + ", duree=" + timeoutMinutes + " min"
+                            "Seuil AutoMod atteint",
+                            "Regle: " + ruleKey + " • Strikes=" + state.count + " • Duree=" + timeoutMinutes + " min"
                     );
                     event.getChannel().sendMessage(member.getAsMention() + " ⏳ Timeout automatique appliqué (" + timeoutMinutes + " min).")
                             .queue();
-                    logger.info("AutoMod: timeout applique targetId={} strikes={}", member.getId(), state.count);
+                    logger.info("AutoMod: timeout applique targetId={} strikes={} rule={}", member.getId(), state.count, ruleKey);
                     state.count = 0;
                 },
-                error -> logger.warn("AutoMod: echec timeout targetId={}", member.getId(), error)
+                error -> logger.warn("AutoMod: echec timeout targetId={} rule={}", member.getId(), ruleKey, error)
         );
     }
 

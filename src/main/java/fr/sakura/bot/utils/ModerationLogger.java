@@ -3,6 +3,7 @@ package fr.sakura.bot.utils;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,40 +63,40 @@ public class ModerationLogger {
         log(channel, action, moderator, target, reason, extra);
     }
 
-    /**
-     * Envoie un log de modération dans le salon configuré.
-     *
-     */
-    private record ActionStyle(Color color, String emoji) {}
+    private record ActionStyle(Color color, String emoji, String label) {}
 
     private static final Map<String, ActionStyle> ACTION_STYLES = Map.ofEntries(
-            Map.entry("KICK",                 new ActionStyle(new Color(255, 165, 0),   "👢")),
-            Map.entry("BAN",                  new ActionStyle(new Color(220, 20, 60),   "🔨")),
-            Map.entry("CLEAR",                new ActionStyle(new Color(30, 144, 255),  "🧹")),
-            Map.entry("TIMEOUT",              new ActionStyle(new Color(148, 0, 211),   "⏳")),
-            Map.entry("UNBAN",                new ActionStyle(new Color(60, 179, 113),  "🔓")),
-            Map.entry("WARN",                 new ActionStyle(new Color(255, 215, 0),   "⚠️")),
-            Map.entry("CLEARWARN",            new ActionStyle(new Color(70, 130, 180),  "🧾")),
-            Map.entry("MESSAGE_EDIT",         new ActionStyle(new Color(123, 104, 238), "✏️")),
-            Map.entry("MESSAGE_DELETE",       new ActionStyle(new Color(255, 99, 71),   "🗑️")),
-            Map.entry("VOICE_CONNECT",        new ActionStyle(new Color(46, 204, 113),  "🔊")),
-            Map.entry("VOICE_DISCONNECT",     new ActionStyle(new Color(241, 196, 15),  "🔇")),
-            Map.entry("VOICE_MOD_DISCONNECT", new ActionStyle(new Color(231, 76, 60),   "🚫")),
-            Map.entry("VOICE_MOVE",           new ActionStyle(new Color(52, 152, 219),  "🔁")),
-            Map.entry("VOICE_SELF_MUTE",      new ActionStyle(new Color(155, 89, 182),  "🎧")),
-            Map.entry("VOICE_SELF_UNMUTE",    new ActionStyle(new Color(155, 89, 182),  "🎧")),
-            Map.entry("VOICE_SELF_DEAFEN",    new ActionStyle(new Color(155, 89, 182),  "🎧")),
-            Map.entry("VOICE_SELF_UNDEAFEN",  new ActionStyle(new Color(155, 89, 182),  "🎧")),
-            Map.entry("VOICE_GUILD_MUTE",     new ActionStyle(new Color(230, 126, 34),  "🛡️")),
-            Map.entry("VOICE_GUILD_UNMUTE",   new ActionStyle(new Color(230, 126, 34),  "🛡️")),
-            Map.entry("VOICE_GUILD_DEAFEN",   new ActionStyle(new Color(230, 126, 34),  "🛡️")),
-            Map.entry("VOICE_GUILD_UNDEAFEN", new ActionStyle(new Color(230, 126, 34),  "🛡️")),
-            Map.entry("TICKET_CREATE",         new ActionStyle(new Color(52, 152, 219),  "🎫")),
-            Map.entry("TICKET_CLAIM",          new ActionStyle(new Color(46, 204, 113),  "✅")),
-            Map.entry("TICKET_CLOSE",          new ActionStyle(new Color(231, 76, 60),   "🔒"))
+            Map.entry("KICK",                 new ActionStyle(new Color(255, 165, 0),   "👢", "Expulsion")),
+            Map.entry("BAN",                  new ActionStyle(new Color(220, 20, 60),   "🔨", "Bannissement")),
+            Map.entry("CLEAR",                new ActionStyle(new Color(30, 144, 255),  "🧹", "Nettoyage")),
+            Map.entry("TIMEOUT",              new ActionStyle(new Color(148, 0, 211),   "⏳", "Timeout")),
+            Map.entry("UNBAN",                new ActionStyle(new Color(60, 179, 113),  "🔓", "Débannissement")),
+            Map.entry("WARN",                 new ActionStyle(new Color(255, 215, 0),   "⚠️", "Avertissement")),
+            Map.entry("CLEARWARN",            new ActionStyle(new Color(70, 130, 180),  "🧾", "Nettoyage des avertissements")),
+            Map.entry("MESSAGE_EDIT",         new ActionStyle(new Color(123, 104, 238), "✏️", "Message modifié")),
+            Map.entry("MESSAGE_DELETE",       new ActionStyle(new Color(255, 99, 71),   "🗑️", "Message supprimé")),
+            Map.entry("VOICE_CONNECT",        new ActionStyle(new Color(46, 204, 113),  "🔊", "Connexion vocale")),
+            Map.entry("VOICE_DISCONNECT",     new ActionStyle(new Color(241, 196, 15),  "🔇", "Déconnexion vocale")),
+            Map.entry("VOICE_MOD_DISCONNECT", new ActionStyle(new Color(231, 76, 60),   "🚫", "Déconnexion vocale modérée")),
+            Map.entry("VOICE_MOVE",           new ActionStyle(new Color(52, 152, 219),  "🔁", "Déplacement vocal")),
+            Map.entry("VOICE_SELF_MUTE",      new ActionStyle(new Color(155, 89, 182),  "🎧", "Auto-mute")),
+            Map.entry("VOICE_SELF_UNMUTE",    new ActionStyle(new Color(155, 89, 182),  "🎧", "Auto-unmute")),
+            Map.entry("VOICE_SELF_DEAFEN",    new ActionStyle(new Color(155, 89, 182),  "🎧", "Auto-deafen")),
+            Map.entry("VOICE_SELF_UNDEAFEN",  new ActionStyle(new Color(155, 89, 182),  "🎧", "Auto-undeafen")),
+            Map.entry("VOICE_GUILD_MUTE",     new ActionStyle(new Color(230, 126, 34),  "🛡️", "Mute serveur")),
+            Map.entry("VOICE_GUILD_UNMUTE",   new ActionStyle(new Color(230, 126, 34),  "🛡️", "Unmute serveur")),
+            Map.entry("VOICE_GUILD_DEAFEN",   new ActionStyle(new Color(230, 126, 34),  "🛡️", "Deafen serveur")),
+            Map.entry("VOICE_GUILD_UNDEAFEN", new ActionStyle(new Color(230, 126, 34),  "🛡️", "Undeafen serveur")),
+            Map.entry("TICKET_CREATE",        new ActionStyle(new Color(52, 152, 219),  "🎫", "Ticket créé")),
+            Map.entry("TICKET_CLAIM",         new ActionStyle(new Color(46, 204, 113),  "✅", "Ticket pris en charge")),
+            Map.entry("TICKET_CLOSE",         new ActionStyle(new Color(231, 76, 60),   "🔒", "Ticket fermé")),
+            Map.entry("LOCK",                 new ActionStyle(new Color(231, 76, 60),   "🔒", "Salon verrouillé")),
+            Map.entry("UNLOCK",               new ActionStyle(new Color(46, 204, 113),  "🔓", "Salon déverrouillé")),
+            Map.entry("SLOWMODE",             new ActionStyle(new Color(52, 152, 219),  "🐢", "Slowmode modifié")),
+            Map.entry("SAY",                  new ActionStyle(new Color(155, 89, 182),  "🗣️", "Annonce staff"))
     );
 
-    private static final ActionStyle DEFAULT_STYLE = new ActionStyle(new Color(128, 128, 128), "📋");
+    private static final ActionStyle DEFAULT_STYLE = new ActionStyle(new Color(128, 128, 128), "📋", "Action" );
 
     public void log(TextChannel channel, String action, Member moderator, Member target, String reason, String extra) {
         if (channel == null) {
@@ -109,32 +110,33 @@ public class ModerationLogger {
         String timestamp = EmbedStyle.moderationTimestampNow();
 
         EmbedBuilder embed = new EmbedBuilder();
-        boolean isSelfAction = moderator != null && target != null && moderator.getId().equals(target.getId());
-        String titlePrefix = isSelfAction ? style.emoji() + " Log Serveur : " : style.emoji() + " Log Modération : ";
-        if (moderator == null && target == null) titlePrefix = style.emoji() + " Log Système : ";
-        
-        embed.setTitle(EmbedStyle.truncate(titlePrefix + actionKey, 256));
+        embed.setTitle(EmbedStyle.truncate(style.emoji() + " " + style.label(), 256));
         embed.setColor(style.color());
 
-        if (isSelfAction) {
-            embed.addField("👤 Utilisateur", EmbedStyle.truncate(moderator.getAsMention(), 1024), true);
-        } else {
-            embed.addField("👮 Modérateur", EmbedStyle.truncate(moderator != null ? moderator.getAsMention() : "Inconnu / Système", 1024), true);
+        User thumbnailUser = target != null ? target.getUser() : (moderator != null ? moderator.getUser() : null);
+        if (thumbnailUser != null && thumbnailUser.getEffectiveAvatarUrl() != null) {
+            embed.setThumbnail(thumbnailUser.getEffectiveAvatarUrl());
+        }
 
+        boolean isSelfAction = moderator != null && target != null && moderator.getId().equals(target.getId());
+        if (isSelfAction) {
+            embed.addField("Utilisateur", EmbedStyle.truncate(moderator.getAsMention(), 1024), true);
+        } else {
+            embed.addField("Modérateur", EmbedStyle.truncate(moderator != null ? moderator.getAsMention() : "Système", 1024), true);
             if (target != null) {
-                embed.addField("🎯 Cible", EmbedStyle.truncate(target.getUser().getName() + " (<@" + target.getId() + ">)", 1024), true);
+                embed.addField("Cible", EmbedStyle.truncate(target.getAsMention(), 1024), true);
             }
         }
 
         if (reason != null && !reason.isBlank()) {
-            embed.addField("📝 Raison", EmbedStyle.truncate(reason, 1024), false);
+            embed.addField("Raison", EmbedStyle.truncate(reason, 1024), false);
         }
 
         if (extra != null && !extra.isBlank()) {
-            embed.addField("ℹ️ Détails", EmbedStyle.truncate(extra, 1024), false);
+            embed.addField("Détails", EmbedStyle.truncate(extra, 1024), false);
         }
 
-        EmbedStyle.setFooter(embed, "Log modération • " + timestamp);
+        EmbedStyle.setFooter(embed, "Journal modération • " + timestamp);
 
         channel.sendMessageEmbeds(embed.build()).queue(
                 success -> logger.debug("Log moderation envoye: action={}, channelId={}", actionKey, channel.getId()),
