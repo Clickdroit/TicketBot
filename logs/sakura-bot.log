@@ -1,0 +1,10 @@
+2026-04-18 18:55:10.889 [Test worker] INFO  f.s.bot.database.DatabaseManager [cid=n/a] - DATABASE_URL configuree en mode SQLite
+2026-04-18 18:55:11.001 [Test worker] INFO  f.s.bot.database.DatabaseManager [cid=n/a] - Migration appliquee v1: create core tables
+2026-04-18 18:55:11.042 [Test worker] INFO  f.s.bot.database.DatabaseManager [cid=n/a] - Migration appliquee v2: add settings and tickets columns
+2026-04-18 18:55:11.044 [Test worker] INFO  f.s.bot.database.DatabaseManager [cid=n/a] - Migration appliquee v3: create performance indexes
+2026-04-18 18:55:11.050 [Test worker] INFO  f.s.bot.database.DatabaseManager [cid=n/a] - Base de donnees initialisee avec succes (dialect=SQLITE)
+2026-04-18 18:55:11.066 [Test worker] INFO  f.s.bot.database.DatabaseManager [cid=n/a] - DATABASE_URL configuree en mode SQLite
+2026-04-18 18:55:11.069 [Test worker] INFO  f.s.bot.database.DatabaseManager [cid=n/a] - Migration appliquee v1: create core tables
+2026-04-18 18:55:11.118 [Test worker] INFO  f.s.bot.database.DatabaseManager [cid=n/a] - Migration appliquee v2: add settings and tickets columns
+2026-04-18 18:55:11.119 [Test worker] INFO  f.s.bot.database.DatabaseManager [cid=n/a] - Migration appliquee v3: create performance indexes
+2026-04-18 18:55:11.124 [Test worker] INFO  f.s.bot.database.DatabaseManager [cid=n/a] - Base de donnees initialisee avec succes (dialect=SQLITE)

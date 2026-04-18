@@ -186,9 +186,10 @@ public class AutoModListener extends ListenerAdapter {
 
     private void applyStrikeAndEscalate(MessageReceivedEvent event, Member member, String memberKey, String reason, String ruleKey) {
         long now = Instant.now().toEpochMilli();
+        String guildId = event.getGuild().getId();
         StrikeState state = strikeStates.computeIfAbsent(memberKey, k -> new StrikeState());
 
-        int strikeResetMinutes = settingsManager.getAutomodStrikeResetMinutes(event.getGuild().getId());
+        int strikeResetMinutes = settingsManager.getAutomodStrikeResetMinutes(guildId);
         long strikeResetMs = strikeResetMinutes * 60_000L;
 
         if (now - state.lastUpdateMs > strikeResetMs) {
@@ -198,7 +199,6 @@ public class AutoModListener extends ListenerAdapter {
         state.count++;
         state.lastUpdateMs = now;
 
-        String guildId = event.getGuild().getId();
         int threshold = settingsManager.getAutomodStrikesToTimeout(guildId);
         int timeoutMinutes = settingsManager.getAutomodTimeoutMinutes(guildId);
 

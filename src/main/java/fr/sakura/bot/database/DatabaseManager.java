@@ -145,6 +145,8 @@ public class DatabaseManager {
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_tickets_guild_status_created ON tickets(guild_id, status, created_at)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_tickets_channel ON tickets(guild_id, channel_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_level_roles_guild_level ON level_roles(guild_id, level)");
+                // Contrainte d'unicite logique: un seul ticket actif (OPEN/CLAIMED) par utilisateur et par guilde.
+                // Cette règle dépend du CHECK de statut défini sur la table tickets.
                 stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_tickets_single_active_per_user ON tickets(guild_id, user_id) WHERE status IN ('OPEN', 'CLAIMED')");
             }
         });

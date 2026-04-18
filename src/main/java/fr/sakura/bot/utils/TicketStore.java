@@ -73,7 +73,7 @@ public class TicketStore {
             pstmt.setString(3, channelId);
             pstmt.setString(4, createdAt);
             pstmt.executeUpdate();
-            return getByChannelId(guildId, channelId);
+            return getActiveTicket(guildId, userId);
         } catch (SQLException e) {
             logger.error("Erreur creation ticket guildId={}, userId={}, channelId={}", guildId, userId, channelId, e);
             return getActiveTicket(guildId, userId);
