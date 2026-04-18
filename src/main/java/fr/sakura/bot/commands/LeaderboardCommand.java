@@ -53,7 +53,14 @@ public class LeaderboardCommand implements ICommand {
             LevelProfile profile = profiles.get(i);
             Member member = event.getGuild().getMemberById(profile.userId());
             String name = member != null ? member.getEffectiveName() : "<@" + profile.userId() + ">";
+            String medal = switch (i) {
+                case 0 -> "🥇";
+                case 1 -> "🥈";
+                case 2 -> "🥉";
+                default -> "🌸";
+            };
             description.append("**#").append(i + 1).append("** ")
+                    .append(medal).append(" ")
                     .append(name)
                     .append(" — niveau **")
                     .append(profile.level())
@@ -63,9 +70,11 @@ public class LeaderboardCommand implements ICommand {
         }
 
         embed.setDescription(description.toString());
+        if (event.getJDA().getSelfUser().getEffectiveAvatarUrl() != null) {
+            embed.setThumbnail(event.getJDA().getSelfUser().getEffectiveAvatarUrl());
+        }
         EmbedStyle.setFooter(embed, "Top " + profiles.size() + " du serveur");
         event.replyEmbeds(embed.build()).queue();
         logger.info("/leaderboard envoye guildId={}, requesterId={}", event.getGuild().getId(), event.getUser().getId());
     }
 }
-

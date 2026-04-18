@@ -59,9 +59,9 @@ public class TicketListener extends ListenerAdapter {
         var guild = event.getGuild();
         String guildId = guild.getId();
 
-        TicketEntry openTicket = ticketService.findOpenTicket(guildId, requester.getId());
-        if (openTicket != null) {
-            event.reply("ℹ️ Vous avez déjà un ticket ouvert: <#" + openTicket.channelId() + ">")
+        TicketEntry activeTicket = ticketService.findOpenTicket(guildId, requester.getId());
+        if (activeTicket != null) {
+            event.reply("ℹ️ Vous avez déjà un ticket actif : <#" + activeTicket.channelId() + ">")
                     .setEphemeral(true)
                     .queue();
             return;
@@ -88,19 +88,21 @@ public class TicketListener extends ListenerAdapter {
             }
 
             action.queue(channel -> {
-                ticketService.createTicketRecord(guildId, requester.getId(), channel.getId());
+                TicketEntry created = ticketService.createTicketRecord(guildId, requester.getId(), channel.getId());
 
                 EmbedBuilder embed = EmbedStyle.newInfoEmbed("🎫", "Ticket ouvert");
-                embed.setDescription(requester.getAsMention() + " a ouvert un ticket. " + supportMention + " va prendre le relais.");
-                embed.addField("👤 Demandeur", requester.getUser().getName(), true);
-                embed.addField("📌 Salon", channel.getAsMention(), true);
+                embed.setDescription(requester.getAsMention() + " a ouvert un ticket. " + supportMention + " prend le relais.");
+                embed.setThumbnail(requester.getEffectiveAvatarUrl());
+                embed.addField("Demandeur", requester.getUser().getName(), true);
+                embed.addField("Statut", created != null ? created.status() : "OPEN", true);
+                embed.addField("Salon", channel.getAsMention(), true);
                 EmbedStyle.setFooter(embed, "Ticket #" + channel.getId());
 
                 channel.sendMessageEmbeds(embed.build())
                         .setActionRow(ticketService.claimButton(), ticketService.closeButton())
                         .queue();
 
-                event.getHook().sendMessage("✅ Ticket créé: " + channel.getAsMention()).queue();
+                event.getHook().sendMessage("✅ Ticket créé : " + channel.getAsMention()).queue();
                 moderationLogger.logInGuild(guild, "TICKET_CREATE", requester, requester, "Ticket ouvert", channel.getId());
                 logger.info("Ticket créé guildId={}, userId={}, channelId={}", guildId, requester.getId(), channel.getId());
             }, error -> {
@@ -119,14 +121,24 @@ public class TicketListener extends ListenerAdapter {
         var guild = event.getGuild();
         var channel = event.getChannel();
         TicketEntry ticket = ticketService.findByChannelId(guild.getId(), channel.getId());
-        if (ticket == null || ticket.status() == null || !"OPEN".equalsIgnoreCase(ticket.status())) {
+        if (ticket == null || ticket.status() == null || "CLOSED".equalsIgnoreCase(ticket.status())) {
             event.reply("❌ Ticket introuvable ou déjà fermé.").setEphemeral(true).queue();
             return;
         }
 
-        ticketService.claimTicket(guild.getId(), channel.getId(), event.getUser().getId());
+        if ("CLAIMED".equalsIgnoreCase(ticket.status())) {
+            event.reply("ℹ️ Ticket déjà pris en charge.").setEphemeral(true).queue();
+            return;
+        }
+
+        TicketEntry claimed = ticketService.claimTicket(guild.getId(), channel.getId(), event.getUser().getId());
         event.reply("✅ Ticket pris en charge par " + event.getUser().getAsMention()).setEphemeral(true).queue();
         moderationLogger.logInGuild(guild, "TICKET_CLAIM", event.getMember(), guild.getMemberById(ticket.userId()), "Ticket pris en charge", channel.getId());
+
+        if (claimed != null) {
+            channel.asTextChannel().sendMessage("✅ " + event.getUser().getAsMention() + " prend en charge ce ticket.").queue();
+        }
+
         logger.info("Ticket claim guildId={}, channelId={}, staffId={}", guild.getId(), channel.getId(), event.getUser().getId());
     }
 
@@ -134,7 +146,7 @@ public class TicketListener extends ListenerAdapter {
         var guild = event.getGuild();
         var channel = event.getChannel();
         TicketEntry ticket = ticketService.findByChannelId(guild.getId(), channel.getId());
-        if (ticket == null || ticket.status() == null || !"OPEN".equalsIgnoreCase(ticket.status())) {
+        if (ticket == null || ticket.status() == null || "CLOSED".equalsIgnoreCase(ticket.status())) {
             event.reply("❌ Ticket introuvable ou déjà fermé.").setEphemeral(true).queue();
             return;
         }
@@ -146,18 +158,18 @@ public class TicketListener extends ListenerAdapter {
             return;
         }
 
-        ticketService.closeTicket(guild.getId(), channel.getId(), event.getUser().getId(), isOwner ? "Fermé par le demandeur" : "Fermé par le support");
+        String closeReason = isOwner ? "Fermé par le demandeur" : "Fermé par le support";
+        TicketEntry closed = ticketService.closeTicket(guild.getId(), channel.getId(), event.getUser().getId(), closeReason);
+
         event.reply("🔒 Ticket fermé. Le salon sera supprimé dans 10 secondes.").setEphemeral(true).queue();
         moderationLogger.logInGuild(guild, "TICKET_CLOSE", event.getMember(), guild.getMemberById(ticket.userId()), "Ticket fermé", channel.getId());
 
-        channel.asTextChannel().sendMessage("🔒 Le ticket est en cours de fermeture...").queue();
+        String details = "🔒 Ticket clôturé par " + event.getUser().getAsMention();
+        if (closed != null && closed.claimedBy() != null) {
+            details += "\n👤 Pris en charge par <@" + closed.claimedBy() + ">";
+        }
+        channel.asTextChannel().sendMessage(details).queue();
         channel.asTextChannel().delete().queueAfter(Duration.ofSeconds(10).toMillis(), TimeUnit.MILLISECONDS);
         logger.info("Ticket close guildId={}, channelId={}, closedBy={}", guild.getId(), channel.getId(), event.getUser().getId());
     }
 }
-
-
-
-
-
-

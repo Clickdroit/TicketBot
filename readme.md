@@ -125,3 +125,39 @@ Il couvre :
 ### Rollback
 - Conserver une sauvegarde SQLite avant migration/déploiement.
 - Si régression critique, restaurer la base, revenir à la version précédente et relancer la vérification.
+
+## 🎯 Scope V2 implémenté (cible immédiate)
+
+- Data layer robuste avec migrations versionnées (`schema_migrations`) et indexation.
+- Stabilisation auto-mod (pipeline ordonné, strike lifecycle configurable, logs plus explicites).
+- XP configurable à chaud + outils staff (`/xpadmin`) + mapping rôles de niveau.
+- Tickets avec lifecycle explicite (`OPEN` → `CLAIMED` → `CLOSED`) et anti-duplication active.
+- Outils staff supplémentaires (`/lock`, `/unlock`, `/slowmode`, `/say`).
+
+## ✅ Critères de validation (DoD) par module
+
+- **Data** : initialisation idempotente, migrations rejouables, index présents, compat SQLite/PostgreSQL.
+- **Auto-mod** : règles évaluées dans un ordre déterministe, motifs lisibles, logs d’audit systématiques.
+- **XP** : paramètres runtime fonctionnels, commandes staff opérationnelles, classement/rang cohérents.
+- **Tickets** : unicité ticket actif garantie, transitions d’état valides, fermeture traçable.
+- **Staff tools** : permissions Discord respectées, feedback clair, logs homogènes.
+
+## 🗄️ Runbook backup / restore SQLite
+
+1. Arrêter le bot.
+2. Sauvegarder la base :
+   - `cp data/sakura.db data/sakura.db.bak.$(date +%Y%m%d-%H%M%S)`
+3. Déployer / migrer.
+4. Vérifier les commandes critiques.
+5. En cas de rollback :
+   - arrêter le bot,
+   - restaurer le backup voulu vers `data/sakura.db`,
+   - relancer puis valider (`./gradlew --no-daemon test build` + checks fonctionnels).
+
+## 🐘 Checklist compat PostgreSQL
+
+- `DATABASE_URL` valide (`postgres://...` ou `jdbc:postgresql://...`).
+- Schéma initialisé via `DatabaseManager.initialize(...)`.
+- Vérifier que les migrations ont bien été appliquées (`schema_migrations`).
+- Contrôler permissions SQL (CREATE/ALTER/INDEX sur le schéma cible).
+- Vérifier les commandes sensibles (tickets, XP, config, modération) après démarrage.

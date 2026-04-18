@@ -36,22 +36,13 @@ public class LevelStore {
         LevelProfile current = getProfile(guildId, userId);
         long totalXp = Math.max(0L, current.xp() + xpToAdd);
         int level = Math.max(0, newLevel);
+        return upsertProfile(guildId, userId, totalXp, level);
+    }
 
-        String sql = "INSERT INTO levels (guild_id, user_id, xp, level) VALUES (?, ?, ?, ?) " +
-                "ON CONFLICT(guild_id, user_id) DO UPDATE SET xp = excluded.xp, level = excluded.level";
-
-        try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, guildId);
-            pstmt.setString(2, userId);
-            pstmt.setLong(3, totalXp);
-            pstmt.setInt(4, level);
-            pstmt.executeUpdate();
-        } catch (SQLException e) {
-            logger.error("Erreur update XP guildId={}, userId={}", guildId, userId, e);
-        }
-
-        return new LevelProfile(guildId, userId, totalXp, level);
+    public synchronized LevelProfile setXp(String guildId, String userId, long xp, int level) {
+        long safeXp = Math.max(0L, xp);
+        int safeLevel = Math.max(0, level);
+        return upsertProfile(guildId, userId, safeXp, safeLevel);
     }
 
     public synchronized List<LevelProfile> getLeaderboard(String guildId, int limit) {
@@ -95,5 +86,22 @@ public class LevelStore {
             logger.error("Erreur reset XP guildId={}", guildId, e);
         }
     }
-}
 
+    private LevelProfile upsertProfile(String guildId, String userId, long xp, int level) {
+        String sql = "INSERT INTO levels (guild_id, user_id, xp, level) VALUES (?, ?, ?, ?) " +
+                "ON CONFLICT(guild_id, user_id) DO UPDATE SET xp = excluded.xp, level = excluded.level";
+
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, guildId);
+            pstmt.setString(2, userId);
+            pstmt.setLong(3, xp);
+            pstmt.setInt(4, level);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("Erreur upsert XP guildId={}, userId={}", guildId, userId, e);
+        }
+
+        return new LevelProfile(guildId, userId, xp, level);
+    }
+}

@@ -36,7 +36,7 @@ public class TicketService {
     }
 
     public TicketEntry findOpenTicket(String guildId, String userId) {
-        return ticketStore.getOpenTicket(guildId, userId);
+        return ticketStore.getActiveTicket(guildId, userId);
     }
 
     public TicketEntry findByChannelId(String guildId, String channelId) {
@@ -47,12 +47,12 @@ public class TicketService {
         return ticketStore.createTicket(guildId, userId, channelId);
     }
 
-    public void claimTicket(String guildId, String channelId, String claimedBy) {
-        ticketStore.claimTicket(guildId, channelId, claimedBy);
+    public TicketEntry claimTicket(String guildId, String channelId, String claimedBy) {
+        return ticketStore.claimTicket(guildId, channelId, claimedBy);
     }
 
-    public void closeTicket(String guildId, String channelId, String closedBy, String closeReason) {
-        ticketStore.closeTicket(guildId, channelId, closedBy, closeReason);
+    public TicketEntry closeTicket(String guildId, String channelId, String closedBy, String closeReason) {
+        return ticketStore.closeTicket(guildId, channelId, closedBy, closeReason);
     }
 
     public Category resolveTicketCategory(Guild guild) {
@@ -142,5 +142,4 @@ public class TicketService {
         return Button.danger("ticket:close", "🔒 Fermer le ticket");
     }
 }
-
 

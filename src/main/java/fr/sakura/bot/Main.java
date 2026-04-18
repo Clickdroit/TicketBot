@@ -58,7 +58,7 @@ public class Main {
         // Initialisation des services
         SettingsManager settingsManager = new SettingsManager();
         ModerationLogger moderationLogger = new ModerationLogger(logChannelId);
-        LevelService levelService = new LevelService();
+        LevelService levelService = new LevelService(settingsManager);
         TicketService ticketService = new TicketService(settingsManager);
 
         CommandManager commandManager = new CommandManager(guildId, moderationLogger, warningsFilePath, settingsManager, levelService, ticketService);

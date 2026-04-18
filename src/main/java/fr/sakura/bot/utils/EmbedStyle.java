@@ -3,6 +3,7 @@ package fr.sakura.bot.utils;
 import net.dv8tion.jda.api.EmbedBuilder;
 
 import java.awt.Color;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.temporal.TemporalAccessor;
 import java.time.format.DateTimeFormatter;
@@ -12,7 +13,7 @@ import java.time.format.DateTimeFormatter;
  */
 public final class EmbedStyle {
 
-    private static final Color SAKURA_PINK = new Color(255, 183, 197);
+    private static final Color SAKURA_PINK = new Color(255, 168, 204);
     private static final DateTimeFormatter INFO_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy à HH:mm");
     private static final DateTimeFormatter MODERATION_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy à HH:mm:ss");
     private static final String APP_MARK = "🌸 Sakura";
@@ -25,7 +26,8 @@ public final class EmbedStyle {
     public static EmbedBuilder newInfoEmbed(String emoji, String title) {
         EmbedBuilder embed = new EmbedBuilder();
         embed.setColor(SAKURA_PINK);
-        embed.setTitle(truncate(emoji + " " + title, 256));
+        embed.setTitle(truncate(emoji + "  •  " + title, 256));
+        embed.setTimestamp(Instant.now());
         return embed;
     }
 

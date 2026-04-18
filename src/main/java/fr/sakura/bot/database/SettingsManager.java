@@ -7,6 +7,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class SettingsManager {
 
@@ -16,7 +18,10 @@ public class SettingsManager {
      * Initialise par defaut les parametres d'une guilde si elle n'existe pas.
      */
     private void ensureGuildExists(String guildId) {
-        String sql = "INSERT OR IGNORE INTO settings (guild_id) VALUES (?)";
+        String sql = DatabaseManager.isPostgres()
+                ? "INSERT INTO settings (guild_id) VALUES (?) ON CONFLICT (guild_id) DO NOTHING"
+                : "INSERT OR IGNORE INTO settings (guild_id) VALUES (?)";
+
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, guildId);
@@ -39,7 +44,7 @@ public class SettingsManager {
         } catch (SQLException e) {
             logger.error("Erreur lecture anti_spam_enabled guildId={}", guildId, e);
         }
-        return true; // Par defaut, on active
+        return true;
     }
 
     public void setAntiSpamEnabled(String guildId, boolean enabled) {
@@ -125,8 +130,7 @@ public class SettingsManager {
     }
 
     public long getSpamWindowMs(String guildId) {
-        int raw = getIntSetting(guildId, "spam_window_ms", 5000, 2000, 15000);
-        return raw;
+        return getIntSetting(guildId, "spam_window_ms", 5000, 2000, 15000);
     }
 
     public void setSpamWindowMs(String guildId, long value) {
@@ -148,6 +152,131 @@ public class SettingsManager {
 
     public void setAutomodTimeoutMinutes(String guildId, int value) {
         setIntSetting(guildId, "automod_timeout_minutes", clamp(value, 1, 1440));
+    }
+
+    public int getAutomodStrikeResetMinutes(String guildId) {
+        return getIntSetting(guildId, "automod_strike_reset_minutes", 10, 1, 180);
+    }
+
+    public void setAutomodStrikeResetMinutes(String guildId, int value) {
+        setIntSetting(guildId, "automod_strike_reset_minutes", clamp(value, 1, 180));
+    }
+
+    public int getAutomodNoticeCooldownSeconds(String guildId) {
+        return getIntSetting(guildId, "automod_notice_cooldown_seconds", 15, 3, 120);
+    }
+
+    public void setAutomodNoticeCooldownSeconds(String guildId, int value) {
+        setIntSetting(guildId, "automod_notice_cooldown_seconds", clamp(value, 3, 120));
+    }
+
+    public int getXpCooldownMs(String guildId) {
+        return getIntSetting(guildId, "xp_cooldown_ms", 60_000, 5_000, 300_000);
+    }
+
+    public void setXpCooldownMs(String guildId, int valueMs) {
+        setIntSetting(guildId, "xp_cooldown_ms", clamp(valueMs, 5_000, 300_000));
+    }
+
+    public int getXpMinMessageLength(String guildId) {
+        return getIntSetting(guildId, "xp_min_message_length", 5, 1, 300);
+    }
+
+    public void setXpMinMessageLength(String guildId, int value) {
+        setIntSetting(guildId, "xp_min_message_length", clamp(value, 1, 300));
+    }
+
+    public int getXpMinAlnumCount(String guildId) {
+        return getIntSetting(guildId, "xp_min_alnum_count", 3, 1, 100);
+    }
+
+    public void setXpMinAlnumCount(String guildId, int value) {
+        setIntSetting(guildId, "xp_min_alnum_count", clamp(value, 1, 100));
+    }
+
+    public int getXpMinGain(String guildId) {
+        int min = getIntSetting(guildId, "xp_min_gain", 15, 1, 1000);
+        int max = getXpMaxGain(guildId);
+        return Math.min(min, max);
+    }
+
+    public int getXpMaxGain(String guildId) {
+        int max = getIntSetting(guildId, "xp_max_gain", 25, 1, 1000);
+        int min = getIntSetting(guildId, "xp_min_gain", 15, 1, 1000);
+        return Math.max(max, min);
+    }
+
+    public void setXpGainRange(String guildId, int minGain, int maxGain) {
+        int boundedMin = clamp(minGain, 1, 1000);
+        int boundedMax = clamp(maxGain, 1, 1000);
+        if (boundedMax < boundedMin) {
+            int tmp = boundedMin;
+            boundedMin = boundedMax;
+            boundedMax = tmp;
+        }
+        setIntSetting(guildId, "xp_min_gain", boundedMin);
+        setIntSetting(guildId, "xp_max_gain", boundedMax);
+    }
+
+    public Map<Integer, String> getLevelRoleMappings(String guildId) {
+        Map<Integer, String> result = new LinkedHashMap<>();
+        String sql = "SELECT level, role_id FROM level_roles WHERE guild_id = ? ORDER BY level ASC";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, guildId);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                result.put(rs.getInt("level"), rs.getString("role_id"));
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur lecture mappings level_roles guildId={}", guildId, e);
+        }
+        return result;
+    }
+
+    public String getLevelRoleId(String guildId, int level) {
+        String sql = "SELECT role_id FROM level_roles WHERE guild_id = ? AND level = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, guildId);
+            pstmt.setInt(2, level);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getString("role_id");
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur lecture level_role guildId={}, level={}", guildId, level, e);
+        }
+        return null;
+    }
+
+    public void setLevelRole(String guildId, int level, String roleId) {
+        String sql = DatabaseManager.isPostgres()
+                ? "INSERT INTO level_roles (guild_id, level, role_id) VALUES (?, ?, ?) ON CONFLICT (guild_id, level) DO UPDATE SET role_id = EXCLUDED.role_id"
+                : "INSERT INTO level_roles (guild_id, level, role_id) VALUES (?, ?, ?) ON CONFLICT(guild_id, level) DO UPDATE SET role_id = excluded.role_id";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, guildId);
+            pstmt.setInt(2, level);
+            pstmt.setString(3, roleId);
+            pstmt.executeUpdate();
+            logger.info("Level role configure guildId={}, level={}, roleId={}", guildId, level, roleId);
+        } catch (SQLException e) {
+            logger.error("Erreur upsert level_role guildId={}, level={}", guildId, level, e);
+        }
+    }
+
+    public void removeLevelRole(String guildId, int level) {
+        String sql = "DELETE FROM level_roles WHERE guild_id = ? AND level = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, guildId);
+            pstmt.setInt(2, level);
+            pstmt.executeUpdate();
+            logger.info("Level role supprime guildId={}, level={}", guildId, level);
+        } catch (SQLException e) {
+            logger.error("Erreur suppression level_role guildId={}, level={}", guildId, level, e);
+        }
     }
 
     private int getIntSetting(String guildId, String field, int fallback, int min, int max) {
