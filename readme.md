@@ -51,6 +51,22 @@ Pour lancer le bot, exécutez simplement :
 
 *(Si `./gradlew` n'est pas encore initialisé, vous pouvez utiliser `gradle run` si Gradle est installé sur votre machine).*
 
+## 🎨 Convention des embeds
+
+Le style des embeds est centralisé dans `src/main/java/fr/sakura/bot/utils/EmbedStyle.java`.
+
+- Embeds **non-modération** (`/serverinfo`, `/userinfo`, `/avatar`, bienvenue) :
+  - Couleur sakura commune
+  - Titres normalisés (`emoji + titre`)
+  - Dates au format `dd/MM/yyyy à HH:mm`
+  - Footer normalisé préfixé par `🌸 Sakura`
+- Embeds **modération** :
+  - Couleurs/emoji conservés par type d’action dans `ModerationLogger`
+  - Format de date `dd/MM/yyyy à HH:mm:ss`
+  - Limites de longueur et footer harmonisés via `EmbedStyle`
+
+Pour modifier l’apparence globale des embeds, mettez à jour `EmbedStyle` plutôt que chaque commande individuellement.
+
 ## 🛡️ Fonctionnalité d'exclusivité (Mono-Serveur)
 
 Le bot vérifie l'ID des serveurs sur lesquels il se trouve à deux moments :
