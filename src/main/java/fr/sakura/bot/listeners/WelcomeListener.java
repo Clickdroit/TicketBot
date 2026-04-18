@@ -1,5 +1,6 @@
 package fr.sakura.bot.listeners;
 
+import fr.sakura.bot.utils.EmbedStyle;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent;
@@ -7,9 +8,6 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.awt.Color;
-import java.time.format.DateTimeFormatter;
 
 public class WelcomeListener extends ListenerAdapter {
 
@@ -42,14 +40,11 @@ public class WelcomeListener extends ListenerAdapter {
                 event.getGuild().getName(),
                 event.getGuild().getId());
 
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-        String joinTime = event.getMember().getTimeJoined().format(formatter);
+        String joinTime = EmbedStyle.formatInfoDate(event.getMember().getTimeJoined());
         int memberCount = event.getGuild().getMemberCount();
 
-        EmbedBuilder embed = new EmbedBuilder();
-        embed.setTitle("Bienvenue !");
+        EmbedBuilder embed = EmbedStyle.newInfoEmbed("🌸", "Bienvenue !");
         embed.setDescription("Bienvenue " + event.getMember().getAsMention() + " sur **" + event.getGuild().getName() + "** !");
-        embed.setColor(new Color(43, 45, 49));
 
         if (event.getMember().getUser().getAvatarUrl() != null) {
             embed.setThumbnail(event.getMember().getUser().getAvatarUrl());
@@ -62,11 +57,10 @@ public class WelcomeListener extends ListenerAdapter {
             logger.debug("Aucune image de bienvenue configuree (WELCOME_IMAGE_URL absent)");
         }
 
-        embed.setFooter(
-                "Arrivée à " + event.getMember().getTimeJoined().format(DateTimeFormatter.ofPattern("HH:mm"))
-                        + " • Membre n°" + memberCount
-                        + " • " + joinTime,
-                event.getMember().getUser().getEffectiveAvatarUrl()
+        String joinHour = event.getMember().getTimeJoined().toLocalTime().withSecond(0).withNano(0).toString();
+        EmbedStyle.setFooter(
+                embed,
+                "Arrivée à " + joinHour + " • Membre n°" + memberCount + " • " + joinTime
         );
 
         channel.sendMessageEmbeds(embed.build()).queue(

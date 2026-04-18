@@ -8,8 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.Color;
-import java.time.OffsetDateTime;
-import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -95,42 +94,36 @@ public class ModerationLogger {
 
     private static final ActionStyle DEFAULT_STYLE = new ActionStyle(new Color(128, 128, 128), "📋");
 
-    private String truncateField(String value, int max) {
-        if (value == null || value.length() <= max) return value;
-        return value.substring(0, max - 3) + "...";
-    }
-
     public void log(TextChannel channel, String action, Member moderator, Member target, String reason, String extra) {
         if (channel == null) {
             logger.warn("Log de moderation ignore: channel null pour action={}", action);
             return;
         }
 
-        String actionKey = action != null ? action.toUpperCase() : "UNKNOWN";
+        String actionKey = action != null ? action.toUpperCase(Locale.ROOT) : "UNKNOWN";
         ActionStyle style = ACTION_STYLES.getOrDefault(actionKey, DEFAULT_STYLE);
 
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy à HH:mm:ss");
-        String timestamp = OffsetDateTime.now().format(formatter);
+        String timestamp = EmbedStyle.moderationTimestampNow();
 
         EmbedBuilder embed = new EmbedBuilder();
-        embed.setTitle(truncateField(style.emoji() + " Action de Modération : " + actionKey, 256));
+        embed.setTitle(EmbedStyle.truncate(style.emoji() + " Action de Modération : " + actionKey, 256));
         embed.setColor(style.color());
 
-        embed.addField("👮 Modérateur", moderator != null ? moderator.getAsMention() : "Inconnu / Système", true);
+        embed.addField("👮 Modérateur", EmbedStyle.truncate(moderator != null ? moderator.getAsMention() : "Inconnu / Système", 1024), true);
 
         if (target != null) {
-            embed.addField("🎯 Cible", truncateField(target.getUser().getName() + " (<@" + target.getId() + ">)", 1024), true);
+            embed.addField("🎯 Cible", EmbedStyle.truncate(target.getUser().getName() + " (<@" + target.getId() + ">)", 1024), true);
         }
 
         if (reason != null && !reason.isBlank()) {
-            embed.addField("📝 Raison", truncateField(reason, 1024), false);
+            embed.addField("📝 Raison", EmbedStyle.truncate(reason, 1024), false);
         }
 
         if (extra != null && !extra.isBlank()) {
-            embed.addField("ℹ️ Détails", truncateField(extra, 1024), false);
+            embed.addField("ℹ️ Détails", EmbedStyle.truncate(extra, 1024), false);
         }
 
-        embed.setFooter(timestamp);
+        EmbedStyle.setFooter(embed, "Log modération • " + timestamp);
 
         channel.sendMessageEmbeds(embed.build()).queue(
                 success -> logger.debug("Log moderation envoye: action={}, channelId={}", actionKey, channel.getId()),
