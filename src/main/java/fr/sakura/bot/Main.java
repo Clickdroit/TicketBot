@@ -36,17 +36,17 @@ public class Main {
         String databaseUrl = dotenv.get("DATABASE_URL");
 
         if (token == null || token.isEmpty()) {
-            logger.error("DISCORD_TOKEN absent ou vide dans le fichier .env");
+            logger.error("❌ DISCORD_TOKEN absent ou vide dans le fichier .env");
             return;
         }
 
         if (guildId == null || guildId.isEmpty()) {
-            logger.error("GUILD_ID absent ou vide dans le fichier .env");
+            logger.error("❌ GUILD_ID absent ou vide dans le fichier .env");
             return;
         }
 
-        logger.info("Demarrage du bot Discord pour le serveur autorise {}", guildId);
-        logger.info("Configuration: welcomeChannelId={}, logChannelId={}, warningsFilePath={}, databaseUrl={}",
+        logger.info("🚀 Demarrage du bot Discord pour le serveur autorise {}", guildId);
+        logger.info("⚙️ Configuration: welcomeChannelId={}, logChannelId={}, warningsFilePath={}, databaseUrl={}",
                 welcomeChannelId,
                 logChannelId,
                 (warningsFilePath == null || warningsFilePath.isEmpty()) ? "data/warnings.json" : warningsFilePath,
@@ -81,6 +81,6 @@ public class Main {
                 .setActivity(Activity.playing("Sakura Bot (" + guildId + ")"))
                 .build();
 
-        logger.info("Initialisation JDA lancee avec intents: GUILD_MESSAGES, GUILD_MEMBERS, GUILD_VOICE_STATES, MESSAGE_CONTENT");
+        logger.info("✅ Initialisation JDA lancee avec intents: GUILD_MESSAGES, GUILD_MEMBERS, GUILD_VOICE_STATES, MESSAGE_CONTENT");
     }
 }

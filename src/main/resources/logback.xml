@@ -1,12 +1,12 @@
 <configuration>
-    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} [cid=%X{cid:-n/a}] - %msg%n"/>
-
-    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <!-- Appender pour la console (couleurs : level en surbrillance, logger en cyan) -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>${LOG_PATTERN}</pattern>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %highlight(%-5level) %cyan(%logger{36}) [g:%X{guildId:-N/A} u:%X{userId:-N/A}] - %msg%n</pattern>
         </encoder>
     </appender>
 
+    <!-- Appender pour les fichiers de log (rotation quotidienne + par taille) -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>logs/sakura-bot.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
@@ -16,7 +16,23 @@
             <totalSizeCap>1GB</totalSizeCap>
         </rollingPolicy>
         <encoder>
-            <pattern>${LOG_PATTERN}</pattern>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} [guildId=%X{guildId:-} userId=%X{userId:-}] - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Appender dédié aux erreurs -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/error.log</file>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/error.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>50MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} [guildId=%X{guildId:-} userId=%X{userId:-}] - %msg%n</pattern>
         </encoder>
     </appender>
 
@@ -24,7 +40,8 @@
     <logger name="net.dv8tion.jda" level="INFO"/>
 
     <root level="INFO">
-        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="CONSOLE"/>
         <appender-ref ref="FILE"/>
+        <appender-ref ref="ERROR_FILE"/>
     </root>
 </configuration>

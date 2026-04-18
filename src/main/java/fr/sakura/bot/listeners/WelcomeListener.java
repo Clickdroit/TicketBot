@@ -43,7 +43,6 @@ public class WelcomeListener extends ListenerAdapter {
                 event.getGuild().getName(),
                 event.getGuild().getId());
 
-        String joinTime = EmbedStyle.formatInfoDate(event.getMember().getTimeJoined());
         int memberCount = event.getGuild().getMemberCount();
 
         EmbedBuilder embed = EmbedStyle.newInfoEmbed("🌸", "Bienvenue !");
@@ -63,7 +62,8 @@ public class WelcomeListener extends ListenerAdapter {
         String arrivalTime = event.getMember().getTimeJoined().toLocalTime().format(HOUR_MINUTE_FORMATTER);
         EmbedStyle.setFooter(
                 embed,
-                "Arrivée à " + arrivalTime + " • Membre n°" + memberCount + " • " + joinTime
+                "📥 Arrivée à " + arrivalTime + " • Membre n°" + memberCount,
+                event.getGuild().getIconUrl()
         );
 
         channel.sendMessageEmbeds(embed.build()).queue(
