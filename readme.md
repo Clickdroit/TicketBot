@@ -74,3 +74,32 @@ Le bot vérifie l'ID des serveurs sur lesquels il se trouve à deux moments :
 2. **Lorsqu'il rejoint un nouveau serveur (`onGuildJoin`)** : Si l'ID du nouveau serveur ne correspond pas à `GUILD_ID`, il le quitte instantanément.
 
 Vous êtes ainsi assuré que le bot ne pourra être utilisé que sur votre propre serveur.
+
+## 🧭 Plan Sakura V2
+
+Le plan détaillé d’implémentation et de stabilisation est disponible dans :
+
+- `plan-sakuraV2.prompt.md`
+
+Il couvre :
+- l’architecture SQLite robuste,
+- l’auto-mod et les sanctions automatiques,
+- l’XP/leveling,
+- les tickets,
+- les utilitaires staff,
+- et une phase post-livraison dédiée à la correction systématique des bugs/incohérences.
+
+## ✅ QA, release et rollback (V2)
+
+### Vérification qualité
+- Exécuter les tests/build : `./gradlew --no-daemon test build`
+- Valider les permissions Discord de chaque commande/feature.
+- Rejouer les scénarios critiques (modération, auto-mod, tickets, leveling).
+
+### Release
+- Déployer de façon contrôlée (checklist Go/No-Go).
+- Surveiller les logs et les erreurs de commandes après déploiement.
+
+### Rollback
+- Conserver une sauvegarde SQLite avant migration/déploiement.
+- Si régression critique, restaurer la base, revenir à la version précédente et relancer la vérification.
