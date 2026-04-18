@@ -1,0 +1,94 @@
+2026-04-18 16:20:23.625 [main] INFO  fr.sakura.bot.Main [cid=n/a] - Demarrage du bot Discord pour le serveur autorise 1495010264125407262
+2026-04-18 16:20:23.627 [main] INFO  fr.sakura.bot.Main [cid=n/a] - Configuration: welcomeChannelId=1495014815578718351, logChannelId=1495014805818572963, warningsFilePath=data/warnings.json
+2026-04-18 16:20:23.630 [main] INFO  f.sakura.bot.utils.ModerationLogger [cid=n/a] - ModerationLogger initialise (enabled=true, channelId=1495014805818572963)
+2026-04-18 16:20:23.655 [main] INFO  fr.sakura.bot.utils.WarningStore [cid=n/a] - WarningStore initialise sur E:\dev\sakura-bot\data\warnings.json
+2026-04-18 16:20:23.655 [main] INFO  fr.sakura.bot.utils.WarningService [cid=n/a] - WarningService pret (stockage JSON)
+2026-04-18 16:20:23.656 [main] INFO  f.sakura.bot.commands.CommandManager [cid=n/a] - Initialisation CommandManager guildId=1495010264125407262, logChannelId=1495014805818572963, warningsFilePath=data/warnings.json
+2026-04-18 16:20:23.656 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: ping
+2026-04-18 16:20:23.657 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: help
+2026-04-18 16:20:23.657 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: avatar
+2026-04-18 16:20:23.658 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: userinfo
+2026-04-18 16:20:23.658 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: serverinfo
+2026-04-18 16:20:23.658 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: clear
+2026-04-18 16:20:23.659 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: kick
+2026-04-18 16:20:23.660 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: ban
+2026-04-18 16:20:23.660 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: timeout
+2026-04-18 16:20:23.660 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: unban
+2026-04-18 16:20:23.661 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: warn
+2026-04-18 16:20:23.661 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: warnings
+2026-04-18 16:20:23.662 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: clearwarnings
+2026-04-18 16:20:24.722 [main] INFO  net.dv8tion.jda.api.JDA [cid=n/a] - Login Successful!
+2026-04-18 16:20:24.744 [main] INFO  fr.sakura.bot.Main [cid=n/a] - Initialisation JDA lancee avec intents: GUILD_MESSAGES, GUILD_MEMBERS
+2026-04-18 16:20:24.950 [JDA MainWS-ReadThread] INFO  n.d.j.i.requests.WebSocketClient [cid=n/a] - Connected to WebSocket
+2026-04-18 16:20:25.506 [JDA MainWS-ReadThread] INFO  net.dv8tion.jda.api.JDA [cid=n/a] - Finished Loading!
+2026-04-18 16:20:25.507 [JDA MainWS-ReadThread] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Bot connecte en tant que Sakura
+2026-04-18 16:20:25.510 [JDA MainWS-ReadThread] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Verification mono-serveur de 1 guild(s)
+2026-04-18 16:20:25.510 [JDA MainWS-ReadThread] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Serveur autorise confirme: 𝐒𝐚𝐤𝐮𝐫𝐚 🌸 • 𝐅𝐑 (1495010264125407262)
+2026-04-18 16:20:25.673 [ForkJoinPool.commonPool-worker-1] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Commandes globales purgees
+2026-04-18 16:20:25.798 [ForkJoinPool.commonPool-worker-1] INFO  f.sakura.bot.commands.CommandManager [cid=n/a] - 13 commandes Slash enregistrees pour 𝐒𝐚𝐤𝐮𝐫𝐚 🌸 • 𝐅𝐑 (1495010264125407262)
+2026-04-18 16:20:35.225 [main] INFO  fr.sakura.bot.Main [cid=n/a] - Demarrage du bot Discord pour le serveur autorise 1495010264125407262
+2026-04-18 16:20:35.226 [main] INFO  fr.sakura.bot.Main [cid=n/a] - Configuration: welcomeChannelId=1495014815578718351, logChannelId=1495014805818572963, warningsFilePath=data/warnings.json
+2026-04-18 16:20:35.229 [main] INFO  f.sakura.bot.utils.ModerationLogger [cid=n/a] - ModerationLogger initialise (enabled=true, channelId=1495014805818572963)
+2026-04-18 16:20:35.255 [main] INFO  fr.sakura.bot.utils.WarningStore [cid=n/a] - WarningStore initialise sur E:\dev\sakura-bot\data\warnings.json
+2026-04-18 16:20:35.255 [main] INFO  fr.sakura.bot.utils.WarningService [cid=n/a] - WarningService pret (stockage JSON)
+2026-04-18 16:20:35.255 [main] INFO  f.sakura.bot.commands.CommandManager [cid=n/a] - Initialisation CommandManager guildId=1495010264125407262, logChannelId=1495014805818572963, warningsFilePath=data/warnings.json
+2026-04-18 16:20:35.256 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: ping
+2026-04-18 16:20:35.256 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: help
+2026-04-18 16:20:35.256 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: avatar
+2026-04-18 16:20:35.257 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: userinfo
+2026-04-18 16:20:35.257 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: serverinfo
+2026-04-18 16:20:35.258 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: clear
+2026-04-18 16:20:35.259 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: kick
+2026-04-18 16:20:35.260 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: ban
+2026-04-18 16:20:35.260 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: timeout
+2026-04-18 16:20:35.261 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: unban
+2026-04-18 16:20:35.262 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: warn
+2026-04-18 16:20:35.262 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: warnings
+2026-04-18 16:20:35.263 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: clearwarnings
+2026-04-18 16:20:36.142 [main] INFO  net.dv8tion.jda.api.JDA [cid=n/a] - Login Successful!
+2026-04-18 16:20:36.164 [main] INFO  fr.sakura.bot.Main [cid=n/a] - Initialisation JDA lancee avec intents: GUILD_MESSAGES, GUILD_MEMBERS
+2026-04-18 16:20:36.392 [JDA MainWS-ReadThread] INFO  n.d.j.i.requests.WebSocketClient [cid=n/a] - Connected to WebSocket
+2026-04-18 16:20:36.721 [JDA MainWS-ReadThread] INFO  net.dv8tion.jda.api.JDA [cid=n/a] - Finished Loading!
+2026-04-18 16:20:36.722 [JDA MainWS-ReadThread] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Bot connecte en tant que Sakura
+2026-04-18 16:20:36.726 [JDA MainWS-ReadThread] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Verification mono-serveur de 1 guild(s)
+2026-04-18 16:20:36.727 [JDA MainWS-ReadThread] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Serveur autorise confirme: 𝐒𝐚𝐤𝐮𝐫𝐚 🌸 • 𝐅𝐑 (1495010264125407262)
+2026-04-18 16:20:36.954 [ForkJoinPool.commonPool-worker-1] INFO  f.sakura.bot.commands.CommandManager [cid=n/a] - 13 commandes Slash enregistrees pour 𝐒𝐚𝐤𝐮𝐫𝐚 🌸 • 𝐅𝐑 (1495010264125407262)
+2026-04-18 16:20:36.966 [ForkJoinPool.commonPool-worker-1] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Commandes globales purgees
+2026-04-18 16:33:07.362 [main] INFO  fr.sakura.bot.Main [cid=n/a] - Demarrage du bot Discord pour le serveur autorise 1495010264125407262
+2026-04-18 16:33:07.364 [main] INFO  fr.sakura.bot.Main [cid=n/a] - Configuration: welcomeChannelId=1495014815578718351, logChannelId=1495014805818572963, warningsFilePath=data/warnings.json
+2026-04-18 16:33:07.369 [main] INFO  f.sakura.bot.utils.ModerationLogger [cid=n/a] - ModerationLogger initialise (enabled=true, channelId=1495014805818572963)
+2026-04-18 16:33:07.394 [main] INFO  fr.sakura.bot.utils.WarningStore [cid=n/a] - WarningStore initialise sur E:\dev\sakura-bot\data\warnings.json
+2026-04-18 16:33:07.395 [main] INFO  fr.sakura.bot.utils.WarningService [cid=n/a] - WarningService pret (stockage JSON)
+2026-04-18 16:33:07.395 [main] INFO  f.sakura.bot.commands.CommandManager [cid=n/a] - Initialisation CommandManager guildId=1495010264125407262, logChannelId=1495014805818572963, warningsFilePath=data/warnings.json
+2026-04-18 16:33:07.395 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: ping
+2026-04-18 16:33:07.396 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: help
+2026-04-18 16:33:07.396 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: avatar
+2026-04-18 16:33:07.396 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: userinfo
+2026-04-18 16:33:07.397 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: serverinfo
+2026-04-18 16:33:07.397 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: clear
+2026-04-18 16:33:07.398 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: kick
+2026-04-18 16:33:07.399 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: ban
+2026-04-18 16:33:07.399 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: timeout
+2026-04-18 16:33:07.400 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: unban
+2026-04-18 16:33:07.400 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: warn
+2026-04-18 16:33:07.401 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: warnings
+2026-04-18 16:33:07.401 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: clearwarnings
+2026-04-18 16:33:07.403 [main] INFO  f.sakura.bot.utils.ModerationLogger [cid=n/a] - ModerationLogger initialise (enabled=true, channelId=1495014805818572963)
+2026-04-18 16:33:08.325 [main] INFO  net.dv8tion.jda.api.JDA [cid=n/a] - Login Successful!
+2026-04-18 16:33:08.349 [main] INFO  fr.sakura.bot.Main [cid=n/a] - Initialisation JDA lancee avec intents: GUILD_MESSAGES, GUILD_MEMBERS, GUILD_VOICE_STATES
+2026-04-18 16:33:08.561 [JDA MainWS-ReadThread] INFO  n.d.j.i.requests.WebSocketClient [cid=n/a] - Connected to WebSocket
+2026-04-18 16:33:08.947 [JDA MainWS-ReadThread] INFO  net.dv8tion.jda.api.JDA [cid=n/a] - Finished Loading!
+2026-04-18 16:33:08.948 [JDA MainWS-ReadThread] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Bot connecte en tant que Sakura
+2026-04-18 16:33:08.951 [JDA MainWS-ReadThread] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Verification mono-serveur de 1 guild(s)
+2026-04-18 16:33:08.952 [JDA MainWS-ReadThread] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Serveur autorise confirme: 𝐒𝐚𝐤𝐮𝐫𝐚 🌸 • 𝐅𝐑 (1495010264125407262)
+2026-04-18 16:33:09.122 [ForkJoinPool.commonPool-worker-1] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Commandes globales purgees
+2026-04-18 16:33:09.191 [ForkJoinPool.commonPool-worker-1] INFO  f.sakura.bot.commands.CommandManager [cid=n/a] - 13 commandes Slash enregistrees pour 𝐒𝐚𝐤𝐮𝐫𝐚 🌸 • 𝐅𝐑 (1495010264125407262)
+2026-04-18 16:33:33.233 [JDA MainWS-ReadThread] WARN  net.dv8tion.jda.api.JDA [cid=n/a] - Attempting to access message content without GatewayIntent.MESSAGE_CONTENT.
+Discord now requires to explicitly enable access to this using the MESSAGE_CONTENT intent.
+Useful resources to learn more:
+	- https://support-dev.discord.com/hc/en-us/articles/4404772028055-Message-Content-Privileged-Intent-FAQ
+	- https://jda.wiki/using-jda/gateway-intents-and-member-cache-policy/
+	- https://jda.wiki/using-jda/troubleshooting/#cannot-get-message-content-attempting-to-access-message-content-without-gatewayintent
+Or suppress this warning if this is intentional with Message.suppressContentIntentWarning()
+2026-04-18 16:33:33.252 [JDA MainWS-ReadThread] INFO  f.s.b.l.ModerationActivityListener [cid=n/a] - Message modifie: guildId=1495010264125407262, channelId=1495014772452622416, messageId=1495069628089765969, authorId=838024514369617930
+2026-04-18 16:33:33.713 [ForkJoinPool.commonPool-worker-1] DEBUG f.sakura.bot.utils.ModerationLogger [cid=n/a] - Log moderation envoye: action=MESSAGE_EDIT, channelId=1495014805818572963

@@ -1,0 +1,33 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group = 'fr.sakura'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // JDA (Java Discord API) pour interagir avec Discord
+    implementation 'net.dv8tion:JDA:5.0.0-beta.21'
+    
+    // Logback pour la gestion des logs
+    implementation 'ch.qos.logback:logback-classic:1.4.14'
+
+    // Dotenv pour lire le fichier .env
+    implementation 'io.github.cdimascio:dotenv-java:3.0.0'
+
+    // Gson pour la persistance JSON locale
+    implementation 'com.google.code.gson:gson:2.10.1'
+}
+
+application {
+    mainClass = 'fr.sakura.bot.Main'
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
