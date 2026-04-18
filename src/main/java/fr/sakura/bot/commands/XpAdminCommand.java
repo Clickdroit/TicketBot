@@ -82,7 +82,7 @@ public class XpAdminCommand implements ICommand {
         switch (sub) {
             case "set" -> {
                 Member target = event.getOption("membre", OptionMapping::getAsMember);
-                long xp = event.getOption("xp", 0, OptionMapping::getAsLong);
+                long xp = event.getOption("xp", 0L, OptionMapping::getAsLong);
                 if (target == null) {
                     event.reply("❌ Membre introuvable.").setEphemeral(true).queue();
                     return;
@@ -95,7 +95,7 @@ public class XpAdminCommand implements ICommand {
             }
             case "add" -> {
                 Member target = event.getOption("membre", OptionMapping::getAsMember);
-                long delta = event.getOption("delta", 0, OptionMapping::getAsLong);
+                long delta = event.getOption("delta", 0L, OptionMapping::getAsLong);
                 if (target == null) {
                     event.reply("❌ Membre introuvable.").setEphemeral(true).queue();
                     return;

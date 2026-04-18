@@ -307,3 +307,13 @@ Or suppress this warning if this is intentional with Message.suppressContentInte
 2026-04-18 19:05:08.611 [ForkJoinPool.commonPool-worker-1] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Commandes globales purgees
 2026-04-18 19:05:08.612 [ForkJoinPool.commonPool-worker-1] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Serveur autorise confirme: 𝐒𝐚𝐤𝐮𝐫𝐚 🌸 • 𝐅𝐑 (1495010264125407262)
 2026-04-18 19:05:08.958 [ForkJoinPool.commonPool-worker-1] INFO  f.sakura.bot.commands.CommandManager [cid=n/a] - 14 commandes Slash enregistrees pour 𝐒𝐚𝐤𝐮𝐫𝐚 🌸 • 𝐅𝐑 (1495010264125407262)
+2026-04-18 18:52:24.360 [Test worker] INFO  f.s.bot.database.DatabaseManager [cid=n/a] - DATABASE_URL configuree en mode SQLite
+2026-04-18 18:52:24.473 [Test worker] INFO  f.s.bot.database.DatabaseManager [cid=n/a] - Migration appliquee v1: create core tables
+2026-04-18 18:52:24.518 [Test worker] INFO  f.s.bot.database.DatabaseManager [cid=n/a] - Migration appliquee v2: add settings and tickets columns
+2026-04-18 18:52:24.520 [Test worker] INFO  f.s.bot.database.DatabaseManager [cid=n/a] - Migration appliquee v3: create performance indexes
+2026-04-18 18:52:24.524 [Test worker] INFO  f.s.bot.database.DatabaseManager [cid=n/a] - Base de donnees initialisee avec succes (dialect=SQLITE)
+2026-04-18 18:52:24.553 [Test worker] INFO  f.s.bot.database.DatabaseManager [cid=n/a] - DATABASE_URL configuree en mode SQLite
+2026-04-18 18:52:24.560 [Test worker] INFO  f.s.bot.database.DatabaseManager [cid=n/a] - Migration appliquee v1: create core tables
+2026-04-18 18:52:24.602 [Test worker] INFO  f.s.bot.database.DatabaseManager [cid=n/a] - Migration appliquee v2: add settings and tickets columns
+2026-04-18 18:52:24.604 [Test worker] INFO  f.s.bot.database.DatabaseManager [cid=n/a] - Migration appliquee v3: create performance indexes
+2026-04-18 18:52:24.607 [Test worker] INFO  f.s.bot.database.DatabaseManager [cid=n/a] - Base de donnees initialisee avec succes (dialect=SQLITE)
