@@ -19,8 +19,10 @@ Ce bot a été spécialement conçu pour fonctionner **uniquement sur un seul se
    Sur Discord, allez dans "Paramètres utilisateur" > "Avancé" et activez le "Mode développeur".
    Ensuite, faites un clic droit sur l'icône de votre serveur Discord et cliquez sur "Copier l'identifiant du serveur" (Guild ID).
 
-3. **Activer l'intent Server Members** :
-   Sur la page de votre bot, allez dans l'onglet "Bot", descendez jusqu'à "Privileged Gateway Intents" et cochez **Server Members Intent**. Sauvegardez. Sans cela, les messages de bienvenue ne fonctionneront pas.
+3. **Activer les intents privilégiés** :
+   Sur la page de votre bot, allez dans l'onglet "Bot", descendez jusqu'à "Privileged Gateway Intents" et cochez **Server Members Intent**.
+   Si vous voulez garder les logs de modification de message, cochez aussi **Message Content Intent**.
+   Sauvegardez. Sans `Server Members Intent`, les messages de bienvenue ne fonctionneront pas.
 
 4. **Configurer le bot** :
    Ouvrez le fichier `.env` à la racine du projet.
@@ -29,11 +31,13 @@ Ce bot a été spécialement conçu pour fonctionner **uniquement sur un seul se
    DISCORD_TOKEN=votre_vrai_token_ici
    GUILD_ID=votre_vrai_id_de_serveur_ici
    WELCOME_CHANNEL_ID=id_du_salon_pour_les_bienvenues
+   WELCOME_IMAGE_URL=url_optionnelle_de_l_image_de_bienvenue
    LOG_CHANNEL_ID=id_du_salon_de_logs_moderation
    WARNINGS_FILE_PATH=data/warnings.json
    ```
 
-   `WARNINGS_FILE_PATH` est optionnel (par defaut: `data/warnings.json`).
+   `WELCOME_IMAGE_URL` est optionnelle et permet de changer l'image de bienvenue sans recompiler.
+   `WARNINGS_FILE_PATH` est optionnel (par défaut : `data/warnings.json`).
 
 ## ⚙️ Comment lancer le bot ?
 

@@ -3,7 +3,6 @@ package fr.sakura.bot.commands;
 import fr.sakura.bot.utils.ModerationLogger;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
-import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
@@ -76,17 +75,14 @@ public class TimeoutCommand implements ICommand {
                             .queue();
                     logger.info("/timeout reussi: modId={}, targetId={}, minutes={}", event.getUser().getId(), target.getId(), minutes);
 
-                    if (event.getGuild() != null && moderationLogger.isEnabled()) {
-                        TextChannel logChannel = event.getGuild().getTextChannelById(moderationLogger.getLogChannelId());
-                        moderationLogger.log(
-                                logChannel,
-                                "TIMEOUT",
-                                event.getMember(),
-                                target,
-                                finalReason,
-                                "Duree: " + minutes + " minute(s)"
-                        );
-                    }
+                    moderationLogger.logInGuild(
+                            event.getGuild(),
+                            "TIMEOUT",
+                            event.getMember(),
+                            target,
+                            finalReason,
+                            "Duree: " + minutes + " minute(s)"
+                    );
                 },
                 error -> {
                     logger.error("/timeout echec API: modId={}, targetId={}, minutes={}",

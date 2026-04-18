@@ -2,7 +2,6 @@ package fr.sakura.bot.commands;
 
 import fr.sakura.bot.utils.ModerationLogger;
 import net.dv8tion.jda.api.Permission;
-import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
@@ -39,13 +38,14 @@ public class ClearCommand implements ICommand {
     public void execute(SlashCommandInteractionEvent event) {
         logger.debug("Execution /clear par userId={}", event.getUser().getId());
 
-        if (event.getOption("montant") == null) {
+        var amountOption = event.getOption("montant");
+        if (amountOption == null) {
             logger.warn("/clear invalide: montant absent userId={}", event.getUser().getId());
             event.reply("❌ Le montant est requis.").setEphemeral(true).queue();
             return;
         }
 
-        int amount = event.getOption("montant").getAsInt();
+        int amount = amountOption.getAsInt();
         logger.info("/clear demande amount={} par userId={} channelId={}", amount, event.getUser().getId(), event.getChannel().getId());
 
         // Defer immédiat pour éviter l'expiration des 3 secondes pendant le fetchAsync
@@ -63,17 +63,14 @@ public class ClearCommand implements ICommand {
                 event.getHook().sendMessage("✅ " + messages.size() + " message(s) supprimé(s) !").queue();
                 logger.info("/clear reussi: deleted={} userId={} channelId={}", messages.size(), event.getUser().getId(), event.getChannel().getId());
 
-                if (event.getGuild() != null && moderationLogger.isEnabled()) {
-                    TextChannel logChannel = event.getGuild().getTextChannelById(moderationLogger.getLogChannelId());
-                    moderationLogger.log(
-                            logChannel,
-                            "CLEAR",
-                            event.getMember(),
-                            null,
-                            "Nettoyage de salon",
-                            messages.size() + " message(s) supprimé(s)"
-                    );
-                }
+                moderationLogger.logInGuild(
+                        event.getGuild(),
+                        "CLEAR",
+                        event.getMember(),
+                        null,
+                        "Nettoyage de salon",
+                        messages.size() + " message(s) supprimé(s)"
+                );
             } catch (IllegalArgumentException e) {
                 logger.warn("/clear impossible (messages >14 jours): userId={}, amount={}", event.getUser().getId(), amount, e);
                 event.getHook().sendMessage("❌ Impossible de supprimer ces messages (ils datent de plus de 14 jours).").queue();

@@ -4,7 +4,6 @@ import fr.sakura.bot.utils.ModerationLogger;
 import fr.sakura.bot.utils.WarningService;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
-import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
@@ -84,17 +83,14 @@ public class WarnCommand implements ICommand {
             event.reply("✅ **" + target.getUser().getName() + "** a recu un avertissement. Total: " + totalWarnings).queue();
             logger.info("/warn reussi: modId={}, targetId={}, total={}", event.getUser().getId(), target.getId(), totalWarnings);
 
-            if (moderationLogger.isEnabled()) {
-                TextChannel logChannel = event.getGuild().getTextChannelById(moderationLogger.getLogChannelId());
-                moderationLogger.log(
-                        logChannel,
-                        "WARN",
-                        event.getMember(),
-                        target,
-                        reason,
-                        "Total warnings: " + totalWarnings
-                );
-            }
+            moderationLogger.logInGuild(
+                    event.getGuild(),
+                    "WARN",
+                    event.getMember(),
+                    target,
+                    reason,
+                    "Total warnings: " + totalWarnings
+            );
         } catch (IOException ex) {
             logger.error("/warn echec JSON: modId={}, targetId={}", event.getUser().getId(), target.getId(), ex);
             event.reply("❌ Impossible d'enregistrer le warning (erreur JSON).")

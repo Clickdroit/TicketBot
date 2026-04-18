@@ -4,7 +4,6 @@ import fr.sakura.bot.utils.ModerationLogger;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.User;
-import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
@@ -44,15 +43,32 @@ public class KickCommand implements ICommand {
     public void execute(SlashCommandInteractionEvent event) {
         logger.debug("Execution /kick par userId={}", event.getUser().getId());
 
+        if (event.getGuild() == null) {
+            event.reply("❌ Cette commande doit etre utilisee dans un serveur.").setEphemeral(true).queue();
+            return;
+        }
+
+        var guild = event.getGuild();
+
         OptionMapping memberOption = event.getOption("membre");
         OptionMapping reasonOption = event.getOption("raison");
         String reason = reasonOption != null ? reasonOption.getAsString() : "Aucune raison spécifiée";
 
-        Member target = memberOption.getAsMember();
+        if (memberOption == null) {
+            event.reply("❌ Membre introuvable.").setEphemeral(true).queue();
+            return;
+        }
+
+        var targetUser = memberOption.getAsUser();
+        if (targetUser == null) {
+            event.reply("❌ Utilisateur introuvable.").setEphemeral(true).queue();
+            return;
+        }
+
+        Member target = guild.getMember(targetUser);
 
         // Le kick nécessite que l'utilisateur soit encore membre — on ne peut pas kick quelqu'un qui a quitté
         if (target == null) {
-            User targetUser = memberOption.getAsUser();
             logger.warn("/kick cible non membre du serveur userId={} demandeurId={}",
                     targetUser.getId(), event.getUser().getId());
             event.reply("❌ **" + targetUser.getName() + "** n'est plus membre de ce serveur.").setEphemeral(true).queue();
@@ -67,15 +83,12 @@ public class KickCommand implements ICommand {
 
         logger.info("/kick demande: modId={}, targetId={}, reason={}", event.getUser().getId(), target.getId(), reason);
 
-        event.getGuild().kick(target).reason(reason).queue(
+        guild.kick(target).reason(reason).queue(
                 success -> {
                     event.reply("✅ **" + target.getUser().getName() + "** a été expulsé. Raison : " + reason).queue();
                     logger.info("/kick reussi: modId={}, targetId={}", event.getUser().getId(), target.getId());
 
-                    if (moderationLogger.isEnabled()) {
-                        TextChannel logChannel = event.getGuild().getTextChannelById(moderationLogger.getLogChannelId());
-                        moderationLogger.log(logChannel, "KICK", event.getMember(), target, reason, null);
-                    }
+                    moderationLogger.logInGuild(event.getGuild(), "KICK", event.getMember(), target, reason, null);
                 },
                 error -> {
                     logger.error("/kick echec API: modId={}, targetId={}", event.getUser().getId(), target.getId(), error);

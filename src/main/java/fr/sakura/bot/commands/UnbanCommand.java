@@ -5,7 +5,6 @@ import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.UserSnowflake;
-import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
@@ -83,17 +82,14 @@ public class UnbanCommand implements ICommand {
                                 ).queue();
                                 logger.info("/unban reussi: modId={}, targetId={}", event.getUser().getId(), userId);
 
-                                if (moderationLogger.isEnabled()) {
-                                    TextChannel logChannel = guild.getTextChannelById(moderationLogger.getLogChannelId());
-                                    moderationLogger.log(
-                                            logChannel,
-                                            "UNBAN",
-                                            event.getMember(),
-                                            null,
-                                            finalReason,
-                                            "Utilisateur: " + bannedUser.getName() + " (" + userId + ")"
-                                    );
-                                }
+                                moderationLogger.logInGuild(
+                                        guild,
+                                        "UNBAN",
+                                        event.getMember(),
+                                        null,
+                                        finalReason,
+                                        "Utilisateur: " + bannedUser.getName() + " (" + userId + ")"
+                                );
                             },
                             error -> {
                                 logger.error("/unban echec API: modId={}, targetId={}", event.getUser().getId(), userId, error);

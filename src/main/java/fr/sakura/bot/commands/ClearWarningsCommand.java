@@ -4,7 +4,6 @@ import fr.sakura.bot.utils.ModerationLogger;
 import fr.sakura.bot.utils.WarningService;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
-import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
@@ -74,17 +73,14 @@ public class ClearWarningsCommand implements ICommand {
                     .queue();
             logger.info("/clearwarnings reussi: targetId={}, removed={}", target.getId(), removed);
 
-            if (moderationLogger.isEnabled()) {
-                TextChannel logChannel = event.getGuild().getTextChannelById(moderationLogger.getLogChannelId());
-                moderationLogger.log(
-                        logChannel,
-                        "CLEARWARN",
-                        event.getMember(),
-                        target,
-                        "Reset des warnings",
-                        removed + " warning(s) retire(s)"
-                );
-            }
+            moderationLogger.logInGuild(
+                    event.getGuild(),
+                    "CLEARWARN",
+                    event.getMember(),
+                    target,
+                    "Reset des warnings",
+                    removed + " warning(s) retire(s)"
+            );
         } catch (IOException ex) {
             logger.error("/clearwarnings echec JSON: modId={}, targetId={}", event.getUser().getId(), target.getId(), ex);
             event.reply("❌ Impossible de supprimer les warnings (erreur JSON).")

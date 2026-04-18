@@ -93,10 +93,12 @@ public class WarningsCommand implements ICommand {
                     formattedDate = warning.getTimestamp();
                 }
 
+                String moderatorDisplay = formatModerator(event, warning.getModeratorId());
+
                 message.append("`").append(i + 1).append(".` ")
                         .append(warning.getReason())
                         .append("\n")
-                        .append("   › Mod : <@").append(warning.getModeratorId()).append(">")
+                        .append("   › Mod : ").append(moderatorDisplay)
                         .append(" • ").append(formattedDate)
                         .append("\n\n");
             }
@@ -114,5 +116,20 @@ public class WarningsCommand implements ICommand {
                     .setEphemeral(true)
                     .queue();
         }
+    }
+
+    private String formatModerator(SlashCommandInteractionEvent event, String moderatorId) {
+        if (moderatorId == null || moderatorId.isBlank()) {
+            return "Inconnu";
+        }
+
+        if (event.getGuild() != null) {
+            Member moderatorMember = event.getGuild().getMemberById(moderatorId);
+            if (moderatorMember != null) {
+                return moderatorMember.getAsMention() + " (" + moderatorMember.getEffectiveName() + ")";
+            }
+        }
+
+        return "<@" + moderatorId + ">";
     }
 }

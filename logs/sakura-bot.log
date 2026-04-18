@@ -92,3 +92,33 @@ Useful resources to learn more:
 Or suppress this warning if this is intentional with Message.suppressContentIntentWarning()
 2026-04-18 16:33:33.252 [JDA MainWS-ReadThread] INFO  f.s.b.l.ModerationActivityListener [cid=n/a] - Message modifie: guildId=1495010264125407262, channelId=1495014772452622416, messageId=1495069628089765969, authorId=838024514369617930
 2026-04-18 16:33:33.713 [ForkJoinPool.commonPool-worker-1] DEBUG f.sakura.bot.utils.ModerationLogger [cid=n/a] - Log moderation envoye: action=MESSAGE_EDIT, channelId=1495014805818572963
+2026-04-18 17:03:40.100 [main] INFO  fr.sakura.bot.Main [cid=n/a] - Demarrage du bot Discord pour le serveur autorise 1495010264125407262
+2026-04-18 17:03:40.105 [main] INFO  fr.sakura.bot.Main [cid=n/a] - Configuration: welcomeChannelId=1495014815578718351, logChannelId=1495014805818572963, warningsFilePath=data/warnings.json
+2026-04-18 17:03:40.117 [main] INFO  f.sakura.bot.utils.ModerationLogger [cid=n/a] - ModerationLogger initialise (enabled=true, channelId=1495014805818572963)
+2026-04-18 17:03:40.145 [main] INFO  fr.sakura.bot.utils.WarningStore [cid=n/a] - WarningStore initialise sur E:\dev\sakura-bot\data\warnings.json
+2026-04-18 17:03:40.145 [main] INFO  fr.sakura.bot.utils.WarningService [cid=n/a] - WarningService pret (stockage JSON)
+2026-04-18 17:03:40.145 [main] INFO  f.sakura.bot.commands.CommandManager [cid=n/a] - Initialisation CommandManager guildId=1495010264125407262, warningsFilePath=data/warnings.json
+2026-04-18 17:03:40.146 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: ping
+2026-04-18 17:03:40.146 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: help
+2026-04-18 17:03:40.146 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: avatar
+2026-04-18 17:03:40.146 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: userinfo
+2026-04-18 17:03:40.147 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: serverinfo
+2026-04-18 17:03:40.147 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: clear
+2026-04-18 17:03:40.148 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: kick
+2026-04-18 17:03:40.149 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: ban
+2026-04-18 17:03:40.149 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: timeout
+2026-04-18 17:03:40.150 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: unban
+2026-04-18 17:03:40.150 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: warn
+2026-04-18 17:03:40.151 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: warnings
+2026-04-18 17:03:40.151 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: clearwarnings
+2026-04-18 17:03:40.994 [main] INFO  net.dv8tion.jda.api.JDA [cid=n/a] - Login Successful!
+2026-04-18 17:03:41.014 [main] INFO  fr.sakura.bot.Main [cid=n/a] - Initialisation JDA lancee avec intents: GUILD_MESSAGES, GUILD_MEMBERS, GUILD_VOICE_STATES, MESSAGE_CONTENT
+2026-04-18 17:03:41.265 [JDA MainWS-ReadThread] INFO  n.d.j.i.requests.WebSocketClient [cid=n/a] - Connected to WebSocket
+2026-04-18 17:03:41.973 [JDA MainWS-ReadThread] INFO  net.dv8tion.jda.api.JDA [cid=n/a] - Finished Loading!
+2026-04-18 17:03:41.974 [JDA MainWS-ReadThread] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Bot connecte en tant que Sakura
+2026-04-18 17:03:41.974 [JDA MainWS-ReadThread] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Verification mono-serveur de 1 guild(s)
+2026-04-18 17:03:42.144 [ForkJoinPool.commonPool-worker-1] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Commandes globales purgees
+2026-04-18 17:03:42.144 [ForkJoinPool.commonPool-worker-1] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Serveur autorise confirme: 𝐒𝐚𝐤𝐮𝐫𝐚 🌸 • 𝐅𝐑 (1495010264125407262)
+2026-04-18 17:03:42.386 [ForkJoinPool.commonPool-worker-1] INFO  f.sakura.bot.commands.CommandManager [cid=n/a] - 13 commandes Slash enregistrees pour 𝐒𝐚𝐤𝐮𝐫𝐚 🌸 • 𝐅𝐑 (1495010264125407262)
+2026-04-18 17:04:01.749 [JDA MainWS-ReadThread] INFO  f.s.b.l.ModerationActivityListener [cid=n/a] - Message modifie: guildId=1495010264125407262, channelId=1495014772452622416, messageId=1495077314130870354, authorId=838024514369617930
+2026-04-18 17:04:02.166 [ForkJoinPool.commonPool-worker-1] DEBUG f.sakura.bot.utils.ModerationLogger [cid=n/a] - Log moderation envoye: action=MESSAGE_EDIT, channelId=1495014805818572963
