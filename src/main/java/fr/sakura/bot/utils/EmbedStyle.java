@@ -45,8 +45,8 @@ public final class EmbedStyle {
         embed.setFooter(APP_MARK + " • " + fallback(footerText, UNKNOWN));
     }
 
-    public static String fallback(String value, String fallback) {
-        return value == null || value.isBlank() ? fallback : value;
+    public static String fallback(String value, String fallbackValue) {
+        return value == null || value.isBlank() ? fallbackValue : value;
     }
 
     public static String truncate(String value, int max) {

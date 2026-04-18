@@ -9,9 +9,12 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.format.DateTimeFormatter;
+
 public class WelcomeListener extends ListenerAdapter {
 
     private static final Logger logger = LoggerFactory.getLogger(WelcomeListener.class);
+    private static final DateTimeFormatter HOUR_MINUTE_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
     private final String welcomeChannelId;
     private final String welcomeImageUrl;
@@ -57,10 +60,10 @@ public class WelcomeListener extends ListenerAdapter {
             logger.debug("Aucune image de bienvenue configuree (WELCOME_IMAGE_URL absent)");
         }
 
-        String joinHour = event.getMember().getTimeJoined().toLocalTime().withSecond(0).withNano(0).toString();
+        String arrivalTime = event.getMember().getTimeJoined().toLocalTime().format(HOUR_MINUTE_FORMATTER);
         EmbedStyle.setFooter(
                 embed,
-                "Arrivée à " + joinHour + " • Membre n°" + memberCount + " • " + joinTime
+                "Arrivée à " + arrivalTime + " • Membre n°" + memberCount + " • " + joinTime
         );
 
         channel.sendMessageEmbeds(embed.build()).queue(
