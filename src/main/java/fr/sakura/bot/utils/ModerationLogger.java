@@ -76,9 +76,7 @@ public class ModerationLogger {
         desc.append("━━━━━━━━━━━━━━━━━━\n\n");
 
         if (author != null) {
-            desc.append("> **Auteur :** ").append(author.getAsMention())
-                    .append(" aka **").append(author.getEffectiveName()).append("**\n");
-            desc.append("> **Username :** `").append(author.getUser().getName()).append("`\n");
+            desc.append("> **Auteur :** ").append(author.getAsMention());
         }
         desc.append("> **Salon :** <#").append(channelId).append(">\n");
         desc.append("> **Lien :** [Aller au message](https://discord.com/channels/")
@@ -145,9 +143,7 @@ public class ModerationLogger {
         desc.append("━━━━━━━━━━━━━━━━━━\n\n");
 
         if (author != null) {
-            desc.append("> **Auteur :** ").append(author.getAsMention())
-                    .append(" aka **").append(author.getEffectiveName()).append("**\n");
-            desc.append("> **Username :** `").append(author.getUser().getName()).append("`\n");
+            desc.append("> **Auteur :** ").append(author.getAsMention());
         } else {
             desc.append("> **Auteur :** *inconnu*\n");
         }
