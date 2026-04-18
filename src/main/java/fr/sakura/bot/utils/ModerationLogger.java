@@ -147,7 +147,7 @@ public class ModerationLogger {
 
     private static String buildFooterIds(Member moderator, Member target) {
         if (moderator != null && target != null && !moderator.getId().equals(target.getId())) {
-            return "👤 ID cible: " + target.getId() + " • 👮 ID mod: " + moderator.getId();
+            return "👤 ID cible: " + target.getId() + " • 👮 ID modérateur: " + moderator.getId();
         } else if (moderator != null) {
             return "👤 ID: " + moderator.getId();
         }
