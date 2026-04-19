@@ -63,6 +63,7 @@ public class CommandManager extends ListenerAdapter {
         addCommand(new SayCommand(moderationLogger));
         addCommand(new EmbedCommand(moderationLogger));
         addCommand(new RolesPanelCommand(rolesPanelService));
+        addCommand(new ReglementsCommand());
     }
 
     private void addCommand(ICommand command) {
