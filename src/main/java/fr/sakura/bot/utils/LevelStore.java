@@ -12,13 +12,32 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 public class LevelStore {
 
     private static final Logger logger = LoggerFactory.getLogger(LevelStore.class);
-    private final Map<String, ReentrantLock> memberLocks = new ConcurrentHashMap<>();
+    private static final long STALE_LOCK_MS = 60 * 60 * 1000L;
+
+    private static final class LockEntry {
+        private final ReentrantLock lock = new ReentrantLock();
+        private volatile long lastUsedMs = System.currentTimeMillis();
+    }
+
+    private final Map<String, LockEntry> memberLocks = new ConcurrentHashMap<>();
+    private final ScheduledExecutorService cleanupExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "levelstore-lock-cleanup");
+        t.setDaemon(true);
+        return t;
+    });
+
+    public LevelStore() {
+        cleanupExecutor.scheduleAtFixedRate(this::purgeStaleLocks, 30, 30, TimeUnit.MINUTES);
+    }
 
     public LevelProfile getProfile(String guildId, String userId) {
         String sql = "SELECT xp, level FROM levels WHERE guild_id = ? AND user_id = ?";
@@ -133,12 +152,39 @@ public class LevelStore {
 
     private <T> T withMemberLock(String guildId, String userId, Supplier<T> task) {
         String key = memberKey(guildId, userId);
-        ReentrantLock lock = memberLocks.computeIfAbsent(key, ignored -> new ReentrantLock());
-        lock.lock();
+        LockEntry entry = memberLocks.computeIfAbsent(key, ignored -> new LockEntry());
+        entry.lock.lock();
         try {
             return task.get();
         } finally {
-            lock.unlock();
+            entry.lastUsedMs = System.currentTimeMillis();
+            entry.lock.unlock();
+        }
+    }
+
+    private void purgeStaleLocks() {
+        long now = System.currentTimeMillis();
+        int removed = 0;
+        for (Map.Entry<String, LockEntry> mapEntry : memberLocks.entrySet()) {
+            LockEntry lockEntry = mapEntry.getValue();
+            if (now - lockEntry.lastUsedMs < STALE_LOCK_MS) {
+                continue;
+            }
+            if (!lockEntry.lock.tryLock()) {
+                continue;
+            }
+            try {
+                if (!lockEntry.lock.hasQueuedThreads() && now - lockEntry.lastUsedMs >= STALE_LOCK_MS) {
+                    if (memberLocks.remove(mapEntry.getKey(), lockEntry)) {
+                        removed++;
+                    }
+                }
+            } finally {
+                lockEntry.lock.unlock();
+            }
+        }
+        if (removed > 0) {
+            logger.debug("LevelStore cleanup: {} lock(s) périmé(s) retiré(s)", removed);
         }
     }
 }

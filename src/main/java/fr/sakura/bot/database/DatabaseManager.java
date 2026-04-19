@@ -218,6 +218,9 @@ public class DatabaseManager {
         DatabaseMetaData metaData = conn.getMetaData();
 
         if (dbDialect == DbDialect.POSTGRES) {
+            // PostgreSQL replie les identifiants non quotés en minuscules, mais des schémas existants
+            // peuvent contenir des noms déjà quotés/casés différemment. On tente d'abord le nom brut
+            // puis la variante lowercase dans le schéma public pour éviter les faux négatifs.
             try (ResultSet rs = metaData.getColumns(null, "public", tableName, columnName)) {
                 if (rs.next()) {
                     return true;
