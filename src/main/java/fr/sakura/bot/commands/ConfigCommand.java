@@ -10,6 +10,8 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
+import net.dv8tion.jda.api.EmbedBuilder;
+import fr.sakura.bot.utils.EmbedStyle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,6 +33,7 @@ public class ConfigCommand implements ICommand {
     public SlashCommandData getCommandData() {
         return Commands.slash(getName(), "Configure les paramètres du bot")
                 .addSubcommands(
+                        new SubcommandData("view", "Affiche la configuration actuelle du serveur"),
                         new SubcommandData("antispam", "Active ou désactive l'anti-spam")
                                 .addOptions(new OptionData(OptionType.BOOLEAN, "etat", "True pour activer, False pour désactiver", true)),
                         new SubcommandData("antilink", "Active ou désactive le filtre de liens")
@@ -80,6 +83,23 @@ public class ConfigCommand implements ICommand {
         }
 
         switch (subcommand) {
+            case "view" -> {
+                EmbedBuilder embed = EmbedStyle.newInfoEmbed("⚙️", "Configuration du serveur");
+                embed.addField("AutoMod - Liens", "**Anti-liens :** " + (settingsManager.isAntiLinkEnabled(guildId) ? "✅" : "❌") + "\n" +
+                        "**Liens GIF auto :** " + (settingsManager.isGifLinksAllowed(guildId) ? "✅" : "❌"), false);
+                embed.addField("AutoMod - Spam", "**Anti-spam :** " + (settingsManager.isAntiSpamEnabled(guildId) ? "✅" : "❌") + "\n" +
+                        "**Limite spam :** " + settingsManager.getSpamLimit(guildId) + "\n" +
+                        "**Fenêtre spam :** " + (settingsManager.getSpamWindowMs(guildId) / 1000) + "s", false);
+                embed.addField("AutoMod - Sanctions", "**Infractions avant timeout :** " + settingsManager.getAutomodStrikesToTimeout(guildId) + "\n" +
+                        "**Reset des strikes :** " + settingsManager.getAutomodStrikeResetMinutes(guildId) + " min\n" +
+                        "**Durée timeout auto :** " + settingsManager.getAutomodTimeoutMinutes(guildId) + " min\n" +
+                        "**Cooldown notices :** " + settingsManager.getAutomodNoticeCooldownSeconds(guildId) + "s", false);
+                embed.addField("Système d'XP", "**Cooldown XP :** " + (settingsManager.getXpCooldownMs(guildId) / 1000) + "s\n" +
+                        "**Gain aléatoire :** " + settingsManager.getXpMinGain(guildId) + " à " + settingsManager.getXpMaxGain(guildId) + " XP\n" +
+                        "**Lettres minimum :** " + settingsManager.getXpMinMessageLength(guildId) + "\n" +
+                        "**Alphanumériques min :** " + settingsManager.getXpMinAlnumCount(guildId), false);
+                event.replyEmbeds(embed.build()).queue();
+            }
             case "antispam" -> {
                 boolean etat = event.getOption("etat", false, OptionMapping::getAsBoolean);
                 settingsManager.setAntiSpamEnabled(guildId, etat);

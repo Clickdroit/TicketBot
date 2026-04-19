@@ -27,13 +27,11 @@ public class CommandManager extends ListenerAdapter {
     private final String guildId;
     private final Map<String, ICommand> commands = new HashMap<>();
 
-    public CommandManager(String guildId, ModerationLogger moderationLogger, String warningsFilePath, SettingsManager settingsManager, LevelService levelService, TicketService ticketService) {
+    public CommandManager(String guildId, ModerationLogger moderationLogger, SettingsManager settingsManager, LevelService levelService, TicketService ticketService) {
         this.guildId = guildId;
-        WarningService warningService = new WarningService(warningsFilePath);
+        WarningService warningService = new WarningService();
 
-        logger.info("Initialisation CommandManager guildId={}, warningsFilePath={}",
-                guildId,
-                (warningsFilePath == null || warningsFilePath.isEmpty()) ? "data/warnings.json" : warningsFilePath);
+        logger.info("Initialisation CommandManager guildId={}", guildId);
 
         addCommand(new PingCommand());
         addCommand(new HelpCommand());

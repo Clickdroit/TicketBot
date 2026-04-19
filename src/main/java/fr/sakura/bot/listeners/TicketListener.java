@@ -14,7 +14,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Duration;
+
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -136,7 +136,7 @@ public class TicketListener extends ListenerAdapter {
         moderationLogger.logInGuild(guild, "TICKET_CLAIM", event.getMember(), guild.getMemberById(ticket.userId()), "Ticket pris en charge", channel.getId());
 
         if (claimed != null) {
-            channel.asTextChannel().sendMessage("✅ " + event.getUser().getAsMention() + " prend en charge ce ticket.").queue();
+            channel.sendMessage("✅ " + event.getUser().getAsMention() + " prend en charge ce ticket.").queue();
         }
 
         logger.info("Ticket claim guildId={}, channelId={}, staffId={}", guild.getId(), channel.getId(), event.getUser().getId());
@@ -168,8 +168,8 @@ public class TicketListener extends ListenerAdapter {
         if (closed != null && closed.claimedBy() != null) {
             details += "\n👤 Pris en charge par <@" + closed.claimedBy() + ">";
         }
-        channel.asTextChannel().sendMessage(details).queue();
-        channel.asTextChannel().delete().queueAfter(Duration.ofSeconds(10).toMillis(), TimeUnit.MILLISECONDS);
+        channel.sendMessage(details).queue();
+        channel.delete().queueAfter(10, TimeUnit.SECONDS);
         logger.info("Ticket close guildId={}, channelId={}, closedBy={}", guild.getId(), channel.getId(), event.getUser().getId());
     }
 }

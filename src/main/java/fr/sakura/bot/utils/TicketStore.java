@@ -29,8 +29,9 @@ public class TicketStore {
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, guildId);
             pstmt.setString(2, userId);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) return readTicket(rs);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) return readTicket(rs);
+            }
         } catch (SQLException e) {
             logger.error("Erreur lecture ticket actif guildId={}, userId={}", guildId, userId, e);
         }
@@ -43,8 +44,9 @@ public class TicketStore {
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, guildId);
             pstmt.setString(2, userId);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) return readTicket(rs);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) return readTicket(rs);
+            }
         } catch (SQLException e) {
             logger.error("Erreur lecture ticket ouvert guildId={}, userId={}", guildId, userId, e);
         }
@@ -57,8 +59,9 @@ public class TicketStore {
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, guildId);
             pstmt.setString(2, channelId);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) return readTicket(rs);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) return readTicket(rs);
+            }
         } catch (SQLException e) {
             logger.error("Erreur lecture ticket channelId={}, guildId={}", channelId, guildId, e);
         }
@@ -128,8 +131,9 @@ public class TicketStore {
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, guildId);
-            ResultSet rs = pstmt.executeQuery();
-            while (rs.next()) tickets.add(readTicket(rs));
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) tickets.add(readTicket(rs));
+            }
         } catch (SQLException e) {
             logger.error("Erreur lecture tickets ouverts guildId={}", guildId, e);
         }

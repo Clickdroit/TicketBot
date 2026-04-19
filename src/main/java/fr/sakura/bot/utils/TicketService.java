@@ -1,6 +1,5 @@
 package fr.sakura.bot.utils;
 
-import fr.sakura.bot.database.SettingsManager;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
@@ -20,14 +19,12 @@ public class TicketService {
 
     private static final Logger logger = LoggerFactory.getLogger(TicketService.class);
     private final TicketStore ticketStore;
-    private final SettingsManager settingsManager;
 
-    public TicketService(SettingsManager settingsManager) {
-        this(settingsManager, new TicketStore());
+    public TicketService() {
+        this(new TicketStore());
     }
 
-    public TicketService(SettingsManager settingsManager, TicketStore ticketStore) {
-        this.settingsManager = settingsManager;
+    public TicketService(TicketStore ticketStore) {
         this.ticketStore = ticketStore;
     }
 

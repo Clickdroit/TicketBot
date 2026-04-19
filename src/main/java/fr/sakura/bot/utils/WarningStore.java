@@ -13,20 +13,12 @@ import java.util.List;
 
 /**
  * Stockage SQLite/PostgreSQL des warnings via DatabaseManager.
- *
- * <p>Le paramètre {@code warningsFilePath} du constructeur est conservé pour compatibilité
- * avec CommandManager mais n'est plus utilisé : la persistance est désormais assurée
- * exclusivement par la base de données configurée dans DatabaseManager.</p>
  */
 public class WarningStore {
 
     private static final Logger logger = LoggerFactory.getLogger(WarningStore.class);
 
-    /**
-     * @param warningsFilePath conservé pour compatibilité avec CommandManager — ignoré,
-     *                         le stockage est géré par DatabaseManager (SQLite ou PostgreSQL).
-     */
-    public WarningStore(String warningsFilePath) {
+    public WarningStore() {
         logger.info("WarningStore initialisé — stockage via DatabaseManager ({})",
                 DatabaseManager.isPostgres() ? "PostgreSQL" : "SQLite");
     }
@@ -39,18 +31,36 @@ public class WarningStore {
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, guildId);
             pstmt.setString(2, userId);
-            ResultSet rs = pstmt.executeQuery();
-            while (rs.next()) {
-                warnings.add(new WarningEntry(
-                        rs.getString("moderator_id"),
-                        rs.getString("reason"),
-                        rs.getString("timestamp")
-                ));
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    warnings.add(new WarningEntry(
+                            rs.getString("moderator_id"),
+                            rs.getString("reason"),
+                            rs.getString("timestamp")
+                    ));
+                }
             }
         } catch (SQLException e) {
             logger.error("Erreur lors de la récupération des warnings pour guildId={}, userId={}", guildId, userId, e);
         }
         return warnings;
+    }
+
+    public synchronized int getWarningsCount(String guildId, String userId) {
+        String sql = "SELECT COUNT(*) FROM warnings WHERE guild_id = ? AND user_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, guildId);
+            pstmt.setString(2, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur lors du comptage des warnings pour guildId={}, userId={}", guildId, userId, e);
+        }
+        return 0;
     }
 
     public synchronized int addWarning(String guildId, String userId, WarningEntry warningEntry) {
@@ -60,19 +70,19 @@ public class WarningStore {
              PreparedStatement pstmt = conn.prepareStatement(insertSql)) {
             pstmt.setString(1, guildId);
             pstmt.setString(2, userId);
-            pstmt.setString(3, warningEntry.getReason());
-            pstmt.setString(4, warningEntry.getTimestamp());
-            pstmt.setString(5, warningEntry.getModeratorId());
+            pstmt.setString(3, warningEntry.reason());
+            pstmt.setString(4, warningEntry.timestamp());
+            pstmt.setString(5, warningEntry.moderatorId());
             pstmt.executeUpdate();
         } catch (SQLException e) {
             logger.error("Erreur lors de l'ajout d'un warning pour guildId={}, userId={}", guildId, userId, e);
         }
 
-        return getWarnings(guildId, userId).size();
+        return getWarningsCount(guildId, userId);
     }
 
     public synchronized int clearWarnings(String guildId, String userId) {
-        int count = getWarnings(guildId, userId).size();
+        int count = getWarningsCount(guildId, userId);
         if (count == 0) return 0;
 
         String deleteSql = "DELETE FROM warnings WHERE guild_id = ? AND user_id = ?";

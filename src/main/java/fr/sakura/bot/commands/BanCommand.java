@@ -74,6 +74,7 @@ public class BanCommand implements ICommand {
                     success -> {
                         event.reply("✅ **" + targetUser.getName() + "** a été banni (hors serveur). Raison : " + reason).queue();
                         logger.info("/ban reussi (hors serveur): modId={}, targetId={}", event.getUser().getId(), targetUser.getId());
+                        moderationLogger.logUserInGuild(event.getGuild(), "BAN", event.getMember(), targetUser, reason, "(hors serveur)");
                     },
                     error -> {
                         logger.error("/ban echec API (hors serveur): modId={}, targetId={}", event.getUser().getId(), targetUser.getId(), error);

@@ -30,9 +30,8 @@ public class Main {
         String token          = dotenv.get("DISCORD_TOKEN");
         String guildId        = dotenv.get("GUILD_ID");
         String welcomeChannelId = dotenv.get("WELCOME_CHANNEL_ID");
-        String logChannelId   = dotenv.get("LOG_CHANNEL_ID");
-        String warningsFilePath = dotenv.get("WARNINGS_FILE_PATH");
-        String welcomeImageUrl  = dotenv.get("WELCOME_IMAGE_URL");
+        String welcomeImageUrl = dotenv.get("WELCOME_IMAGE_URL");
+        String logChannelId = dotenv.get("LOG_CHANNEL_ID");
         String databaseUrl = dotenv.get("DATABASE_URL");
 
         if (token == null || token.isEmpty()) {
@@ -46,11 +45,10 @@ public class Main {
         }
 
         logger.info("🚀 Demarrage du bot Discord pour le serveur autorise {}", guildId);
-        logger.info("⚙️ Configuration: welcomeChannelId={}, logChannelId={}, warningsFilePath={}, databaseUrl={}",
+        logger.info("⚙️ Configuration: welcomeChannelId={}, logChannelId={}, databaseUrl={}",
                 welcomeChannelId,
                 logChannelId,
-                (warningsFilePath == null || warningsFilePath.isEmpty()) ? "data/warnings.json" : warningsFilePath,
-                (databaseUrl == null || databaseUrl.isBlank()) ? "jdbc:sqlite:data/sakura.db (fallback)" : databaseUrl);
+                databaseUrl != null ? "(configurée)" : "jdbc:sqlite:data/sakura.db");
 
         // Init SQLite DB
         DatabaseManager.initialize(databaseUrl);
@@ -59,9 +57,9 @@ public class Main {
         SettingsManager settingsManager = new SettingsManager();
         ModerationLogger moderationLogger = new ModerationLogger(logChannelId);
         LevelService levelService = new LevelService(settingsManager);
-        TicketService ticketService = new TicketService(settingsManager);
+        TicketService ticketService = new TicketService();
 
-        CommandManager commandManager = new CommandManager(guildId, moderationLogger, warningsFilePath, settingsManager, levelService, ticketService);
+        CommandManager commandManager = new CommandManager(guildId, moderationLogger, settingsManager, levelService, ticketService);
         SecurityListener securityListener = new SecurityListener(guildId, commandManager);
         WelcomeListener welcomeListener = new WelcomeListener(welcomeChannelId, welcomeImageUrl);
         ModerationActivityListener moderationActivityListener = new ModerationActivityListener(moderationLogger);
@@ -69,7 +67,7 @@ public class Main {
         LevelListener levelListener = new LevelListener(levelService);
         TicketListener ticketListener = new TicketListener(ticketService, moderationLogger);
 
-        JDABuilder.createLight(token)
+        net.dv8tion.jda.api.JDA jda = JDABuilder.createLight(token)
                 .enableIntents(
                         GatewayIntent.GUILD_MESSAGES,
                         GatewayIntent.GUILD_MEMBERS,
@@ -80,6 +78,11 @@ public class Main {
                 .addEventListeners(securityListener, commandManager, welcomeListener, moderationActivityListener, autoModListener, levelListener, ticketListener)
                 .setActivity(Activity.playing("Sakura Bot (" + guildId + ")"))
                 .build();
+
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            logger.info("🛑 Extinction du bot demandée: fermeture de JDA...");
+            jda.shutdown();
+        }));
 
         logger.info("✅ Initialisation JDA lancee avec intents: GUILD_MESSAGES, GUILD_MEMBERS, GUILD_VOICE_STATES, MESSAGE_CONTENT");
     }

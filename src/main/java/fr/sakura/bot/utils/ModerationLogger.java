@@ -37,10 +37,13 @@ public class ModerationLogger {
         return channel;
     }
 
-    /** Point d'entrée général — utilisé par toutes les commandes de modération. */
     public void logInGuild(Guild guild, String action, Member moderator, Member target, String reason, String extra) {
+        logUserInGuild(guild, action, moderator, target != null ? target.getUser() : null, reason, extra);
+    }
+
+    public void logUserInGuild(Guild guild, String action, Member moderator, User target, String reason, String extra) {
         TextChannel channel = resolveLogChannel(guild);
-        log(channel, action, moderator, target, reason, extra);
+        logUser(channel, action, moderator, target, reason, extra);
     }
 
     // ── Logs spécialisés messages ────────────────────────────────────────────────
@@ -212,6 +215,10 @@ public class ModerationLogger {
     // ── Log générique (commandes de modération) ──────────────────────────────────
 
     public void log(TextChannel channel, String action, Member moderator, Member target, String reason, String extra) {
+        logUser(channel, action, moderator, target != null ? target.getUser() : null, reason, extra);
+    }
+
+    public void logUser(TextChannel channel, String action, Member moderator, User target, String reason, String extra) {
         if (channel == null) {
             logger.warn("Log de modération ignoré : channel null pour action={}", action);
             return;
@@ -225,7 +232,7 @@ public class ModerationLogger {
         embed.setColor(style.color());
         embed.setTitle(style.emoji() + "  " + style.label());
 
-        User thumbUser = target != null ? target.getUser()
+        User thumbUser = target != null ? target
                 : moderator != null ? moderator.getUser() : null;
         if (thumbUser != null) {
             embed.setThumbnail(thumbUser.getEffectiveAvatarUrl() + "?size=64");
@@ -247,7 +254,7 @@ public class ModerationLogger {
             }
             if (target != null) {
                 desc.append("> **Cible :** ").append(target.getAsMention())
-                        .append(" `").append(target.getUser().getName()).append("`\n");
+                        .append(" `").append(target.getName()).append("`\n");
             }
         }
 
@@ -270,7 +277,7 @@ public class ModerationLogger {
 
     // ── Helpers ──────────────────────────────────────────────────────────────────
 
-    private static String buildFooter(Member moderator, Member target, String timestamp) {
+    private static String buildFooter(Member moderator, User target, String timestamp) {
         StringBuilder footer = new StringBuilder();
         boolean isSelf = moderator != null && target != null && moderator.getId().equals(target.getId());
 

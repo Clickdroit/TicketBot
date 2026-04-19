@@ -18,6 +18,9 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 public class AutoModListener extends ListenerAdapter {
@@ -51,10 +54,22 @@ public class AutoModListener extends ListenerAdapter {
         RuleResult evaluate(MessageReceivedEvent event, Member member, String guildId, String memberKey, String content);
     }
 
+    /** Entries older than this are purged from memory. */
+    private static final long STALE_ENTRY_MS = 60 * 60 * 1000L; // 1 hour
+
+    private final ScheduledExecutorService cleanupExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "automod-cleanup");
+        t.setDaemon(true);
+        return t;
+    });
+
     public AutoModListener(ModerationLogger moderationLogger, SettingsManager settingsManager) {
         this.moderationLogger = moderationLogger;
         this.settingsManager = settingsManager;
         this.rules = buildRulePipeline();
+
+        // Purge stale entries every 30 minutes to prevent memory leaks
+        cleanupExecutor.scheduleAtFixedRate(this::purgeStaleEntries, 30, 30, TimeUnit.MINUTES);
     }
 
     @Override
@@ -239,5 +254,45 @@ public class AutoModListener extends ListenerAdapter {
     private String truncate(String value, int max) {
         if (value.length() <= max) return value;
         return value.substring(0, max) + "...";
+    }
+
+    private void purgeStaleEntries() {
+        long now = Instant.now().toEpochMilli();
+        int removedSpam = 0, removedStrikes = 0, removedNotices = 0;
+
+        var spamIt = spamWindows.entrySet().iterator();
+        while (spamIt.hasNext()) {
+            var entry = spamIt.next();
+            Deque<Long> queue = entry.getValue();
+            while (!queue.isEmpty() && now - queue.peekFirst() > STALE_ENTRY_MS) {
+                queue.pollFirst();
+            }
+            if (queue.isEmpty()) {
+                spamIt.remove();
+                removedSpam++;
+            }
+        }
+
+        var strikeIt = strikeStates.entrySet().iterator();
+        while (strikeIt.hasNext()) {
+            var entry = strikeIt.next();
+            if (now - entry.getValue().lastUpdateMs > STALE_ENTRY_MS) {
+                strikeIt.remove();
+                removedStrikes++;
+            }
+        }
+
+        var noticeIt = lastNoticeByRuleMember.entrySet().iterator();
+        while (noticeIt.hasNext()) {
+            var entry = noticeIt.next();
+            if (now - entry.getValue() > STALE_ENTRY_MS) {
+                noticeIt.remove();
+                removedNotices++;
+            }
+        }
+
+        if (removedSpam + removedStrikes + removedNotices > 0) {
+            logger.debug("AutoMod cleanup: spam={}, strikes={}, notices={}", removedSpam, removedStrikes, removedNotices);
+        }
     }
 }

@@ -20,8 +20,6 @@ dependencies {
     // Dotenv pour lire le fichier .env
     implementation 'io.github.cdimascio:dotenv-java:3.0.0'
 
-    // Gson pour la persistance JSON locale (conservation pour l'existant)
-    implementation 'com.google.code.gson:gson:2.10.1'
 
     // SQLite pour la nouvelle base de donnees
     implementation 'org.xerial:sqlite-jdbc:3.45.1.0'

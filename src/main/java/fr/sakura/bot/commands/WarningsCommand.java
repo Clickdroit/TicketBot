@@ -87,15 +87,15 @@ public class WarningsCommand implements ICommand {
             // Formatage du timestamp ISO en date lisible, avec fallback si invalide
             String formattedDate;
             try {
-                formattedDate = OffsetDateTime.parse(warning.getTimestamp()).format(TIMESTAMP_FORMATTER);
+                formattedDate = OffsetDateTime.parse(warning.timestamp()).format(TIMESTAMP_FORMATTER);
             } catch (Exception e) {
-                formattedDate = warning.getTimestamp();
+                formattedDate = warning.timestamp();
             }
 
-            String moderatorDisplay = formatModerator(event, warning.getModeratorId());
+            String moderatorDisplay = formatModerator(event, warning.moderatorId());
 
-            message.append("`").append(i + 1).append(".` ")
-                    .append(warning.getReason())
+            message.append("**").append(i + 1).append(".** ")
+                    .append(warning.reason())
                     .append("\n")
                     .append("   › Mod : ").append(moderatorDisplay)
                     .append(" • ").append(formattedDate)

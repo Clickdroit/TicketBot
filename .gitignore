@@ -14,3 +14,7 @@ build/
 
 # Runtime logs
 logs/
+
+# Database files
+data/
+

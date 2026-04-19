@@ -21,9 +21,10 @@ public class LevelStore {
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, guildId);
             pstmt.setString(2, userId);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return new LevelProfile(guildId, userId, rs.getLong("xp"), rs.getInt("level"));
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return new LevelProfile(guildId, userId, rs.getLong("xp"), rs.getInt("level"));
+                }
             }
         } catch (SQLException e) {
             logger.error("Erreur lecture profile XP guildId={}, userId={}", guildId, userId, e);
@@ -53,9 +54,10 @@ public class LevelStore {
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, guildId);
             pstmt.setInt(2, Math.max(1, limit));
-            ResultSet rs = pstmt.executeQuery();
-            while (rs.next()) {
-                profiles.add(new LevelProfile(guildId, rs.getString("user_id"), rs.getLong("xp"), rs.getInt("level")));
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    profiles.add(new LevelProfile(guildId, rs.getString("user_id"), rs.getLong("xp"), rs.getInt("level")));
+                }
             }
         } catch (SQLException e) {
             logger.error("Erreur lecture leaderboard guildId={}", guildId, e);

@@ -9,10 +9,19 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 public class SettingsManager {
 
     private static final Logger logger = LoggerFactory.getLogger(SettingsManager.class);
+
+    private static final Set<String> ALLOWED_INT_SETTINGS = Set.of(
+            "spam_limit", "spam_window_ms", "automod_strikes_to_timeout",
+            "automod_timeout_minutes", "automod_strike_reset_minutes",
+            "automod_notice_cooldown_seconds", "xp_cooldown_ms",
+            "xp_min_message_length", "xp_min_alnum_count",
+            "xp_min_gain", "xp_max_gain"
+    );
 
     /**
      * Initialise par defaut les parametres d'une guilde si elle n'existe pas.
@@ -37,9 +46,10 @@ public class SettingsManager {
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, guildId);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return rs.getInt("anti_spam_enabled") == 1;
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("anti_spam_enabled") == 1;
+                }
             }
         } catch (SQLException e) {
             logger.error("Erreur lecture anti_spam_enabled guildId={}", guildId, e);
@@ -67,9 +77,10 @@ public class SettingsManager {
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, guildId);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return rs.getInt("anti_link_enabled") == 1;
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("anti_link_enabled") == 1;
+                }
             }
         } catch (SQLException e) {
             logger.error("Erreur lecture anti_link_enabled guildId={}", guildId, e);
@@ -97,9 +108,10 @@ public class SettingsManager {
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, guildId);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return rs.getInt("allow_gif_links") == 1;
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("allow_gif_links") == 1;
+                }
             }
         } catch (SQLException e) {
             logger.error("Erreur lecture allow_gif_links guildId={}", guildId, e);
@@ -224,9 +236,10 @@ public class SettingsManager {
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, guildId);
-            ResultSet rs = pstmt.executeQuery();
-            while (rs.next()) {
-                result.put(rs.getInt("level"), rs.getString("role_id"));
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    result.put(rs.getInt("level"), rs.getString("role_id"));
+                }
             }
         } catch (SQLException e) {
             logger.error("Erreur lecture mappings level_roles guildId={}", guildId, e);
@@ -240,9 +253,10 @@ public class SettingsManager {
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, guildId);
             pstmt.setInt(2, level);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return rs.getString("role_id");
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("role_id");
+                }
             }
         } catch (SQLException e) {
             logger.error("Erreur lecture level_role guildId={}, level={}", guildId, level, e);
@@ -280,14 +294,18 @@ public class SettingsManager {
     }
 
     private int getIntSetting(String guildId, String field, int fallback, int min, int max) {
+        if (!ALLOWED_INT_SETTINGS.contains(field)) {
+            throw new IllegalArgumentException("Champ non autorisé pour lecture: " + field);
+        }
         ensureGuildExists(guildId);
         String sql = "SELECT " + field + " FROM settings WHERE guild_id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, guildId);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return clamp(rs.getInt(field), min, max);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return clamp(rs.getInt(field), min, max);
+                }
             }
         } catch (SQLException e) {
             logger.error("Erreur lecture {} guildId={}", field, guildId, e);
@@ -296,6 +314,9 @@ public class SettingsManager {
     }
 
     private void setIntSetting(String guildId, String field, int value) {
+        if (!ALLOWED_INT_SETTINGS.contains(field)) {
+            throw new IllegalArgumentException("Champ non autorisé pour modification: " + field);
+        }
         ensureGuildExists(guildId);
         String sql = "UPDATE settings SET " + field + " = ? WHERE guild_id = ?";
         try (Connection conn = DatabaseManager.getConnection();

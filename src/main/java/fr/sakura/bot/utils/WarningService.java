@@ -3,7 +3,6 @@ package fr.sakura.bot.utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -16,9 +15,9 @@ public class WarningService {
 
     private final WarningStore warningStore;
 
-    public WarningService(String warningsFilePath) {
-        this.warningStore = new WarningStore(warningsFilePath);
-        logger.info("WarningService pret (stockage SQLite)");
+    public WarningService() {
+        this.warningStore = new WarningStore();
+        logger.info("WarningService pret (stockage via DatabaseManager)");
     }
 
     public int addWarning(String guildId, String userId, String moderatorId, String reason) {
