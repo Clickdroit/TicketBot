@@ -117,14 +117,7 @@ public class TicketService {
     }
 
     public boolean isStaff(Member member) {
-        if (member == null) return false;
-        return member.hasPermission(Permission.ADMINISTRATOR)
-                || member.hasPermission(Permission.MANAGE_CHANNEL)
-                || member.hasPermission(Permission.MODERATE_MEMBERS)
-                || member.getRoles().stream().anyMatch(role -> {
-                    String lower = role.getName().toLowerCase(Locale.ROOT);
-                    return lower.contains("support") || lower.contains("staff") || lower.contains("mod");
-                });
+        return StaffUtils.isStaff(member);
     }
 
     public Button createButton() {
@@ -139,4 +132,3 @@ public class TicketService {
         return Button.danger("ticket:close", "🔒 Fermer le ticket");
     }
 }
-

@@ -1,5 +1,6 @@
 package fr.sakura.bot.listeners;
 
+import fr.sakura.bot.database.SettingsManager;
 import fr.sakura.bot.utils.EmbedStyle;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
@@ -32,16 +33,20 @@ public class WelcomeListener extends ListenerAdapter {
     private static final String DEFAULT_WELCOME_GIF =
             "https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExZjhwMjNzNXUzc3l6bHMyOTA5cmw1eXgyZ3l4Y3IxeHRhZzB1YW0yaCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/AdtvZ8gu9gZ32/giphy.gif";
 
-    private final String welcomeChannelId;
-    private final String welcomeImageUrl;
+    private final SettingsManager settingsManager;
+    private final String defaultWelcomeChannelId;
+    private final String defaultWelcomeImageUrl;
 
-    public WelcomeListener(String welcomeChannelId, String welcomeImageUrl) {
-        this.welcomeChannelId = welcomeChannelId;
-        this.welcomeImageUrl = welcomeImageUrl;
+    public WelcomeListener(SettingsManager settingsManager, String welcomeChannelId, String welcomeImageUrl) {
+        this.settingsManager = settingsManager;
+        this.defaultWelcomeChannelId = welcomeChannelId;
+        this.defaultWelcomeImageUrl = welcomeImageUrl;
     }
 
     @Override
     public void onGuildMemberJoin(@NotNull GuildMemberJoinEvent event) {
+        String guildId = event.getGuild().getId();
+        String welcomeChannelId = firstNonBlank(settingsManager.getWelcomeChannelId(guildId), defaultWelcomeChannelId);
         if (welcomeChannelId == null || welcomeChannelId.isBlank()) {
             logger.debug("Message de bienvenue ignoré : WELCOME_CHANNEL_ID non configuré");
             return;
@@ -62,7 +67,8 @@ public class WelcomeListener extends ListenerAdapter {
         // ── Résolution de l'image ────────────────────────────────────────────────
         // Discord n'anime les GIF que via setImage() (grande bannière en bas).
         // setThumbnail() ne supporte pas l'animation — on l'utilise pour l'avatar.
-        String bannerUrl = resolveImageUrl(welcomeImageUrl);
+        String configuredImage = firstNonBlank(settingsManager.getWelcomeImageUrl(guildId), defaultWelcomeImageUrl);
+        String bannerUrl = resolveImageUrl(configuredImage);
 
         // ── Construction de l'embed ──────────────────────────────────────────────
         EmbedBuilder embed = EmbedStyle.newInfoEmbed("🌸", "Bienvenue sur " + guild.getName() + " !");
@@ -151,7 +157,7 @@ public class WelcomeListener extends ListenerAdapter {
      * Vérifie qu'une URL est une URL HTTPS syntaxiquement valide avec un hôte présent.
      * Ne fait aucune requête réseau.
      */
-    private boolean isValidHttpsUrl(String url) {
+    public static boolean isValidHttpsUrl(String url) {
         if (url == null) return false;
         try {
             URI uri = new URI(url);
@@ -162,5 +168,12 @@ public class WelcomeListener extends ListenerAdapter {
         } catch (URISyntaxException e) {
             return false;
         }
+    }
+
+    private String firstNonBlank(String preferred, String fallback) {
+        if (preferred != null && !preferred.isBlank()) {
+            return preferred;
+        }
+        return fallback;
     }
 }

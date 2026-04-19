@@ -72,6 +72,16 @@ public class TicketListener extends ListenerAdapter {
             Category category = ticketService.resolveTicketCategory(guild);
             List<net.dv8tion.jda.api.entities.Role> supportRoles = ticketService.resolveSupportRoles(guild);
             String supportMention = ticketService.supportMention(guild);
+            Member selfMember = guild.getSelfMember();
+
+            if (category != null && !selfMember.hasPermission(category, Permission.MANAGE_CHANNEL)) {
+                event.getHook().sendMessage("❌ Je n'ai pas la permission **Gérer les salons** dans la catégorie " + category.getAsMention() + ".").queue();
+                return;
+            }
+            if (category == null && !selfMember.hasPermission(Permission.MANAGE_CHANNEL)) {
+                event.getHook().sendMessage("❌ Je n'ai pas la permission **Gérer les salons** pour créer un ticket.").queue();
+                return;
+            }
 
             var action = guild.createTextChannel(channelName)
                     .setTopic("Ticket ouvert par " + requester.getUser().getName() + " (" + requester.getId() + ")")

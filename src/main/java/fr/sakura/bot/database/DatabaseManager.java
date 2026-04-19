@@ -150,6 +150,17 @@ public class DatabaseManager {
                 stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_tickets_single_active_per_user ON tickets(guild_id, user_id) WHERE status IN ('OPEN', 'CLAIMED')");
             }
         });
+
+        applyMigration(conn, 4, "welcome settings and role panels", () -> {
+            addColumnIfMissing(conn, "settings", "welcome_channel_id", "TEXT");
+            addColumnIfMissing(conn, "settings", "welcome_image_url", "TEXT");
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute(createRolePanelsTableSql());
+                stmt.execute(createRolePanelButtonsTableSql());
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_role_panels_guild ON role_panels(guild_id)");
+                stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_role_panel_buttons_panel_role ON role_panel_buttons(panel_id, role_id)");
+            }
+        });
     }
 
     private static void applyMigration(Connection conn, int version, String description, Migration migration) throws SQLException {
@@ -205,6 +216,18 @@ public class DatabaseManager {
 
     private static boolean hasColumn(Connection conn, String tableName, String columnName) throws SQLException {
         DatabaseMetaData metaData = conn.getMetaData();
+
+        if (dbDialect == DbDialect.POSTGRES) {
+            try (ResultSet rs = metaData.getColumns(null, "public", tableName, columnName)) {
+                if (rs.next()) {
+                    return true;
+                }
+            }
+
+            try (ResultSet rs = metaData.getColumns(null, "public", tableName.toLowerCase(), columnName.toLowerCase())) {
+                return rs.next();
+            }
+        }
 
         try (ResultSet rs = metaData.getColumns(null, null, tableName, columnName)) {
             if (rs.next()) {
@@ -288,7 +311,8 @@ public class DatabaseManager {
                 "xp_min_gain INTEGER DEFAULT 15," +
                 "xp_max_gain INTEGER DEFAULT 25," +
                 "log_channel_id TEXT," +
-                "welcome_channel_id TEXT" +
+                "welcome_channel_id TEXT," +
+                "welcome_image_url TEXT" +
                 ");";
     }
 
@@ -340,6 +364,44 @@ public class DatabaseManager {
                 "level INTEGER NOT NULL," +
                 "role_id TEXT NOT NULL," +
                 "PRIMARY KEY (guild_id, level)" +
+                ");";
+    }
+
+    private static String createRolePanelsTableSql() {
+        if (dbDialect == DbDialect.POSTGRES) {
+            return "CREATE TABLE IF NOT EXISTS role_panels (" +
+                    "id BIGSERIAL PRIMARY KEY," +
+                    "guild_id TEXT NOT NULL," +
+                    "channel_id TEXT NOT NULL," +
+                    "message_id TEXT NOT NULL," +
+                    "created_at TEXT" +
+                    ");";
+        }
+        return "CREATE TABLE IF NOT EXISTS role_panels (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "guild_id TEXT NOT NULL," +
+                "channel_id TEXT NOT NULL," +
+                "message_id TEXT NOT NULL," +
+                "created_at TEXT" +
+                ");";
+    }
+
+    private static String createRolePanelButtonsTableSql() {
+        if (dbDialect == DbDialect.POSTGRES) {
+            return "CREATE TABLE IF NOT EXISTS role_panel_buttons (" +
+                    "id BIGSERIAL PRIMARY KEY," +
+                    "panel_id BIGINT NOT NULL REFERENCES role_panels(id) ON DELETE CASCADE," +
+                    "role_id TEXT NOT NULL," +
+                    "label TEXT NOT NULL," +
+                    "emoji TEXT" +
+                    ");";
+        }
+        return "CREATE TABLE IF NOT EXISTS role_panel_buttons (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "panel_id INTEGER NOT NULL REFERENCES role_panels(id) ON DELETE CASCADE," +
+                "role_id TEXT NOT NULL," +
+                "label TEXT NOT NULL," +
+                "emoji TEXT" +
                 ");";
     }
 
