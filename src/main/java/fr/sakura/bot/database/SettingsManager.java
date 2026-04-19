@@ -186,8 +186,9 @@ public class SettingsManager {
         return getIntSetting(guildId, "xp_cooldown_ms", 60_000, 5_000, 300_000);
     }
 
-    public void setXpCooldownMs(String guildId, int valueMs) {
-        setIntSetting(guildId, "xp_cooldown_ms", clamp(valueMs, 5_000, 300_000));
+    public void setXpCooldownMs(String guildId, long valueMs) {
+        int bounded = (int) Math.max(5_000L, Math.min(300_000L, valueMs));
+        setIntSetting(guildId, "xp_cooldown_ms", bounded);
     }
 
     public int getXpMinMessageLength(String guildId) {
@@ -290,6 +291,68 @@ public class SettingsManager {
             logger.info("Level role supprime guildId={}, level={}", guildId, level);
         } catch (SQLException e) {
             logger.error("Erreur suppression level_role guildId={}, level={}", guildId, level, e);
+        }
+    }
+
+    public String getWelcomeChannelId(String guildId) {
+        ensureGuildExists(guildId);
+        String sql = "SELECT welcome_channel_id FROM settings WHERE guild_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, guildId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("welcome_channel_id");
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur lecture welcome_channel_id guildId={}", guildId, e);
+        }
+        return null;
+    }
+
+    public void setWelcomeChannelId(String guildId, String channelId) {
+        ensureGuildExists(guildId);
+        String sql = "UPDATE settings SET welcome_channel_id = ? WHERE guild_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, channelId);
+            pstmt.setString(2, guildId);
+            pstmt.executeUpdate();
+            logger.info("Config welcome_channel_id={} pour guildId={}", channelId, guildId);
+        } catch (SQLException e) {
+            logger.error("Erreur update welcome_channel_id guildId={}", guildId, e);
+        }
+    }
+
+    public String getWelcomeImageUrl(String guildId) {
+        ensureGuildExists(guildId);
+        String sql = "SELECT welcome_image_url FROM settings WHERE guild_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, guildId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("welcome_image_url");
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur lecture welcome_image_url guildId={}", guildId, e);
+        }
+        return null;
+    }
+
+    public void setWelcomeImageUrl(String guildId, String imageUrl) {
+        ensureGuildExists(guildId);
+        String sql = "UPDATE settings SET welcome_image_url = ? WHERE guild_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, imageUrl);
+            pstmt.setString(2, guildId);
+            pstmt.executeUpdate();
+            logger.info("Config welcome_image_url mise a jour pour guildId={}", guildId);
+        } catch (SQLException e) {
+            logger.error("Erreur update welcome_image_url guildId={}", guildId, e);
         }
     }
 

@@ -66,7 +66,7 @@ public class LeaderboardCommand implements ICommand {
                     .append(profile.level())
                     .append("**, XP **")
                     .append(profile.xp())
-                    .append("\n");
+                    .append("**\n");
         }
 
         embed.setDescription(description.toString());

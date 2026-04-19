@@ -65,20 +65,39 @@ public class WarningStore {
 
     public synchronized int addWarning(String guildId, String userId, WarningEntry warningEntry) {
         String insertSql = "INSERT INTO warnings (guild_id, user_id, reason, timestamp, moderator_id) VALUES (?, ?, ?, ?, ?)";
+        String countSql = "SELECT COUNT(*) FROM warnings WHERE guild_id = ? AND user_id = ?";
 
-        try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(insertSql)) {
-            pstmt.setString(1, guildId);
-            pstmt.setString(2, userId);
-            pstmt.setString(3, warningEntry.reason());
-            pstmt.setString(4, warningEntry.timestamp());
-            pstmt.setString(5, warningEntry.moderatorId());
-            pstmt.executeUpdate();
+        try (Connection conn = DatabaseManager.getConnection()) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement insertStmt = conn.prepareStatement(insertSql);
+                 PreparedStatement countStmt = conn.prepareStatement(countSql)) {
+                insertStmt.setString(1, guildId);
+                insertStmt.setString(2, userId);
+                insertStmt.setString(3, warningEntry.reason());
+                insertStmt.setString(4, warningEntry.timestamp());
+                insertStmt.setString(5, warningEntry.moderatorId());
+                insertStmt.executeUpdate();
+
+                countStmt.setString(1, guildId);
+                countStmt.setString(2, userId);
+                try (ResultSet rs = countStmt.executeQuery()) {
+                    if (!rs.next()) {
+                        throw new SQLException("COUNT(*) n'a retourné aucune ligne");
+                    }
+                    int total = rs.getInt(1);
+                    conn.commit();
+                    return total;
+                }
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            } finally {
+                conn.setAutoCommit(true);
+            }
         } catch (SQLException e) {
             logger.error("Erreur lors de l'ajout d'un warning pour guildId={}, userId={}", guildId, userId, e);
         }
-
-        return getWarningsCount(guildId, userId);
+        return 0;
     }
 
     public synchronized int clearWarnings(String guildId, String userId) {

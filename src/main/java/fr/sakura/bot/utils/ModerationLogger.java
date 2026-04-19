@@ -101,7 +101,7 @@ public class ModerationLogger {
             desc.append("```\n*(vide)*\n```");
         }
 
-        embed.setDescription(desc.toString());
+        setDescriptionWithGuard(embed, desc.toString(), "MESSAGE_EDIT", messageId);
 
         // Footer
         StringBuilder footer = new StringBuilder();
@@ -160,7 +160,7 @@ public class ModerationLogger {
             desc.append("```\n*(message trop ancien ou non intercepté)*\n```");
         }
 
-        embed.setDescription(desc.toString());
+        setDescriptionWithGuard(embed, desc.toString(), "MESSAGE_DELETE", messageId);
 
         StringBuilder footer = new StringBuilder();
         footer.append("Message : ").append(messageId);
@@ -185,6 +185,7 @@ public class ModerationLogger {
             Map.entry("TIMEOUT",              new ActionStyle(new Color(148,   0, 211), "⏳", "Timeout")),
             Map.entry("UNBAN",                new ActionStyle(new Color( 60, 179, 113), "🔓", "Débannissement")),
             Map.entry("WARN",                 new ActionStyle(new Color(255, 215,   0), "⚠️", "Avertissement")),
+            Map.entry("AUTOMOD_WARN",         new ActionStyle(new Color(255, 140,   0), "🤖", "Avertissement AutoMod")),
             Map.entry("CLEARWARN",            new ActionStyle(new Color( 70, 130, 180), "🧾", "Reset des avertissements")),
             Map.entry("MESSAGE_EDIT",         new ActionStyle(new Color(123, 104, 238), "✏️", "Message modifié")),
             Map.entry("MESSAGE_DELETE",       new ActionStyle(new Color(255,  99,  71), "🗑️", "Message supprimé")),
@@ -206,7 +207,8 @@ public class ModerationLogger {
             Map.entry("LOCK",                 new ActionStyle(new Color(231,  76,  60), "🔒", "Salon verrouillé")),
             Map.entry("UNLOCK",               new ActionStyle(new Color( 46, 204, 113), "🔓", "Salon déverrouillé")),
             Map.entry("SLOWMODE",             new ActionStyle(new Color( 52, 152, 219), "🐢", "Slowmode modifié")),
-            Map.entry("SAY",                  new ActionStyle(new Color(155,  89, 182), "🗣️", "Annonce staff"))
+            Map.entry("SAY",                  new ActionStyle(new Color(155,  89, 182), "🗣️", "Annonce staff")),
+            Map.entry("EMBED",                new ActionStyle(new Color(255, 168, 204), "🖼️", "Embed staff"))
     );
 
     private static final ActionStyle DEFAULT_STYLE =
@@ -302,5 +304,13 @@ public class ModerationLogger {
     private static String sanitizeCodeblock(String content, int maxLen) {
         String safe = content.replace("```", "` ` `");
         return safe.length() > maxLen ? safe.substring(0, maxLen) + "…" : safe;
+    }
+
+    private void setDescriptionWithGuard(EmbedBuilder embed, String description, String action, String messageId) {
+        String truncated = EmbedStyle.truncate(description, 4000);
+        if (!truncated.equals(description)) {
+            logger.warn("Description embed tronquee pour {} (messageId={})", action, messageId);
+        }
+        embed.setDescription(truncated);
     }
 }

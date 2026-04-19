@@ -24,6 +24,7 @@ public class LevelService {
     private final SettingsManager settingsManager;
     private final Map<String, Long> lastAwardByMember = new ConcurrentHashMap<>();
 
+    @Deprecated(since = "v3", forRemoval = false)
     public LevelService() {
         this(new LevelStore(), null);
     }
@@ -32,6 +33,7 @@ public class LevelService {
         this(new LevelStore(), settingsManager);
     }
 
+    @Deprecated(since = "v3", forRemoval = false)
     public LevelService(LevelStore levelStore) {
         this(levelStore, null);
     }
@@ -39,6 +41,9 @@ public class LevelService {
     public LevelService(LevelStore levelStore, SettingsManager settingsManager) {
         this.levelStore = levelStore;
         this.settingsManager = settingsManager;
+        if (settingsManager == null) {
+            logger.warn("LevelService initialisé sans SettingsManager: fallback silencieux sur les constantes par défaut");
+        }
     }
 
     public boolean shouldAwardXp(String content) {
@@ -78,7 +83,7 @@ public class LevelService {
         return alphaNumericCount >= minAlnum;
     }
 
-    public synchronized XpResult addMessageXp(String guildId, String userId, String content) {
+    public XpResult addMessageXp(String guildId, String userId, String content) {
         if (!shouldAwardXp(guildId, content)) {
             return new XpResult(levelStore.getProfile(guildId, userId), false, false, 0);
         }
@@ -86,12 +91,9 @@ public class LevelService {
         String memberKey = guildId + ":" + userId;
         long now = Instant.now().toEpochMilli();
         long cooldownMs = settingsManager != null ? settingsManager.getXpCooldownMs(guildId) : DEFAULT_COOLDOWN_MS;
-        long lastAward = lastAwardByMember.getOrDefault(memberKey, 0L);
-        if (now - lastAward < cooldownMs) {
+        if (!tryAcquireCooldown(memberKey, now, cooldownMs)) {
             return new XpResult(levelStore.getProfile(guildId, userId), false, false, 0);
         }
-
-        lastAwardByMember.put(memberKey, now);
 
         int minGain = settingsManager != null ? settingsManager.getXpMinGain(guildId) : DEFAULT_MIN_GAIN;
         int maxGain = settingsManager != null ? settingsManager.getXpMaxGain(guildId) : DEFAULT_MAX_GAIN;
@@ -199,5 +201,19 @@ public class LevelService {
     }
 
     public record XpResult(LevelProfile profile, boolean xpAwarded, boolean leveledUp, int xpGained) {
+    }
+
+    private boolean tryAcquireCooldown(String memberKey, long now, long cooldownMs) {
+        final boolean[] allowed = {false};
+        lastAwardByMember.compute(memberKey, (key, previous) -> {
+            long last = previous != null ? previous : 0L;
+            if (now - last < cooldownMs) {
+                allowed[0] = false;
+                return last;
+            }
+            allowed[0] = true;
+            return now;
+        });
+        return allowed[0];
     }
 }

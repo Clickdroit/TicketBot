@@ -2,8 +2,10 @@ package fr.sakura.bot.listeners;
 
 import fr.sakura.bot.database.SettingsManager;
 import fr.sakura.bot.utils.ModerationLogger;
+import fr.sakura.bot.utils.StaffUtils;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.events.guild.member.GuildMemberRemoveEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
@@ -17,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -36,6 +39,7 @@ public class AutoModListener extends ListenerAdapter {
     private final Map<String, Deque<Long>> spamWindows = new ConcurrentHashMap<>();
     private final Map<String, StrikeState> strikeStates = new ConcurrentHashMap<>();
     private final Map<String, Long> lastNoticeByRuleMember = new ConcurrentHashMap<>();
+    private final Map<String, Set<String>> noticeKeysByMember = new ConcurrentHashMap<>();
     private final List<Rule> rules;
 
     private static final class StrikeState {
@@ -83,9 +87,7 @@ public class AutoModListener extends ListenerAdapter {
         String content = event.getMessage().getContentRaw();
         String memberKey = guildId + ":" + member.getId();
 
-        if (member.hasPermission(Permission.ADMINISTRATOR)
-                || member.hasPermission(Permission.MANAGE_SERVER)
-                || member.hasPermission(Permission.MESSAGE_MANAGE)) {
+        if (StaffUtils.isStaff(member)) {
             return;
         }
 
@@ -99,7 +101,7 @@ public class AutoModListener extends ListenerAdapter {
                     success -> {
                         moderationLogger.logInGuild(
                                 event.getGuild(),
-                                "WARN",
+                                "AUTOMOD_WARN",
                                 null,
                                 member,
                                 result.logReason(),
@@ -113,6 +115,11 @@ public class AutoModListener extends ListenerAdapter {
             );
             return;
         }
+    }
+
+    @Override
+    public void onGuildMemberRemove(@NotNull GuildMemberRemoveEvent event) {
+        clearMemberState(event.getGuild().getId(), event.getUser().getId());
     }
 
     private List<Rule> buildRulePipeline() {
@@ -196,6 +203,7 @@ public class AutoModListener extends ListenerAdapter {
         }
 
         lastNoticeByRuleMember.put(key, now);
+        noticeKeysByMember.computeIfAbsent(event.getGuild().getId() + ":" + member.getId(), ignored -> ConcurrentHashMap.newKeySet()).add(key);
         event.getChannel().sendMessage(notice).queue();
     }
 
@@ -286,6 +294,18 @@ public class AutoModListener extends ListenerAdapter {
         while (noticeIt.hasNext()) {
             var entry = noticeIt.next();
             if (now - entry.getValue() > STALE_ENTRY_MS) {
+                String noticeKey = entry.getKey();
+                int suffixIndex = noticeKey.lastIndexOf(':');
+                if (suffixIndex > 0) {
+                    String memberKey = noticeKey.substring(0, suffixIndex);
+                    Set<String> keys = noticeKeysByMember.get(memberKey);
+                    if (keys != null) {
+                        keys.remove(noticeKey);
+                        if (keys.isEmpty()) {
+                            noticeKeysByMember.remove(memberKey, keys);
+                        }
+                    }
+                }
                 noticeIt.remove();
                 removedNotices++;
             }
@@ -293,6 +313,18 @@ public class AutoModListener extends ListenerAdapter {
 
         if (removedSpam + removedStrikes + removedNotices > 0) {
             logger.debug("AutoMod cleanup: spam={}, strikes={}, notices={}", removedSpam, removedStrikes, removedNotices);
+        }
+    }
+
+    private void clearMemberState(String guildId, String userId) {
+        String memberPrefix = guildId + ":" + userId;
+        spamWindows.remove(memberPrefix);
+        strikeStates.remove(memberPrefix);
+        Set<String> noticeKeys = noticeKeysByMember.remove(memberPrefix);
+        if (noticeKeys != null) {
+            for (String key : noticeKeys) {
+                lastNoticeByRuleMember.remove(key);
+            }
         }
     }
 }

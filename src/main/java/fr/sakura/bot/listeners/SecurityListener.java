@@ -1,6 +1,7 @@
 package fr.sakura.bot.listeners;
 
 import fr.sakura.bot.commands.CommandManager;
+import fr.sakura.bot.utils.RolesPanelService;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.events.guild.GuildJoinEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
@@ -15,10 +16,12 @@ public class SecurityListener extends ListenerAdapter {
 
     private final String guildId;
     private final CommandManager commandManager;
+    private final RolesPanelService rolesPanelService;
 
-    public SecurityListener(String guildId, CommandManager commandManager) {
+    public SecurityListener(String guildId, CommandManager commandManager, RolesPanelService rolesPanelService) {
         this.guildId = guildId;
         this.commandManager = commandManager;
+        this.rolesPanelService = rolesPanelService;
     }
 
     @Override
@@ -32,7 +35,10 @@ public class SecurityListener extends ListenerAdapter {
                 success -> {
                     logger.info("Commandes globales purgees");
                     for (Guild guild : event.getJDA().getGuilds()) {
-                        checkAndLeaveUnauthorizedGuilds(guild);
+                        if (checkAndLeaveUnauthorizedGuilds(guild)) {
+                            commandManager.registerCommands(guild);
+                            rolesPanelService.rebuildPanels(guild);
+                        }
                     }
                 },
                 error -> logger.error("Echec de purge des commandes globales", error)
@@ -45,16 +51,16 @@ public class SecurityListener extends ListenerAdapter {
         checkAndLeaveUnauthorizedGuilds(event.getGuild());
     }
 
-    private void checkAndLeaveUnauthorizedGuilds(Guild guild) {
+    private boolean checkAndLeaveUnauthorizedGuilds(Guild guild) {
         if (!guild.getId().equals(guildId)) {
             logger.warn("Serveur non autorise detecte: {} ({}) - depart automatique", guild.getName(), guild.getId());
             guild.leave().queue(
                     success -> logger.info("Depart reussi du serveur non autorise {} ({})", guild.getName(), guild.getId()),
                     error   -> logger.error("Echec du depart du serveur non autorise {} ({})", guild.getName(), guild.getId(), error)
             );
-        } else {
-            logger.info("Serveur autorise confirme: {} ({})", guild.getName(), guild.getId());
-            commandManager.registerCommands(guild);
+            return false;
         }
+        logger.info("Serveur autorise confirme: {} ({})", guild.getName(), guild.getId());
+        return true;
     }
 }

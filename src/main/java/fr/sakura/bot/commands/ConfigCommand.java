@@ -1,7 +1,9 @@
 package fr.sakura.bot.commands;
 
 import fr.sakura.bot.database.SettingsManager;
+import fr.sakura.bot.listeners.WelcomeListener;
 import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
@@ -62,7 +64,11 @@ public class ConfigCommand implements ICommand {
                                 .addOptions(
                                         new OptionData(OptionType.INTEGER, "min", "XP minimum", true).setMinValue(1).setMaxValue(1000),
                                         new OptionData(OptionType.INTEGER, "max", "XP maximum", true).setMinValue(1).setMaxValue(1000)
-                                )
+                                ),
+                        new SubcommandData("welcomechannel", "Définit le salon de bienvenue")
+                                .addOptions(new OptionData(OptionType.CHANNEL, "salon", "Salon texte cible", true).setChannelTypes(ChannelType.TEXT)),
+                        new SubcommandData("welcomeimage", "Définit l'image de bienvenue (URL HTTPS)")
+                                .addOptions(new OptionData(OptionType.STRING, "url", "URL HTTPS ou 'default' pour réinitialiser", true).setMaxLength(2000))
                 )
                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.ADMINISTRATOR));
     }
@@ -98,6 +104,8 @@ public class ConfigCommand implements ICommand {
                         "**Gain aléatoire :** " + settingsManager.getXpMinGain(guildId) + " à " + settingsManager.getXpMaxGain(guildId) + " XP\n" +
                         "**Lettres minimum :** " + settingsManager.getXpMinMessageLength(guildId) + "\n" +
                         "**Alphanumériques min :** " + settingsManager.getXpMinAlnumCount(guildId), false);
+                embed.addField("Bienvenue", "**Salon :** " + (settingsManager.getWelcomeChannelId(guildId) != null ? "<#" + settingsManager.getWelcomeChannelId(guildId) + ">" : "non défini") + "\n" +
+                        "**Image :** " + (settingsManager.getWelcomeImageUrl(guildId) != null ? settingsManager.getWelcomeImageUrl(guildId) : "par défaut"), false);
                 event.replyEmbeds(embed.build()).queue();
             }
             case "antispam" -> {
@@ -147,7 +155,7 @@ public class ConfigCommand implements ICommand {
             }
             case "xpcooldown" -> {
                 int seconds = event.getOption("secondes", 60, OptionMapping::getAsInt);
-                settingsManager.setXpCooldownMs(guildId, seconds * 1000);
+                settingsManager.setXpCooldownMs(guildId, seconds * 1000L);
                 event.reply("✅ Cooldown XP réglé à **" + seconds + "** seconde(s).").setEphemeral(true).queue();
             }
             case "xpminlen" -> {
@@ -167,6 +175,29 @@ public class ConfigCommand implements ICommand {
                 event.reply("✅ Gain XP réglé sur la plage **" + Math.min(min, max) + " - " + Math.max(min, max) + "**.")
                         .setEphemeral(true)
                         .queue();
+            }
+            case "welcomechannel" -> {
+                var channel = event.getOption("salon", OptionMapping::getAsChannel);
+                if (channel == null) {
+                    event.reply("❌ Salon invalide.").setEphemeral(true).queue();
+                    return;
+                }
+                settingsManager.setWelcomeChannelId(guildId, channel.getId());
+                event.reply("✅ Salon de bienvenue défini sur " + channel.getAsMention() + ".").setEphemeral(true).queue();
+            }
+            case "welcomeimage" -> {
+                String url = event.getOption("url", "", OptionMapping::getAsString).trim();
+                if (url.equalsIgnoreCase("default")) {
+                    settingsManager.setWelcomeImageUrl(guildId, null);
+                    event.reply("✅ Image de bienvenue réinitialisée sur la valeur par défaut.").setEphemeral(true).queue();
+                    return;
+                }
+                if (!WelcomeListener.isValidHttpsUrl(url)) {
+                    event.reply("❌ URL invalide : fournissez une URL HTTPS valide ou `default`.").setEphemeral(true).queue();
+                    return;
+                }
+                settingsManager.setWelcomeImageUrl(guildId, url);
+                event.reply("✅ Image de bienvenue mise à jour.").setEphemeral(true).queue();
             }
             default -> event.reply("❌ Sous-commande inconnue.").setEphemeral(true).queue();
         }
