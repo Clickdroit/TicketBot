@@ -81,7 +81,10 @@ public class WarningStore {
                 countStmt.setString(1, guildId);
                 countStmt.setString(2, userId);
                 try (ResultSet rs = countStmt.executeQuery()) {
-                    int total = rs.next() ? rs.getInt(1) : 0;
+                    if (!rs.next()) {
+                        throw new SQLException("COUNT(*) n'a retourné aucune ligne");
+                    }
+                    int total = rs.getInt(1);
                     conn.commit();
                     return total;
                 }

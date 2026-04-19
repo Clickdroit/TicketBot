@@ -139,9 +139,6 @@ public class LevelStore {
             return task.get();
         } finally {
             lock.unlock();
-            if (!lock.hasQueuedThreads()) {
-                memberLocks.remove(key, lock);
-            }
         }
     }
 }

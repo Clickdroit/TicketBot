@@ -137,7 +137,7 @@ public class RolesPanelService {
                 try {
                     base = base.withEmoji(Emoji.fromFormatted(panelButton.emoji()));
                 } catch (IllegalArgumentException ignored) {
-                    logger.warn("Emoji invalide ignoree pour panelId={}, roleId={}", panelButton.panelId(), panelButton.roleId());
+                    logger.warn("Emoji invalide ignorée pour panelId={}, roleId={}", panelButton.panelId(), panelButton.roleId());
                 }
             }
             buttons.add(base);
