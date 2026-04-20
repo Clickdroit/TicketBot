@@ -5,10 +5,12 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.audit.ActionType;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
 import net.dv8tion.jda.api.events.guild.voice.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.time.Instant;
+import java.util.Objects;
 
 /**
  * Listener pour les logs vocaux (Style Sakura).
@@ -22,82 +24,109 @@ public class VoiceLogListener extends BaseLogListener {
 
     @Override
     public void onGuildVoiceUpdate(@NotNull GuildVoiceUpdateEvent event) {
-        // Si le salon n'a pas changé, c'est une mise à jour d'état (mute, sourdine, etc.)
-        // On ignore ici car c'est géré par les méthodes onGuildVoiceSelfMute, etc.
-        if (event.getOldValue() == event.getNewValue()) return;
-
         Member member = event.getMember();
-        
-        // Connexion
-        if (event.getChannelLeft() == null && event.getChannelJoined() != null) {
+        AudioChannel channelJoined = event.getChannelJoined();
+        AudioChannel channelLeft = event.getChannelLeft();
+
+        // 1. CONNEXION (Rejoint un salon, n'en quitte aucun)
+        if (channelJoined != null && channelLeft == null) {
             sendLogToChannel(event.getGuild(), embed -> {
                 embed.setColor(EmbedStyle.SAKURA_GREEN);
                 embed.setTitle("🔊  ✦  Connexion Vocale");
-                
+
                 StringBuilder desc = new StringBuilder();
                 desc.append(EmbedStyle.SEPARATOR).append("\n");
                 desc.append("🔊 **CONNEXION VOCALE**\n");
                 desc.append(EmbedStyle.SEPARATOR).append("\n\n");
-                
+
                 desc.append(EmbedStyle.detailLine("Utilisateur", member.getAsMention() + " (`" + member.getUser().getName() + "`)")).append("\n");
-                desc.append(EmbedStyle.detailLine("Salon", event.getChannelJoined().getName())).append("\n");
-                
+                desc.append(EmbedStyle.detailLine("Salon", channelJoined.getName())).append("\n");
+
                 embed.setDescription(desc.toString());
                 embed.setThumbnail(member.getEffectiveAvatarUrl());
                 embed.setTimestamp(Instant.now());
                 EmbedStyle.setFooter(embed, "User ID: " + member.getId());
             });
         }
-        // Déconnexion
-        else if (event.getChannelLeft() != null && event.getChannelJoined() == null) {
+        // 2. DÉCONNEXION (Quitte un salon, n'en rejoint aucun)
+        else if (channelLeft != null && channelJoined == null) {
+            final AudioChannel fromChannel = channelLeft;
             findRecentAuditAction(event.getGuild(), ActionType.MEMBER_VOICE_KICK, member.getId(), AUDIT_TIMING_STANDARD, 3)
                 .thenAccept(auditEntry -> {
                     User kickedBy = auditEntry != null ? auditEntry.getUser() : null;
-                    boolean wasKicked = kickedBy != null;
+                    boolean wasKicked = kickedBy != null && !kickedBy.getId().equals(member.getId());
 
                     sendLogToChannel(event.getGuild(), embed -> {
                         embed.setColor(wasKicked ? EmbedStyle.SAKURA_DEEP : EmbedStyle.SAKURA_GOLD);
                         embed.setTitle(wasKicked ? "🚫  ✦  Déconnexion Forcée" : "🔇  ✦  Déconnexion Vocale");
-                        
+
                         StringBuilder desc = new StringBuilder();
                         desc.append(EmbedStyle.SEPARATOR).append("\n");
                         desc.append(wasKicked ? "🚫 **EXPULSION VOCALE**" : "🔇 **DÉCONNEXION VOCALE**").append("\n");
                         desc.append(EmbedStyle.SEPARATOR).append("\n\n");
-                        
+
                         desc.append(EmbedStyle.detailLine("Utilisateur", member.getAsMention() + " (`" + member.getUser().getName() + "`)")).append("\n");
-                        desc.append(EmbedStyle.detailLine("Depuis", event.getChannelLeft().getName())).append("\n");
-                        
+                        desc.append(EmbedStyle.detailLine("Depuis", fromChannel.getName())).append("\n");
+
                         if (wasKicked) {
                             desc.append(EmbedStyle.detailLine("Par", kickedBy.getAsMention())).append("\n");
+                            EmbedStyle.setFooter(embed, "User ID: " + member.getId() + " | Mod ID: " + kickedBy.getId(), kickedBy.getEffectiveAvatarUrl());
+                        } else {
+                            EmbedStyle.setFooter(embed, "User ID: " + member.getId());
                         }
-                        
+
                         embed.setDescription(desc.toString());
                         embed.setThumbnail(member.getEffectiveAvatarUrl());
                         embed.setTimestamp(Instant.now());
-                        EmbedStyle.setFooter(embed, "User ID: " + member.getId());
                     });
                 });
         }
-        // Déplacement
-        else if (event.getChannelLeft() != null && event.getChannelJoined() != null) {
-            sendLogToChannel(event.getGuild(), embed -> {
-                embed.setColor(EmbedStyle.SAKURA_MIST);
-                embed.setTitle("🔁  ✦  Déplacement Vocal");
-                
-                StringBuilder desc = new StringBuilder();
-                desc.append(EmbedStyle.SEPARATOR).append("\n");
-                desc.append("🔁 **DÉPLACEMENT VOCAL**\n");
-                desc.append(EmbedStyle.SEPARATOR).append("\n\n");
-                
-                desc.append(EmbedStyle.detailLine("Utilisateur", member.getAsMention() + " (`" + member.getUser().getName() + "`)")).append("\n");
-                desc.append(EmbedStyle.detailLine("De", event.getChannelLeft().getName())).append("\n");
-                desc.append(EmbedStyle.detailLine("Vers", event.getChannelJoined().getName())).append("\n");
-                
-                embed.setDescription(desc.toString());
-                embed.setThumbnail(member.getEffectiveAvatarUrl());
-                embed.setTimestamp(Instant.now());
-                EmbedStyle.setFooter(embed, "User ID: " + member.getId());
-            });
+        // 3. DÉPLACEMENT (Quitte un salon ET en rejoint un nouveau)
+        else if (channelLeft != null && channelJoined != null) {
+            // Sécurité : Vérifier que les salons sont différents (évite les logs inutiles sur simple mise à jour d'état)
+            if (channelLeft.getId().equals(channelJoined.getId())) return;
+
+            final AudioChannel fromChannel = channelLeft;
+            final AudioChannel toChannel = channelJoined;
+
+            findRecentAuditAction(event.getGuild(), ActionType.MEMBER_VOICE_MOVE, member.getId(), AUDIT_TIMING_STANDARD, 3)
+                .thenAccept(auditEntry -> {
+                    User movedBy = auditEntry != null ? auditEntry.getUser() : null;
+                    boolean wasMoved = movedBy != null && !movedBy.getId().equals(member.getId());
+
+                    sendLogToChannel(event.getGuild(), embed -> {
+                        embed.setColor(wasMoved ? EmbedStyle.SAKURA_PINK : EmbedStyle.SAKURA_MIST);
+                        embed.setTitle(wasMoved ? "⚡  ✦  Déplacement Forcé" : "🔁  ✦  Déplacement Vocal");
+
+                        StringBuilder desc = new StringBuilder();
+                        desc.append(EmbedStyle.SEPARATOR).append("\n");
+                        desc.append(wasMoved ? "⚡ **DÉPLACEMENT FORCÉ**" : "🔁 **DÉPLACEMENT VOLONTAIRE**").append("\n");
+                        desc.append(EmbedStyle.SEPARATOR).append("\n\n");
+
+                        desc.append(EmbedStyle.detailLine("Utilisateur", member.getAsMention() + " (`" + member.getUser().getName() + "`)")).append("\n");
+                        
+                        if (wasMoved) {
+                            desc.append(EmbedStyle.detailLine("Par", movedBy.getAsMention())).append("\n");
+                        }
+
+                        desc.append("\n**🎙️ » Trajet Vocal**\n");
+                        if (wasMoved) {
+                            desc.append("```diff\n- ").append(fromChannel.getName()).append("\n+ ").append(toChannel.getName()).append("\n```");
+                        } else {
+                            desc.append("```yaml\n").append(fromChannel.getName()).append(" ➜ ").append(toChannel.getName()).append("\n```");
+                        }
+
+                        embed.setDescription(desc.toString());
+                        embed.setThumbnail(member.getEffectiveAvatarUrl());
+                        embed.setTimestamp(Instant.now());
+                        
+                        if (wasMoved) {
+                            EmbedStyle.setFooter(embed, "User ID: " + member.getId() + " | Mod ID: " + movedBy.getId(), movedBy.getEffectiveAvatarUrl());
+                        } else {
+                            EmbedStyle.setFooter(embed, "User ID: " + member.getId());
+                        }
+                    });
+                });
         }
     }
 

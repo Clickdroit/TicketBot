@@ -97,7 +97,7 @@ public class Main {
                         ticketListener, 
                         rolesPanelListener
                 )
-                .setActivity(Activity.playing("Sakura Bot (" + guildId + ")"))
+                .setActivity(Activity.playing("Bot Sakura au service de Sena"))
                 .build();
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {

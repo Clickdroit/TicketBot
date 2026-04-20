@@ -85,7 +85,7 @@ public class SettingsManager {
         } catch (SQLException e) {
             logger.error("Erreur lecture anti_link_enabled guildId={}", guildId, e);
         }
-        return true;
+        return false;
     }
 
     public void setAntiLinkEnabled(String guildId, boolean enabled) {
