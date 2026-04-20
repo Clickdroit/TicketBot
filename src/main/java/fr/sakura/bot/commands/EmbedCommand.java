@@ -2,7 +2,7 @@ package fr.sakura.bot.commands;
 
 import fr.sakura.bot.listeners.WelcomeListener;
 import fr.sakura.bot.utils.EmbedStyle;
-import fr.sakura.bot.utils.ModerationLogger;
+import fr.sakura.bot.listeners.log.ModerationLogListener;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
@@ -35,10 +35,10 @@ public class EmbedCommand implements ICommand {
             "gris",   new Color(149, 165, 166)
     );
 
-    private final ModerationLogger moderationLogger;
+    private final ModerationLogListener moderationLogListener;
 
-    public EmbedCommand(ModerationLogger moderationLogger) {
-        this.moderationLogger = moderationLogger;
+    public EmbedCommand(ModerationLogListener moderationLogListener) {
+        this.moderationLogListener = moderationLogListener;
     }
 
     @Override
@@ -115,11 +115,11 @@ public class EmbedCommand implements ICommand {
                     event.reply("✅ Embed envoyé dans " + channel.getAsMention() + ".").setEphemeral(true).queue();
                     logger.info("/embed envoye: userId={}, channelId={}, title={}",
                             event.getUser().getId(), channel.getId(), EmbedStyle.truncate(title, 80));
-                    moderationLogger.logInGuild(
+                    moderationLogListener.logAction(
                             event.getGuild(),
                             "EMBED",
                             event.getMember(),
-                            null,
+                            event.getUser(),
                             "Embed personnalisé publié",
                             "Salon : " + channel.getAsMention() + "\nTitre : " + EmbedStyle.truncate(title, 120)
                     );

@@ -2,7 +2,7 @@ package fr.sakura.bot.commands;
 
 import fr.sakura.bot.database.SettingsManager;
 import fr.sakura.bot.utils.TicketService;
-import fr.sakura.bot.utils.ModerationLogger;
+import fr.sakura.bot.listeners.log.ModerationLogListener;
 import fr.sakura.bot.utils.LevelService;
 import fr.sakura.bot.utils.RolesPanelService;
 import fr.sakura.bot.utils.WarningService;
@@ -29,7 +29,7 @@ public class CommandManager extends ListenerAdapter {
     private final Map<String, ICommand> commands = new HashMap<>();
 
     public CommandManager(String guildId,
-                          ModerationLogger moderationLogger,
+                          ModerationLogListener moderationLogListener,
                           SettingsManager settingsManager,
                           LevelService levelService,
                           TicketService ticketService,
@@ -44,24 +44,24 @@ public class CommandManager extends ListenerAdapter {
         addCommand(new AvatarCommand());
         addCommand(new UserInfoCommand());
         addCommand(new ServerInfoCommand());
-        addCommand(new ClearCommand(moderationLogger));
-        addCommand(new KickCommand(moderationLogger));
-        addCommand(new BanCommand(moderationLogger));
-        addCommand(new TimeoutCommand(moderationLogger));
-        addCommand(new UnbanCommand(moderationLogger));
-        addCommand(new WarnCommand(moderationLogger, warningService));
+        addCommand(new ClearCommand(moderationLogListener));
+        addCommand(new KickCommand(moderationLogListener));
+        addCommand(new BanCommand(moderationLogListener));
+        addCommand(new TimeoutCommand(moderationLogListener));
+        addCommand(new UnbanCommand(moderationLogListener));
+        addCommand(new WarnCommand(moderationLogListener, warningService));
         addCommand(new WarningsCommand(warningService));
-        addCommand(new ClearWarningsCommand(moderationLogger, warningService));
+        addCommand(new ClearWarningsCommand(moderationLogListener, warningService));
         addCommand(new ConfigCommand(settingsManager));
         addCommand(new RankCommand(levelService));
         addCommand(new LeaderboardCommand(levelService));
         addCommand(new TicketPanelCommand(ticketService));
         addCommand(new XpAdminCommand(levelService, settingsManager));
-        addCommand(new LockCommand(moderationLogger));
-        addCommand(new UnlockCommand(moderationLogger));
-        addCommand(new SlowmodeCommand(moderationLogger));
-        addCommand(new SayCommand(moderationLogger));
-        addCommand(new EmbedCommand(moderationLogger));
+        addCommand(new LockCommand(moderationLogListener));
+        addCommand(new UnlockCommand(moderationLogListener));
+        addCommand(new SlowmodeCommand(moderationLogListener));
+        addCommand(new SayCommand(moderationLogListener));
+        addCommand(new EmbedCommand(moderationLogListener));
         addCommand(new RolesPanelCommand(rolesPanelService));
         addCommand(new ReglementsCommand());
     }

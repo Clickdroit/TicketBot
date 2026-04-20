@@ -1,6 +1,6 @@
 package fr.sakura.bot.commands;
 
-import fr.sakura.bot.utils.ModerationLogger;
+import fr.sakura.bot.listeners.log.ModerationLogListener;
 import fr.sakura.bot.utils.WarningService;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
@@ -20,11 +20,11 @@ public class WarnCommand implements ICommand {
 
     private static final Logger logger = LoggerFactory.getLogger(WarnCommand.class);
 
-    private final ModerationLogger moderationLogger;
+    private final ModerationLogListener moderationLogListener;
     private final WarningService warningService;
 
-    public WarnCommand(ModerationLogger moderationLogger, WarningService warningService) {
-        this.moderationLogger = moderationLogger;
+    public WarnCommand(ModerationLogListener moderationLogListener, WarningService warningService) {
+        this.moderationLogListener = moderationLogListener;
         this.warningService = warningService;
     }
 
@@ -82,7 +82,7 @@ public class WarnCommand implements ICommand {
         event.reply("✅ **" + target.getUser().getName() + "** a recu un avertissement. Total: " + totalWarnings).queue();
         logger.info("/warn reussi: modId={}, targetId={}, total={}", event.getUser().getId(), target.getId(), totalWarnings);
 
-        moderationLogger.logInGuild(
+        moderationLogListener.logAction(
                 event.getGuild(),
                 "WARN",
                 event.getMember(),
@@ -92,4 +92,3 @@ public class WarnCommand implements ICommand {
         );
     }
 }
-

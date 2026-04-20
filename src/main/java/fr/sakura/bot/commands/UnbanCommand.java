@@ -1,6 +1,6 @@
 package fr.sakura.bot.commands;
 
-import fr.sakura.bot.utils.ModerationLogger;
+import fr.sakura.bot.listeners.log.ModerationLogListener;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.User;
@@ -21,10 +21,10 @@ public class UnbanCommand implements ICommand {
 
     private static final Logger logger = LoggerFactory.getLogger(UnbanCommand.class);
 
-    private final ModerationLogger moderationLogger;
+    private final ModerationLogListener moderationLogListener;
 
-    public UnbanCommand(ModerationLogger moderationLogger) {
-        this.moderationLogger = moderationLogger;
+    public UnbanCommand(ModerationLogListener moderationLogListener) {
+        this.moderationLogListener = moderationLogListener;
     }
 
     @Override
@@ -82,13 +82,13 @@ public class UnbanCommand implements ICommand {
                                 ).queue();
                                 logger.info("/unban reussi: modId={}, targetId={}", event.getUser().getId(), userId);
 
-                                moderationLogger.logInGuild(
+                                moderationLogListener.logAction(
                                         guild,
                                         "UNBAN",
                                         event.getMember(),
-                                        null,
+                                        bannedUser,
                                         finalReason,
-                                        "Utilisateur: " + bannedUser.getName() + " (" + userId + ")"
+                                        "Utilisateur débanni: " + bannedUser.getName() + " (" + userId + ")"
                                 );
                             },
                             error -> {

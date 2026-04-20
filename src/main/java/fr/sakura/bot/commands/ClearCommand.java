@@ -1,6 +1,6 @@
 package fr.sakura.bot.commands;
 
-import fr.sakura.bot.utils.ModerationLogger;
+import fr.sakura.bot.listeners.log.ModerationLogListener;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
@@ -15,10 +15,10 @@ public class ClearCommand implements ICommand {
 
     private static final Logger logger = LoggerFactory.getLogger(ClearCommand.class);
 
-    private final ModerationLogger moderationLogger;
+    private final ModerationLogListener moderationLogListener;
 
-    public ClearCommand(ModerationLogger moderationLogger) {
-        this.moderationLogger = moderationLogger;
+    public ClearCommand(ModerationLogListener moderationLogListener) {
+        this.moderationLogListener = moderationLogListener;
     }
 
     @Override
@@ -63,11 +63,11 @@ public class ClearCommand implements ICommand {
                 event.getHook().sendMessage("✅ " + messages.size() + " message(s) supprimé(s) !").queue();
                 logger.info("/clear reussi: deleted={} userId={} channelId={}", messages.size(), event.getUser().getId(), event.getChannel().getId());
 
-                moderationLogger.logInGuild(
+                moderationLogListener.logAction(
                         event.getGuild(),
                         "CLEAR",
                         event.getMember(),
-                        null,
+                        event.getUser(), // Utilise l'auteur de la commande comme "cible" pour le log si pas d'autre cible
                         "Nettoyage de salon",
                         messages.size() + " message(s) supprimé(s)"
                 );

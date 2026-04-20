@@ -1,6 +1,6 @@
 package fr.sakura.bot.commands;
 
-import fr.sakura.bot.utils.ModerationLogger;
+import fr.sakura.bot.listeners.log.ModerationLogListener;
 import fr.sakura.bot.utils.WarningService;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
@@ -20,11 +20,11 @@ public class ClearWarningsCommand implements ICommand {
 
     private static final Logger logger = LoggerFactory.getLogger(ClearWarningsCommand.class);
 
-    private final ModerationLogger moderationLogger;
+    private final ModerationLogListener moderationLogListener;
     private final WarningService warningService;
 
-    public ClearWarningsCommand(ModerationLogger moderationLogger, WarningService warningService) {
-        this.moderationLogger = moderationLogger;
+    public ClearWarningsCommand(ModerationLogListener moderationLogListener, WarningService warningService) {
+        this.moderationLogListener = moderationLogListener;
         this.warningService = warningService;
     }
 
@@ -72,7 +72,7 @@ public class ClearWarningsCommand implements ICommand {
                 .queue();
         logger.info("/clearwarnings reussi: targetId={}, removed={}", target.getId(), removed);
 
-        moderationLogger.logInGuild(
+        moderationLogListener.logAction(
                 event.getGuild(),
                 "CLEARWARN",
                 event.getMember(),
@@ -82,4 +82,3 @@ public class ClearWarningsCommand implements ICommand {
         );
     }
 }
-

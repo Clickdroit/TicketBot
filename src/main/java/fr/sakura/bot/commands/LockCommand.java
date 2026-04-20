@@ -1,6 +1,6 @@
 package fr.sakura.bot.commands;
 
-import fr.sakura.bot.utils.ModerationLogger;
+import fr.sakura.bot.listeners.log.ModerationLogListener;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -15,10 +15,10 @@ import java.util.EnumSet;
 public class LockCommand implements ICommand {
 
     private static final Logger logger = LoggerFactory.getLogger(LockCommand.class);
-    private final ModerationLogger moderationLogger;
+    private final ModerationLogListener moderationLogListener;
 
-    public LockCommand(ModerationLogger moderationLogger) {
-        this.moderationLogger = moderationLogger;
+    public LockCommand(ModerationLogListener moderationLogListener) {
+        this.moderationLogListener = moderationLogListener;
     }
 
     @Override
@@ -42,7 +42,7 @@ public class LockCommand implements ICommand {
         textChannel.getManager().putPermissionOverride(event.getGuild().getPublicRole(), null, EnumSet.of(Permission.MESSAGE_SEND)).queue(
                 ok -> {
                     event.reply("🔒 Salon verrouillé.").queue();
-                    moderationLogger.logInGuild(event.getGuild(), "LOCK", event.getMember(), null, "Salon verrouillé", "Salon: #" + textChannel.getName());
+                    moderationLogListener.logAction(event.getGuild(), "LOCK", event.getMember(), event.getUser(), "Salon verrouillé", "Salon: #" + textChannel.getName());
                 },
                 err -> {
                     logger.warn("Echec lock channelId={}", textChannel.getId(), err);

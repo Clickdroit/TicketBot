@@ -1,6 +1,6 @@
 package fr.sakura.bot.commands;
 
-import fr.sakura.bot.utils.ModerationLogger;
+import fr.sakura.bot.listeners.log.ModerationLogListener;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
@@ -15,10 +15,10 @@ import org.slf4j.LoggerFactory;
 public class SayCommand implements ICommand {
 
     private static final Logger logger = LoggerFactory.getLogger(SayCommand.class);
-    private final ModerationLogger moderationLogger;
+    private final ModerationLogListener moderationLogListener;
 
-    public SayCommand(ModerationLogger moderationLogger) {
-        this.moderationLogger = moderationLogger;
+    public SayCommand(ModerationLogListener moderationLogListener) {
+        this.moderationLogListener = moderationLogListener;
     }
 
     @Override
@@ -45,7 +45,7 @@ public class SayCommand implements ICommand {
         event.getChannel().sendMessage(message).queue(
                 ok -> {
                     if (event.getGuild() != null) {
-                        moderationLogger.logInGuild(event.getGuild(), "SAY", event.getMember(), null, "Message staff publié", "Salon: <#" + event.getChannel().getId() + ">\nContenu: " + message);
+                        moderationLogListener.logAction(event.getGuild(), "SAY", event.getMember(), event.getUser(), "Message staff publié", "Salon: <#" + event.getChannel().getId() + ">\nContenu: " + message);
                     }
                 },
                 err -> {

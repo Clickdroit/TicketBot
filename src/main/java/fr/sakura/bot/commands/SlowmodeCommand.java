@@ -1,6 +1,6 @@
 package fr.sakura.bot.commands;
 
-import fr.sakura.bot.utils.ModerationLogger;
+import fr.sakura.bot.listeners.log.ModerationLogListener;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -16,10 +16,10 @@ import org.slf4j.LoggerFactory;
 public class SlowmodeCommand implements ICommand {
 
     private static final Logger logger = LoggerFactory.getLogger(SlowmodeCommand.class);
-    private final ModerationLogger moderationLogger;
+    private final ModerationLogListener moderationLogListener;
 
-    public SlowmodeCommand(ModerationLogger moderationLogger) {
-        this.moderationLogger = moderationLogger;
+    public SlowmodeCommand(ModerationLogListener moderationLogListener) {
+        this.moderationLogListener = moderationLogListener;
     }
 
     @Override
@@ -45,7 +45,7 @@ public class SlowmodeCommand implements ICommand {
         textChannel.getManager().setSlowmode(seconds).queue(
                 ok -> {
                     event.reply("✅ Slowmode réglé à **" + seconds + "** seconde(s)." ).queue();
-                    moderationLogger.logInGuild(event.getGuild(), "SLOWMODE", event.getMember(), null, "Slowmode modifié", "Salon: #" + textChannel.getName() + " • " + seconds + "s");
+                    moderationLogListener.logAction(event.getGuild(), "SLOWMODE", event.getMember(), event.getUser(), "Slowmode modifié", "Salon: #" + textChannel.getName() + " • " + seconds + "s");
                 },
                 err -> {
                     logger.warn("Echec slowmode channelId={}, seconds={}", textChannel.getId(), seconds, err);

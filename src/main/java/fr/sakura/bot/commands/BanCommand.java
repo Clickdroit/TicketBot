@@ -1,6 +1,6 @@
 package fr.sakura.bot.commands;
 
-import fr.sakura.bot.utils.ModerationLogger;
+import fr.sakura.bot.listeners.log.ModerationLogListener;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.User;
@@ -20,10 +20,10 @@ public class BanCommand implements ICommand {
 
     private static final Logger logger = LoggerFactory.getLogger(BanCommand.class);
 
-    private final ModerationLogger moderationLogger;
+    private final ModerationLogListener moderationLogListener;
 
-    public BanCommand(ModerationLogger moderationLogger) {
-        this.moderationLogger = moderationLogger;
+    public BanCommand(ModerationLogListener moderationLogListener) {
+        this.moderationLogListener = moderationLogListener;
     }
 
     @Override
@@ -74,7 +74,7 @@ public class BanCommand implements ICommand {
                     success -> {
                         event.reply("✅ **" + targetUser.getName() + "** a été banni (hors serveur). Raison : " + reason).queue();
                         logger.info("/ban reussi (hors serveur): modId={}, targetId={}", event.getUser().getId(), targetUser.getId());
-                        moderationLogger.logUserInGuild(event.getGuild(), "BAN", event.getMember(), targetUser, reason, "(hors serveur)");
+                        moderationLogListener.logAction(event.getGuild(), "BAN", event.getMember(), targetUser, reason, "(hors serveur)");
                     },
                     error -> {
                         logger.error("/ban echec API (hors serveur): modId={}, targetId={}", event.getUser().getId(), targetUser.getId(), error);
@@ -97,7 +97,7 @@ public class BanCommand implements ICommand {
                     event.reply("✅ **" + target.getUser().getName() + "** a été banni. Raison : " + reason).queue();
                     logger.info("/ban reussi: modId={}, targetId={}", event.getUser().getId(), target.getId());
 
-                    moderationLogger.logInGuild(event.getGuild(), "BAN", event.getMember(), target, reason, null);
+                    moderationLogListener.logAction(event.getGuild(), "BAN", event.getMember(), target, reason, null);
                 },
                 error -> {
                     logger.error("/ban echec API: modId={}, targetId={}", event.getUser().getId(), target.getId(), error);

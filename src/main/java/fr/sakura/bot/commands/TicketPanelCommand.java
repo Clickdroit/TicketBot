@@ -4,10 +4,12 @@ import fr.sakura.bot.utils.EmbedStyle;
 import fr.sakura.bot.utils.TicketService;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
+import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,17 +40,34 @@ public class TicketPanelCommand implements ICommand {
             return;
         }
 
-        EmbedBuilder embed = EmbedStyle.newInfoEmbed("🎫", "Support / Tickets");
-        embed.setDescription("Clique sur le bouton ci-dessous pour ouvrir un ticket privé avec l'équipe de support.");
-        embed.addField("Disponibilité", "Un seul ticket actif par membre.", true);
-        embed.addField("Confidentialité", "Salon privé visible uniquement par toi et le staff.", true);
+        EmbedBuilder embed = EmbedStyle.newActionEmbed("📩", "Système de Support");
+        embed.setAuthor("Support • " + event.getGuild().getName(), null, event.getGuild().getIconUrl());
+        
+        embed.setDescription("Besoin d'aide ? Créez un ticket et notre équipe vous assistera dans les plus brefs délais.\n\n" + 
+                EmbedStyle.sectionHeader("🤔", "Comment ça marche ?"));
+        
+        embed.addField("1️⃣ Étape 1", "Sélectionnez une catégorie ci-dessous", false);
+        embed.addField("2️⃣ Étape 2", "Un salon privé sera créé pour vous", false);
+        embed.addField("3️⃣ Étape 3", "Expliquez votre demande en détail", false);
+        embed.addField("4️⃣ Étape 4", "Attendez qu'un membre du staff vous réponde", false);
+        embed.addField("⚠️ Important", "N'ouvrez qu'un seul ticket à la fois.", false);
+
         if (event.getJDA().getSelfUser().getEffectiveAvatarUrl() != null) {
             embed.setThumbnail(event.getJDA().getSelfUser().getEffectiveAvatarUrl());
         }
-        EmbedStyle.setFooter(embed, "Panel de tickets");
+        EmbedStyle.setFooter(embed, "Support disponible 24/7", event.getGuild().getIconUrl());
+
+        StringSelectMenu menu = StringSelectMenu.create("ticket:category")
+                .setPlaceholder("📩 Choisissez une catégorie")
+                .addOption("Partenariat", "ticket:partnership", "Proposer un partenariat avec le serveur", Emoji.fromUnicode("🤝"))
+                .addOption("Signalement", "ticket:report", "Signaler un utilisateur ou un comportement", Emoji.fromUnicode("🚨"))
+                .addOption("Support", "ticket:support", "Aide technique ou questions générales", Emoji.fromUnicode("🛠️"))
+                .addOption("Suggestion", "ticket:suggestion", "Proposer une idée pour le serveur", Emoji.fromUnicode("💡"))
+                .addOption("Autre", "ticket:other", "Toute autre demande", Emoji.fromUnicode("❓"))
+                .build();
 
         event.getChannel().sendMessageEmbeds(embed.build())
-                .setActionRow(ticketService.createButton())
+                .addActionRow(menu)
                 .queue(
                         success -> {
                             event.reply("✅ Panel de tickets envoyé.").setEphemeral(true).queue();

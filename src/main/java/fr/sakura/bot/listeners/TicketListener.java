@@ -1,14 +1,17 @@
 package fr.sakura.bot.listeners;
 
 import fr.sakura.bot.utils.EmbedStyle;
-import fr.sakura.bot.utils.ModerationLogger;
+import fr.sakura.bot.listeners.log.ModerationLogListener;
 import fr.sakura.bot.utils.TicketEntry;
 import fr.sakura.bot.utils.TicketService;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.Category;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
+import net.dv8tion.jda.api.events.interaction.component.GenericComponentInteractionCreateEvent;
+import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -24,13 +27,30 @@ public class TicketListener extends ListenerAdapter {
     private static final String CREATE_ID = "ticket:create";
     private static final String CLAIM_ID = "ticket:claim";
     private static final String CLOSE_ID = "ticket:close";
+    private static final String CATEGORY_ID = "ticket:category";
 
     private final TicketService ticketService;
-    private final ModerationLogger moderationLogger;
+    private final ModerationLogListener moderationLogListener;
 
-    public TicketListener(TicketService ticketService, ModerationLogger moderationLogger) {
+    public TicketListener(TicketService ticketService, ModerationLogListener moderationLogListener) {
         this.ticketService = ticketService;
-        this.moderationLogger = moderationLogger;
+        this.moderationLogListener = moderationLogListener;
+    }
+
+    @Override
+    public void onStringSelectInteraction(@NotNull StringSelectInteractionEvent event) {
+        if (!event.isFromGuild() || event.getMember() == null || event.getGuild() == null) {
+            return;
+        }
+
+        if (CATEGORY_ID.equals(event.getComponentId())) {
+            if (event.getValues().isEmpty()) {
+                return;
+            }
+            String selected = event.getValues().get(0);
+            String categoryName = getCategoryName(selected);
+            handleCreate(event, categoryName);
+        }
     }
 
     @Override
@@ -40,7 +60,7 @@ public class TicketListener extends ListenerAdapter {
         }
 
         if (CREATE_ID.equals(event.getComponentId())) {
-            handleCreate(event);
+            handleCreate(event, "Support");
             return;
         }
 
@@ -54,9 +74,21 @@ public class TicketListener extends ListenerAdapter {
         }
     }
 
-    private void handleCreate(ButtonInteractionEvent event) {
+    private String getCategoryName(String id) {
+        return switch (id) {
+            case "ticket:partnership" -> "Partenariat";
+            case "ticket:report" -> "Signalement";
+            case "ticket:support" -> "Support";
+            case "ticket:suggestion" -> "Suggestion";
+            case "ticket:other" -> "Autre";
+            default -> "Support";
+        };
+    }
+
+    private void handleCreate(GenericComponentInteractionCreateEvent event, String categoryLabel) {
         Member requester = event.getMember();
         var guild = event.getGuild();
+        if (guild == null || requester == null) return;
         String guildId = guild.getId();
 
         TicketEntry activeTicket = ticketService.findOpenTicket(guildId, requester.getId());
@@ -84,7 +116,7 @@ public class TicketListener extends ListenerAdapter {
             }
 
             var action = guild.createTextChannel(channelName)
-                    .setTopic("Ticket ouvert par " + requester.getUser().getName() + " (" + requester.getId() + ")")
+                    .setTopic("Ticket [" + categoryLabel + "] ouvert par " + requester.getUser().getName() + " (" + requester.getId() + ")")
                     .addPermissionOverride(guild.getPublicRole(), null, java.util.EnumSet.of(Permission.VIEW_CHANNEL))
                     .addPermissionOverride(requester, ticketService.ticketUserPermissions(), null)
                     .addPermissionOverride(guild.getSelfMember(), ticketService.ticketStaffPermissions(), null);
@@ -100,21 +132,35 @@ public class TicketListener extends ListenerAdapter {
             action.queue(channel -> {
                 TicketEntry created = ticketService.createTicketRecord(guildId, requester.getId(), channel.getId());
 
-                EmbedBuilder embed = EmbedStyle.newInfoEmbed("🎫", "Ticket ouvert");
-                embed.setDescription(requester.getAsMention() + " a ouvert un ticket. " + supportMention + " prend le relais.");
-                embed.setThumbnail(requester.getEffectiveAvatarUrl());
-                embed.addField("Demandeur", requester.getUser().getName(), true);
-                embed.addField("Statut", created != null ? created.status() : "OPEN", true);
-                embed.addField("Salon", channel.getAsMention(), true);
-                EmbedStyle.setFooter(embed, "Ticket #" + channel.getId());
+                EmbedBuilder embed = EmbedStyle.newActionEmbed("📩", "Nouveau Ticket : " + categoryLabel);
+                embed.setAuthor("Support • " + guild.getName(), null, guild.getIconUrl());
+                embed.setDescription(String.format("""
+                        Bonjour %s !
+                        
+                        Un membre de notre équipe %s va prendre en charge votre demande.
+                        Veuillez expliquer votre demande en détail et nous vous répondrons dès que possible.
+                        """,
+                        requester.getAsMention(),
+                        supportMention));
+                
+                embed.addField("👤 Utilisateur", requester.getAsMention(), true);
+                embed.addField("📌 Sujet", categoryLabel, true);
+                embed.addField("⏳ Statut", "En attente de prise en charge", false);
+                
+                embed.addField("🎯 Actions disponibles", 
+                        "✅ **Prendre en charge** - Un modérateur s'occupe de vous\n" + 
+                        "🔒 **Fermer** - Clôturer le ticket", false);
 
-                channel.sendMessageEmbeds(embed.build())
+                embed.setThumbnail(requester.getEffectiveAvatarUrl());
+                EmbedStyle.setFooter(embed, "Ticket ID: " + channel.getName());
+
+                channel.sendMessage(requester.getAsMention() + " " + supportMention).setEmbeds(embed.build())
                         .setActionRow(ticketService.claimButton(), ticketService.closeButton())
                         .queue();
 
                 event.getHook().sendMessage("✅ Ticket créé : " + channel.getAsMention()).queue();
-                moderationLogger.logInGuild(guild, "TICKET_CREATE", requester, requester, "Ticket ouvert", channel.getId());
-                logger.info("Ticket créé guildId={}, userId={}, channelId={}", guildId, requester.getId(), channel.getId());
+                moderationLogListener.logAction(guild, "TICKET_CREATE", requester, requester, "Ticket ouvert (" + categoryLabel + ")", channel.getId());
+                logger.info("Ticket créé guildId={}, userId={}, channelId={}, category={}", guildId, requester.getId(), channel.getId(), categoryLabel);
             }, error -> {
                 logger.error("Echec creation ticket guildId={}, userId={}", guildId, requester.getId(), error);
                 event.getHook().sendMessage("❌ Impossible de créer le ticket.").queue();
@@ -129,6 +175,7 @@ public class TicketListener extends ListenerAdapter {
         }
 
         var guild = event.getGuild();
+        if (guild == null) return;
         var channel = event.getChannel();
         TicketEntry ticket = ticketService.findByChannelId(guild.getId(), channel.getId());
         if (ticket == null || ticket.status() == null || "CLOSED".equalsIgnoreCase(ticket.status())) {
@@ -143,7 +190,11 @@ public class TicketListener extends ListenerAdapter {
 
         TicketEntry claimed = ticketService.claimTicket(guild.getId(), channel.getId(), event.getUser().getId());
         event.reply("✅ Ticket pris en charge par " + event.getUser().getAsMention()).setEphemeral(true).queue();
-        moderationLogger.logInGuild(guild, "TICKET_CLAIM", event.getMember(), guild.getMemberById(ticket.userId()), "Ticket pris en charge", channel.getId());
+        
+        Member ownerMember = guild.getMemberById(ticket.userId());
+        if (ownerMember != null) {
+            moderationLogListener.logAction(guild, "TICKET_CLAIM", event.getMember(), ownerMember, "Ticket pris en charge", channel.getId());
+        }
 
         if (claimed != null) {
             channel.sendMessage("✅ " + event.getUser().getAsMention() + " prend en charge ce ticket.").queue();
@@ -154,6 +205,7 @@ public class TicketListener extends ListenerAdapter {
 
     private void handleClose(ButtonInteractionEvent event) {
         var guild = event.getGuild();
+        if (guild == null) return;
         var channel = event.getChannel();
         TicketEntry ticket = ticketService.findByChannelId(guild.getId(), channel.getId());
         if (ticket == null || ticket.status() == null || "CLOSED".equalsIgnoreCase(ticket.status())) {
@@ -172,14 +224,20 @@ public class TicketListener extends ListenerAdapter {
         TicketEntry closed = ticketService.closeTicket(guild.getId(), channel.getId(), event.getUser().getId(), closeReason);
 
         event.reply("🔒 Ticket fermé. Le salon sera supprimé dans 10 secondes.").setEphemeral(true).queue();
-        moderationLogger.logInGuild(guild, "TICKET_CLOSE", event.getMember(), guild.getMemberById(ticket.userId()), "Ticket fermé", channel.getId());
+        
+        Member ownerMember = guild.getMemberById(ticket.userId());
+        if (ownerMember != null) {
+            moderationLogListener.logAction(guild, "TICKET_CLOSE", event.getMember(), ownerMember, "Ticket fermé", channel.getId());
+        }
 
         String details = "🔒 Ticket clôturé par " + event.getUser().getAsMention();
         if (closed != null && closed.claimedBy() != null) {
             details += "\n👤 Pris en charge par <@" + closed.claimedBy() + ">";
         }
         channel.sendMessage(details).queue();
-        channel.delete().queueAfter(10, TimeUnit.SECONDS);
+        if (channel instanceof TextChannel textChannel) {
+            textChannel.delete().queueAfter(10, TimeUnit.SECONDS);
+        }
         logger.info("Ticket close guildId={}, channelId={}, closedBy={}", guild.getId(), channel.getId(), event.getUser().getId());
     }
 }

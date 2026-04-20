@@ -1,10 +1,11 @@
 package fr.sakura.bot;
 
 import fr.sakura.bot.commands.CommandManager;
-import fr.sakura.bot.listeners.ModerationActivityListener;
 import fr.sakura.bot.listeners.SecurityListener;
 import fr.sakura.bot.listeners.WelcomeListener;
-import fr.sakura.bot.utils.ModerationLogger;
+import fr.sakura.bot.listeners.log.MessageLogListener;
+import fr.sakura.bot.listeners.log.ModerationLogListener;
+import fr.sakura.bot.listeners.log.VoiceLogListener;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.requests.GatewayIntent;
@@ -59,19 +60,21 @@ public class Main {
 
         // Initialisation des services
         SettingsManager settingsManager = new SettingsManager();
-        ModerationLogger moderationLogger = new ModerationLogger(logChannelId);
+        ModerationLogListener moderationLogListener = new ModerationLogListener(logChannelId);
+        MessageLogListener messageLogListener = new MessageLogListener(logChannelId);
+        VoiceLogListener voiceLogListener = new VoiceLogListener(logChannelId);
+        
         LevelService levelService = new LevelService(settingsManager);
         TicketService ticketService = new TicketService();
         WarningService warningService = new WarningService();
         RolesPanelService rolesPanelService = new RolesPanelService(new RolesPanelStore());
 
-        CommandManager commandManager = new CommandManager(guildId, moderationLogger, settingsManager, levelService, ticketService, warningService, rolesPanelService);
+        CommandManager commandManager = new CommandManager(guildId, moderationLogListener, settingsManager, levelService, ticketService, warningService, rolesPanelService);
         SecurityListener securityListener = new SecurityListener(guildId, commandManager, rolesPanelService);
         WelcomeListener welcomeListener = new WelcomeListener(settingsManager, welcomeChannelId, welcomeImageUrl);
-        ModerationActivityListener moderationActivityListener = new ModerationActivityListener(moderationLogger);
-        AutoModListener autoModListener = new AutoModListener(moderationLogger, settingsManager);
+        AutoModListener autoModListener = new AutoModListener(moderationLogListener, settingsManager);
         LevelListener levelListener = new LevelListener(levelService);
-        TicketListener ticketListener = new TicketListener(ticketService, moderationLogger);
+        TicketListener ticketListener = new TicketListener(ticketService, moderationLogListener);
         RolesPanelListener rolesPanelListener = new RolesPanelListener(rolesPanelService);
 
         net.dv8tion.jda.api.JDA jda = JDABuilder.createLight(token)
@@ -82,7 +85,18 @@ public class Main {
                         GatewayIntent.MESSAGE_CONTENT
                 )
                 .enableCache(CacheFlag.VOICE_STATE)
-                .addEventListeners(securityListener, commandManager, welcomeListener, moderationActivityListener, autoModListener, levelListener, ticketListener, rolesPanelListener)
+                .addEventListeners(
+                        securityListener, 
+                        commandManager, 
+                        welcomeListener, 
+                        moderationLogListener,
+                        messageLogListener,
+                        voiceLogListener,
+                        autoModListener, 
+                        levelListener, 
+                        ticketListener, 
+                        rolesPanelListener
+                )
                 .setActivity(Activity.playing("Sakura Bot (" + guildId + ")"))
                 .build();
 

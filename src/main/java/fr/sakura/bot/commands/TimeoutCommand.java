@@ -1,6 +1,6 @@
 package fr.sakura.bot.commands;
 
-import fr.sakura.bot.utils.ModerationLogger;
+import fr.sakura.bot.listeners.log.ModerationLogListener;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -19,10 +19,10 @@ public class TimeoutCommand implements ICommand {
 
     private static final Logger logger = LoggerFactory.getLogger(TimeoutCommand.class);
 
-    private final ModerationLogger moderationLogger;
+    private final ModerationLogListener moderationLogListener;
 
-    public TimeoutCommand(ModerationLogger moderationLogger) {
-        this.moderationLogger = moderationLogger;
+    public TimeoutCommand(ModerationLogListener moderationLogListener) {
+        this.moderationLogListener = moderationLogListener;
     }
 
     @Override
@@ -75,7 +75,7 @@ public class TimeoutCommand implements ICommand {
                             .queue();
                     logger.info("/timeout reussi: modId={}, targetId={}, minutes={}", event.getUser().getId(), target.getId(), minutes);
 
-                    moderationLogger.logInGuild(
+                    moderationLogListener.logAction(
                             event.getGuild(),
                             "TIMEOUT",
                             event.getMember(),
@@ -94,4 +94,3 @@ public class TimeoutCommand implements ICommand {
         );
     }
 }
-

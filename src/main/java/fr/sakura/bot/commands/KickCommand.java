@@ -1,6 +1,6 @@
 package fr.sakura.bot.commands;
 
-import fr.sakura.bot.utils.ModerationLogger;
+import fr.sakura.bot.listeners.log.ModerationLogListener;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -17,10 +17,10 @@ public class KickCommand implements ICommand {
 
     private static final Logger logger = LoggerFactory.getLogger(KickCommand.class);
 
-    private final ModerationLogger moderationLogger;
+    private final ModerationLogListener moderationLogListener;
 
-    public KickCommand(ModerationLogger moderationLogger) {
-        this.moderationLogger = moderationLogger;
+    public KickCommand(ModerationLogListener moderationLogListener) {
+        this.moderationLogListener = moderationLogListener;
     }
 
     @Override
@@ -66,7 +66,6 @@ public class KickCommand implements ICommand {
 
         Member target = guild.getMember(targetUser);
 
-        // Le kick nécessite que l'utilisateur soit encore membre — on ne peut pas kick quelqu'un qui a quitté
         if (target == null) {
             logger.warn("/kick cible non membre du serveur userId={} demandeurId={}",
                     targetUser.getId(), event.getUser().getId());
@@ -87,7 +86,7 @@ public class KickCommand implements ICommand {
                     event.reply("✅ **" + target.getUser().getName() + "** a été expulsé. Raison : " + reason).queue();
                     logger.info("/kick reussi: modId={}, targetId={}", event.getUser().getId(), target.getId());
 
-                    moderationLogger.logInGuild(event.getGuild(), "KICK", event.getMember(), target, reason, null);
+                    moderationLogListener.logAction(guild, "KICK", event.getMember(), target, reason, null);
                 },
                 error -> {
                     logger.error("/kick echec API: modId={}, targetId={}", event.getUser().getId(), target.getId(), error);
