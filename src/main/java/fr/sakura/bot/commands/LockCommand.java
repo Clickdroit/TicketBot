@@ -27,6 +27,11 @@ public class LockCommand implements ICommand {
     }
 
     @Override
+    public String getCategory() {
+        return "Modération";
+    }
+
+    @Override
     public SlashCommandData getCommandData() {
         return Commands.slash(getName(), "Verrouille le salon actuel (envoi de messages bloqué)")
                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL));

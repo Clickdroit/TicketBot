@@ -27,6 +27,11 @@ public class SayCommand implements ICommand {
     }
 
     @Override
+    public String getCategory() {
+        return "Staff & Divers";
+    }
+
+    @Override
     public SlashCommandData getCommandData() {
         return Commands.slash(getName(), "Fait parler le bot dans le salon")
                 .addOptions(new OptionData(OptionType.STRING, "message", "Message à envoyer", true).setMaxLength(1800))

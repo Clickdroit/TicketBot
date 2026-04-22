@@ -101,20 +101,17 @@ public class WarningStore {
     }
 
     public synchronized int clearWarnings(String guildId, String userId) {
-        int count = getWarningsCount(guildId, userId);
-        if (count == 0) return 0;
-
         String deleteSql = "DELETE FROM warnings WHERE guild_id = ? AND user_id = ?";
 
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(deleteSql)) {
             pstmt.setString(1, guildId);
             pstmt.setString(2, userId);
-            pstmt.executeUpdate();
+            return pstmt.executeUpdate();
         } catch (SQLException e) {
             logger.error("Erreur lors de la suppression des warnings pour guildId={}, userId={}", guildId, userId, e);
         }
 
-        return count;
+        return 0;
     }
 }

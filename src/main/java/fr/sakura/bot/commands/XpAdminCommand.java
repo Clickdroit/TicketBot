@@ -34,7 +34,12 @@ public class XpAdminCommand implements ICommand {
 
     @Override
     public String getName() {
-        return "xpadmin";
+        return "xp-admin";
+    }
+
+    @Override
+    public String getCategory() {
+        return "XP & niveaux";
     }
 
     @Override

@@ -34,6 +34,11 @@ public class ClearWarningsCommand implements ICommand {
     }
 
     @Override
+    public String getCategory() {
+        return "Modération";
+    }
+
+    @Override
     public SlashCommandData getCommandData() {
         return Commands.slash(getName(), "Supprime tous les avertissements d'un membre")
                 .addOptions(new OptionData(OptionType.USER, "membre", "Le membre cible", true))

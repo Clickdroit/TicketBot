@@ -7,6 +7,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -15,13 +17,29 @@ public class SettingsManager {
 
     private static final Logger logger = LoggerFactory.getLogger(SettingsManager.class);
 
-    private static final Set<String> ALLOWED_INT_SETTINGS = Set.of(
-            "spam_limit", "spam_window_ms", "automod_strikes_to_timeout",
-            "automod_timeout_minutes", "automod_strike_reset_minutes",
-            "automod_notice_cooldown_seconds", "xp_cooldown_ms",
-            "xp_min_message_length", "xp_min_alnum_count",
-            "xp_min_gain", "xp_max_gain"
-    );
+    private static final Map<String, String> INT_GETTERS;
+    private static final Map<String, String> INT_SETTERS;
+
+    static {
+        Set<String> intFields = Set.of(
+                "spam_limit", "spam_window_ms", "automod_strikes_to_timeout",
+                "automod_timeout_minutes", "automod_strike_reset_minutes",
+                "automod_notice_cooldown_seconds", "xp_cooldown_ms",
+                "xp_min_message_length", "xp_min_alnum_count",
+                "xp_min_gain", "xp_max_gain"
+        );
+
+        Map<String, String> getters = new HashMap<>();
+        Map<String, String> setters = new HashMap<>();
+
+        for (String field : intFields) {
+            getters.put(field, "SELECT " + field + " FROM settings WHERE guild_id = ?");
+            setters.put(field, "UPDATE settings SET " + field + " = ? WHERE guild_id = ?");
+        }
+
+        INT_GETTERS = Collections.unmodifiableMap(getters);
+        INT_SETTERS = Collections.unmodifiableMap(setters);
+    }
 
     /**
      * Initialise par defaut les parametres d'une guilde si elle n'existe pas.
@@ -130,6 +148,37 @@ public class SettingsManager {
             logger.info("Liens GIF {} pour guildId={}", enabled ? "autorises" : "bloques", guildId);
         } catch (SQLException e) {
             logger.error("Erreur update allow_gif_links guildId={}", guildId, e);
+        }
+    }
+
+    public String getLogChannelId(String guildId) {
+        ensureGuildExists(guildId);
+        String sql = "SELECT log_channel_id FROM settings WHERE guild_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, guildId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("log_channel_id");
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur lecture log_channel_id guildId={}", guildId, e);
+        }
+        return null;
+    }
+
+    public void setLogChannelId(String guildId, String channelId) {
+        ensureGuildExists(guildId);
+        String sql = "UPDATE settings SET log_channel_id = ? WHERE guild_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, channelId);
+            pstmt.setString(2, guildId);
+            pstmt.executeUpdate();
+            logger.info("Config log_channel_id={} pour guildId={}", channelId, guildId);
+        } catch (SQLException e) {
+            logger.error("Erreur update log_channel_id guildId={}", guildId, e);
         }
     }
 
@@ -357,11 +406,11 @@ public class SettingsManager {
     }
 
     private int getIntSetting(String guildId, String field, int fallback, int min, int max) {
-        if (!ALLOWED_INT_SETTINGS.contains(field)) {
+        String sql = INT_GETTERS.get(field);
+        if (sql == null) {
             throw new IllegalArgumentException("Champ non autorisé pour lecture: " + field);
         }
         ensureGuildExists(guildId);
-        String sql = "SELECT " + field + " FROM settings WHERE guild_id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, guildId);
@@ -377,11 +426,11 @@ public class SettingsManager {
     }
 
     private void setIntSetting(String guildId, String field, int value) {
-        if (!ALLOWED_INT_SETTINGS.contains(field)) {
+        String sql = INT_SETTERS.get(field);
+        if (sql == null) {
             throw new IllegalArgumentException("Champ non autorisé pour modification: " + field);
         }
         ensureGuildExists(guildId);
-        String sql = "UPDATE settings SET " + field + " = ? WHERE guild_id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, value);

@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,7 +41,7 @@ public class CommandManager extends ListenerAdapter {
         logger.info("Initialisation CommandManager guildId={}", guildId);
 
         addCommand(new PingCommand());
-        addCommand(new HelpCommand());
+        addCommand(new HelpCommand(Collections.unmodifiableMap(commands)));
         addCommand(new AvatarCommand());
         addCommand(new UserInfoCommand());
         addCommand(new ServerInfoCommand());
@@ -48,6 +49,7 @@ public class CommandManager extends ListenerAdapter {
         addCommand(new KickCommand(moderationLogListener));
         addCommand(new BanCommand(moderationLogListener));
         addCommand(new TimeoutCommand(moderationLogListener));
+        addCommand(new UntimeoutCommand(moderationLogListener));
         addCommand(new UnbanCommand(moderationLogListener));
         addCommand(new WarnCommand(moderationLogListener, warningService));
         addCommand(new WarningsCommand(warningService));
@@ -95,6 +97,8 @@ public class CommandManager extends ListenerAdapter {
 
         String cid = event.getId() + "-" + UUID.randomUUID().toString().substring(0, 8);
         MDC.put("cid", cid);
+        MDC.put("guildId", event.getGuild().getId());
+        MDC.put("userId", event.getUser().getId());
 
         try {
             if (!event.getGuild().getId().equals(guildId)) {
@@ -124,6 +128,8 @@ public class CommandManager extends ListenerAdapter {
             }
         } finally {
             MDC.remove("cid");
+            MDC.remove("guildId");
+            MDC.remove("userId");
         }
     }
 }

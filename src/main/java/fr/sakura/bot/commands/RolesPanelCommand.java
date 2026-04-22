@@ -31,6 +31,11 @@ public class RolesPanelCommand implements ICommand {
     }
 
     @Override
+    public String getCategory() {
+        return "Staff & Divers";
+    }
+
+    @Override
     public SlashCommandData getCommandData() {
         return Commands.slash(getName(), "Gestion des panels de rôles")
                 .addSubcommands(

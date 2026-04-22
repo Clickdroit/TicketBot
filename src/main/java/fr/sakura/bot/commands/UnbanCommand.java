@@ -33,6 +33,11 @@ public class UnbanCommand implements ICommand {
     }
 
     @Override
+    public String getCategory() {
+        return "Modération";
+    }
+
+    @Override
     public SlashCommandData getCommandData() {
         return Commands.slash(getName(), "Retire le bannissement d'un utilisateur")
                 .addOptions(

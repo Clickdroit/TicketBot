@@ -47,6 +47,11 @@ public class EmbedCommand implements ICommand {
     }
 
     @Override
+    public String getCategory() {
+        return "Staff & Divers";
+    }
+
+    @Override
     public SlashCommandData getCommandData() {
         return Commands.slash(getName(), "Envoie un embed personnalisé dans un salon")
                 .addOptions(

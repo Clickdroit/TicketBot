@@ -68,7 +68,9 @@ public class ConfigCommand implements ICommand {
                         new SubcommandData("welcomechannel", "Définit le salon de bienvenue")
                                 .addOptions(new OptionData(OptionType.CHANNEL, "salon", "Salon texte cible", true).setChannelTypes(ChannelType.TEXT)),
                         new SubcommandData("welcomeimage", "Définit l'image de bienvenue (URL HTTPS)")
-                                .addOptions(new OptionData(OptionType.STRING, "url", "URL HTTPS ou 'default' pour réinitialiser", true).setMaxLength(2000))
+                                .addOptions(new OptionData(OptionType.STRING, "url", "URL HTTPS ou 'default' pour réinitialiser", true).setMaxLength(2000)),
+                        new SubcommandData("logchannel", "Définit le salon de logs de modération")
+                                .addOptions(new OptionData(OptionType.CHANNEL, "salon", "Salon texte cible", true).setChannelTypes(ChannelType.TEXT))
                 )
                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.ADMINISTRATOR));
     }
@@ -104,8 +106,9 @@ public class ConfigCommand implements ICommand {
                         "**Gain aléatoire :** " + settingsManager.getXpMinGain(guildId) + " à " + settingsManager.getXpMaxGain(guildId) + " XP\n" +
                         "**Lettres minimum :** " + settingsManager.getXpMinMessageLength(guildId) + "\n" +
                         "**Alphanumériques min :** " + settingsManager.getXpMinAlnumCount(guildId), false);
-                embed.addField("Bienvenue", "**Salon :** " + (settingsManager.getWelcomeChannelId(guildId) != null ? "<#" + settingsManager.getWelcomeChannelId(guildId) + ">" : "non défini") + "\n" +
-                        "**Image :** " + (settingsManager.getWelcomeImageUrl(guildId) != null ? settingsManager.getWelcomeImageUrl(guildId) : "par défaut"), false);
+                embed.addField("Salons spéciaux", "**Bienvenue :** " + (settingsManager.getWelcomeChannelId(guildId) != null ? "<#" + settingsManager.getWelcomeChannelId(guildId) + ">" : "non défini") + "\n" +
+                        "**Logs modération :** " + (settingsManager.getLogChannelId(guildId) != null ? "<#" + settingsManager.getLogChannelId(guildId) + ">" : "non défini"), false);
+                embed.addField("Bienvenue (Image)", "**Image :** " + (settingsManager.getWelcomeImageUrl(guildId) != null ? settingsManager.getWelcomeImageUrl(guildId) : "par défaut"), false);
                 event.replyEmbeds(embed.build()).queue();
             }
             case "antispam" -> {
@@ -198,6 +201,15 @@ public class ConfigCommand implements ICommand {
                 }
                 settingsManager.setWelcomeImageUrl(guildId, url);
                 event.reply("✅ Image de bienvenue mise à jour.").setEphemeral(true).queue();
+            }
+            case "logchannel" -> {
+                var channel = event.getOption("salon", OptionMapping::getAsChannel);
+                if (channel == null) {
+                    event.reply("❌ Salon invalide.").setEphemeral(true).queue();
+                    return;
+                }
+                settingsManager.setLogChannelId(guildId, channel.getId());
+                event.reply("✅ Salon de logs de modération défini sur " + channel.getAsMention() + ".").setEphemeral(true).queue();
             }
             default -> event.reply("❌ Sous-commande inconnue.").setEphemeral(true).queue();
         }

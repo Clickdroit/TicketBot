@@ -28,6 +28,11 @@ public class SlowmodeCommand implements ICommand {
     }
 
     @Override
+    public String getCategory() {
+        return "Modération";
+    }
+
+    @Override
     public SlashCommandData getCommandData() {
         return Commands.slash(getName(), "Règle le slowmode du salon (0-21600 secondes)")
                 .addOptions(new OptionData(OptionType.INTEGER, "secondes", "Durée en secondes", true).setMinValue(0).setMaxValue(21600))

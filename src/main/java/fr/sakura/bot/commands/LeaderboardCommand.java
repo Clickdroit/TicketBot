@@ -29,6 +29,11 @@ public class LeaderboardCommand implements ICommand {
     }
 
     @Override
+    public String getCategory() {
+        return "XP & niveaux";
+    }
+
+    @Override
     public SlashCommandData getCommandData() {
         return Commands.slash(getName(), "Affiche le classement XP du serveur");
     }

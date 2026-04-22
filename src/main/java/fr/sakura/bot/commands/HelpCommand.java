@@ -8,9 +8,21 @@ import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
+
 public class HelpCommand implements ICommand {
 
     private static final Logger logger = LoggerFactory.getLogger(HelpCommand.class);
+    private final Map<String, ICommand> commandMap;
+
+    public HelpCommand(Map<String, ICommand> commandMap) {
+        this.commandMap = commandMap;
+    }
 
     @Override
     public String getName() {
@@ -27,12 +39,25 @@ public class HelpCommand implements ICommand {
         logger.debug("Execution /help par userId={}", event.getUser().getId());
 
         EmbedBuilder embed = EmbedStyle.newInfoEmbed("🌸", "Guide des commandes Sakura");
-        embed.setDescription("Voici les commandes principales disponibles sur ce serveur.");
-        embed.addField("Informations", "`/ping`, `/help`, `/avatar`, `/userinfo`, `/serverinfo`", false);
-        embed.addField("Modération", "`/clear`, `/kick`, `/ban`, `/timeout`, `/unban`, `/warn`, `/warnings`, `/clearwarnings`", false);
-        embed.addField("Auto-mod & config", "`/config antispam|antilink|giflinks|spamlimit|spamwindow|strikes|timeout|strikereset|noticecooldown|xpcooldown|xpminlen|xpminalnum|xpgain`", false);
-        embed.addField("XP & niveaux", "`/rank`, `/leaderboard`, `/xpadmin set|add|reset|roleset|roleremove|rolelist`", false);
-        embed.addField("Tickets & staff", "`/ticketpanel`, `/lock`, `/unlock`, `/slowmode`, `/say`", false);
+        embed.setDescription("Voici les commandes disponibles sur ce serveur, classées par catégorie.");
+        
+        // Group commands by category
+        Map<String, List<ICommand>> categories = new TreeMap<>();
+        for (ICommand cmd : commandMap.values()) {
+            categories.computeIfAbsent(cmd.getCategory(), k -> new ArrayList<>()).add(cmd);
+        }
+
+        // Add fields for each category
+        for (Map.Entry<String, List<ICommand>> entry : categories.entrySet()) {
+            String categoryName = entry.getKey();
+            String commandList = entry.getValue().stream()
+                    .sorted(Comparator.comparing(ICommand::getName))
+                    .map(cmd -> "`/`" + cmd.getName())
+                    .collect(Collectors.joining(", "));
+            
+            embed.addField(categoryName, commandList, false);
+        }
+
         if (event.getJDA().getSelfUser().getEffectiveAvatarUrl() != null) {
             embed.setThumbnail(event.getJDA().getSelfUser().getEffectiveAvatarUrl());
         }

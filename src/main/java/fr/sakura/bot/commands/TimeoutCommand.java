@@ -31,6 +31,11 @@ public class TimeoutCommand implements ICommand {
     }
 
     @Override
+    public String getCategory() {
+        return "Modération";
+    }
+
+    @Override
     public SlashCommandData getCommandData() {
         return Commands.slash(getName(), "Mute temporairement un membre")
                 .addOptions(

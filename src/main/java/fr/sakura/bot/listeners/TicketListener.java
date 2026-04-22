@@ -16,6 +16,7 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 
 import java.util.List;
@@ -43,13 +44,21 @@ public class TicketListener extends ListenerAdapter {
             return;
         }
 
-        if (CATEGORY_ID.equals(event.getComponentId())) {
-            if (event.getValues().isEmpty()) {
-                return;
+        MDC.put("guildId", event.getGuild().getId());
+        MDC.put("userId", event.getUser().getId());
+
+        try {
+            if (CATEGORY_ID.equals(event.getComponentId())) {
+                if (event.getValues().isEmpty()) {
+                    return;
+                }
+                String selected = event.getValues().get(0);
+                String categoryName = getCategoryName(selected);
+                handleCreate(event, categoryName);
             }
-            String selected = event.getValues().get(0);
-            String categoryName = getCategoryName(selected);
-            handleCreate(event, categoryName);
+        } finally {
+            MDC.remove("guildId");
+            MDC.remove("userId");
         }
     }
 
@@ -59,18 +68,26 @@ public class TicketListener extends ListenerAdapter {
             return;
         }
 
-        if (CREATE_ID.equals(event.getComponentId())) {
-            handleCreate(event, "Support");
-            return;
-        }
+        MDC.put("guildId", event.getGuild().getId());
+        MDC.put("userId", event.getUser().getId());
 
-        if (CLAIM_ID.equals(event.getComponentId())) {
-            handleClaim(event);
-            return;
-        }
+        try {
+            if (CREATE_ID.equals(event.getComponentId())) {
+                handleCreate(event, "Support");
+                return;
+            }
 
-        if (CLOSE_ID.equals(event.getComponentId())) {
-            handleClose(event);
+            if (CLAIM_ID.equals(event.getComponentId())) {
+                handleClaim(event);
+                return;
+            }
+
+            if (CLOSE_ID.equals(event.getComponentId())) {
+                handleClose(event);
+            }
+        } finally {
+            MDC.remove("guildId");
+            MDC.remove("userId");
         }
     }
 

@@ -28,6 +28,11 @@ public class TicketPanelCommand implements ICommand {
     }
 
     @Override
+    public String getCategory() {
+        return "Tickets";
+    }
+
+    @Override
     public SlashCommandData getCommandData() {
         return Commands.slash(getName(), "Affiche le panel de tickets")
                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL));

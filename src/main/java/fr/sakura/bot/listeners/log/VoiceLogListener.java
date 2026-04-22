@@ -1,7 +1,6 @@
 package fr.sakura.bot.listeners.log;
 
 import fr.sakura.bot.utils.EmbedStyle;
-import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.audit.ActionType;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.User;
@@ -10,12 +9,7 @@ import net.dv8tion.jda.api.events.guild.voice.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.time.Instant;
-import java.util.Objects;
 
-/**
- * Listener pour les logs vocaux (Style Sakura).
- * Gère: connexions, déconnexions (audit log), déplacements, états micro/casque.
- */
 public class VoiceLogListener extends BaseLogListener {
 
     public VoiceLogListener(String logChannelId) {
@@ -28,30 +22,42 @@ public class VoiceLogListener extends BaseLogListener {
         AudioChannel channelJoined = event.getChannelJoined();
         AudioChannel channelLeft = event.getChannelLeft();
 
-        // 1. CONNEXION (Rejoint un salon, n'en quitte aucun)
+        // Changement d'état pur (mute/casque/video) dans le même salon → ignoré ici,
+        // géré par onGuildVoiceSelfMute / onGuildVoiceSelfDeafen
+        if (channelJoined == null && channelLeft == null) return;
+        if (channelJoined != null && channelLeft != null
+                && channelJoined.getId().equals(channelLeft.getId())) return;
+
         if (channelJoined != null && channelLeft == null) {
-            sendLogToChannel(event.getGuild(), embed -> {
-                embed.setColor(EmbedStyle.SAKURA_GREEN);
-                embed.setTitle("🔊  ✦  Connexion Vocale");
-
-                StringBuilder desc = new StringBuilder();
-                desc.append(EmbedStyle.SEPARATOR).append("\n");
-                desc.append("🔊 **CONNEXION VOCALE**\n");
-                desc.append(EmbedStyle.SEPARATOR).append("\n\n");
-
-                desc.append(EmbedStyle.detailLine("Utilisateur", member.getAsMention() + " (`" + member.getUser().getName() + "`)")).append("\n");
-                desc.append(EmbedStyle.detailLine("Salon", channelJoined.getName())).append("\n");
-
-                embed.setDescription(desc.toString());
-                embed.setThumbnail(member.getEffectiveAvatarUrl());
-                embed.setTimestamp(Instant.now());
-                EmbedStyle.setFooter(embed, "User ID: " + member.getId());
-            });
+            handleJoin(event.getMember(), channelJoined);
+        } else if (channelLeft != null && channelJoined == null) {
+            handleLeave(event, member, channelLeft);
+        } else if (channelLeft != null && channelJoined != null) {
+            handleMove(event, member, channelLeft, channelJoined);
         }
-        // 2. DÉCONNEXION (Quitte un salon, n'en rejoint aucun)
-        else if (channelLeft != null && channelJoined == null) {
-            final AudioChannel fromChannel = channelLeft;
-            findRecentAuditAction(event.getGuild(), ActionType.MEMBER_VOICE_KICK, member.getId(), AUDIT_TIMING_STANDARD, 3)
+    }
+
+    private void handleJoin(Member member, AudioChannel channel) {
+        sendLogToChannel(member.getGuild(), embed -> {
+            embed.setColor(EmbedStyle.SAKURA_GREEN);
+            embed.setTitle("🔊  ✦  Connexion Vocale");
+
+            StringBuilder desc = new StringBuilder();
+            desc.append(EmbedStyle.SEPARATOR).append("\n");
+            desc.append("🔊 **CONNEXION VOCALE**\n");
+            desc.append(EmbedStyle.SEPARATOR).append("\n\n");
+            desc.append(EmbedStyle.detailLine("Utilisateur", member.getAsMention() + " (`" + member.getUser().getName() + "`)")).append("\n");
+            desc.append(EmbedStyle.detailLine("Salon", channel.getName())).append("\n");
+
+            embed.setDescription(desc.toString());
+            embed.setThumbnail(member.getEffectiveAvatarUrl());
+            embed.setTimestamp(Instant.now());
+            EmbedStyle.setFooter(embed, "User ID: " + member.getId());
+        });
+    }
+
+    private void handleLeave(GuildVoiceUpdateEvent event, Member member, AudioChannel fromChannel) {
+        findRecentAuditAction(event.getGuild(), ActionType.MEMBER_VOICE_KICK, member.getId(), AUDIT_TIMING_STANDARD, 3)
                 .thenAccept(auditEntry -> {
                     User kickedBy = auditEntry != null ? auditEntry.getUser() : null;
                     boolean wasKicked = kickedBy != null && !kickedBy.getId().equals(member.getId());
@@ -64,7 +70,6 @@ public class VoiceLogListener extends BaseLogListener {
                         desc.append(EmbedStyle.SEPARATOR).append("\n");
                         desc.append(wasKicked ? "🚫 **EXPULSION VOCALE**" : "🔇 **DÉCONNEXION VOCALE**").append("\n");
                         desc.append(EmbedStyle.SEPARATOR).append("\n\n");
-
                         desc.append(EmbedStyle.detailLine("Utilisateur", member.getAsMention() + " (`" + member.getUser().getName() + "`)")).append("\n");
                         desc.append(EmbedStyle.detailLine("Depuis", fromChannel.getName())).append("\n");
 
@@ -80,16 +85,10 @@ public class VoiceLogListener extends BaseLogListener {
                         embed.setTimestamp(Instant.now());
                     });
                 });
-        }
-        // 3. DÉPLACEMENT (Quitte un salon ET en rejoint un nouveau)
-        else if (channelLeft != null && channelJoined != null) {
-            // Sécurité : Vérifier que les salons sont différents (évite les logs inutiles sur simple mise à jour d'état)
-            if (channelLeft.getId().equals(channelJoined.getId())) return;
+    }
 
-            final AudioChannel fromChannel = channelLeft;
-            final AudioChannel toChannel = channelJoined;
-
-            findRecentAuditAction(event.getGuild(), ActionType.MEMBER_VOICE_MOVE, member.getId(), AUDIT_TIMING_STANDARD, 3)
+    private void handleMove(GuildVoiceUpdateEvent event, Member member, AudioChannel fromChannel, AudioChannel toChannel) {
+        findRecentAuditAction(event.getGuild(), ActionType.MEMBER_VOICE_MOVE, member.getId(), AUDIT_TIMING_STANDARD, 3)
                 .thenAccept(auditEntry -> {
                     User movedBy = auditEntry != null ? auditEntry.getUser() : null;
                     boolean wasMoved = movedBy != null && !movedBy.getId().equals(member.getId());
@@ -102,9 +101,8 @@ public class VoiceLogListener extends BaseLogListener {
                         desc.append(EmbedStyle.SEPARATOR).append("\n");
                         desc.append(wasMoved ? "⚡ **DÉPLACEMENT FORCÉ**" : "🔁 **DÉPLACEMENT VOLONTAIRE**").append("\n");
                         desc.append(EmbedStyle.SEPARATOR).append("\n\n");
-
                         desc.append(EmbedStyle.detailLine("Utilisateur", member.getAsMention() + " (`" + member.getUser().getName() + "`)")).append("\n");
-                        
+
                         if (wasMoved) {
                             desc.append(EmbedStyle.detailLine("Par", movedBy.getAsMention())).append("\n");
                         }
@@ -119,7 +117,7 @@ public class VoiceLogListener extends BaseLogListener {
                         embed.setDescription(desc.toString());
                         embed.setThumbnail(member.getEffectiveAvatarUrl());
                         embed.setTimestamp(Instant.now());
-                        
+
                         if (wasMoved) {
                             EmbedStyle.setFooter(embed, "User ID: " + member.getId() + " | Mod ID: " + movedBy.getId(), movedBy.getEffectiveAvatarUrl());
                         } else {
@@ -127,7 +125,6 @@ public class VoiceLogListener extends BaseLogListener {
                         }
                     });
                 });
-        }
     }
 
     @Override
@@ -144,11 +141,11 @@ public class VoiceLogListener extends BaseLogListener {
         sendLogToChannel(member.getGuild(), embed -> {
             embed.setColor(EmbedStyle.SAKURA_PINK);
             embed.setTitle(emoji + "  ✦  État Vocal");
-            
+
             StringBuilder desc = new StringBuilder();
             desc.append(EmbedStyle.detailLine("Utilisateur", member.getAsMention())).append("\n");
             desc.append(EmbedStyle.detailLine("Action", action));
-            
+
             embed.setDescription(desc.toString());
             embed.setTimestamp(Instant.now());
             EmbedStyle.setFooter(embed, "User ID: " + member.getId());

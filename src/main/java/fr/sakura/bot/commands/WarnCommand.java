@@ -34,6 +34,11 @@ public class WarnCommand implements ICommand {
     }
 
     @Override
+    public String getCategory() {
+        return "Modération";
+    }
+
+    @Override
     public SlashCommandData getCommandData() {
         return Commands.slash(getName(), "Ajoute un avertissement a un membre")
                 .addOptions(

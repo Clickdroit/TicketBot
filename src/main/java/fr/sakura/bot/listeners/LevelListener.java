@@ -12,6 +12,7 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 public class LevelListener extends ListenerAdapter {
 
@@ -28,23 +29,29 @@ public class LevelListener extends ListenerAdapter {
             return;
         }
 
-        Member member = event.getMember();
-        if (member.hasPermission(Permission.ADMINISTRATOR)) {
-            return;
-        }
+        MDC.put("guildId", event.getGuild().getId());
+        MDC.put("userId", event.getAuthor().getId());
 
-        String content = event.getMessage().getContentRaw();
-        XpResult result = levelService.addMessageXp(event.getGuild().getId(), member.getId(), content);
-        if (!result.xpAwarded()) {
-            return;
-        }
+        try {
+            Member member = event.getMember();
+            // Retrait de l'exclusion des admins - le cooldown est suffisant
+            
+            String content = event.getMessage().getContentRaw();
+            XpResult result = levelService.addMessageXp(event.getGuild().getId(), member.getId(), content);
+            if (!result.xpAwarded()) {
+                return;
+            }
 
-        logger.debug("XP attribue guildId={}, userId={}, xpGained={}, level={}",
-                event.getGuild().getId(), member.getId(), result.xpGained(), result.profile().level());
+            logger.debug("XP attribue guildId={}, userId={}, xpGained={}, level={}",
+                    event.getGuild().getId(), member.getId(), result.xpGained(), result.profile().level());
 
-        if (result.leveledUp()) {
-            announceLevelUp(event, member, result);
-            assignLevelRoleIfConfigured(event, member, result.profile().level());
+            if (result.leveledUp()) {
+                announceLevelUp(event, member, result);
+                assignLevelRoleIfConfigured(event, member, result.profile().level());
+            }
+        } finally {
+            MDC.remove("guildId");
+            MDC.remove("userId");
         }
     }
 

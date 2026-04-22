@@ -29,6 +29,11 @@ public class RankCommand implements ICommand {
     }
 
     @Override
+    public String getCategory() {
+        return "XP & niveaux";
+    }
+
+    @Override
     public SlashCommandData getCommandData() {
         return Commands.slash(getName(), "Affiche le niveau et l'XP d'un membre")
                 .addOptions(new OptionData(OptionType.USER, "membre", "Le membre cible", false));

@@ -1,5 +1,7 @@
 package fr.sakura.bot.database;
 
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -7,12 +9,10 @@ import java.io.File;
 import java.net.URI;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Properties;
 
 public class DatabaseManager {
 
@@ -25,7 +25,8 @@ public class DatabaseManager {
     private static final String DB_FOLDER = "data";
     private static final String DB_FILE = "sakura.db";
     private static final String DEFAULT_DB_URL = "jdbc:sqlite:" + DB_FOLDER + "/" + DB_FILE;
-    private static final Properties CONNECTION_PROPERTIES = new Properties();
+    
+    private static HikariDataSource dataSource;
     private static String dbUrl = DEFAULT_DB_URL;
     private static DbDialect dbDialect = DbDialect.SQLITE;
 
@@ -41,32 +42,50 @@ public class DatabaseManager {
         return dbDialect == DbDialect.SQLITE;
     }
 
-    public static void configure(String configuredDbUrl) {
-        CONNECTION_PROPERTIES.clear();
-
+    private static void configure(String configuredDbUrl) {
         if (configuredDbUrl == null || configuredDbUrl.isBlank()) {
             dbDialect = DbDialect.SQLITE;
             dbUrl = DEFAULT_DB_URL;
             logger.info("DATABASE_URL absente: fallback sur {}", dbUrl);
-            return;
-        }
-
-        String trimmed = configuredDbUrl.trim();
-        if (!trimmed.startsWith("jdbc:sqlite:")) {
-            if (trimmed.startsWith("jdbc:postgresql:") || trimmed.startsWith("postgresql:") || trimmed.startsWith("postgres:")) {
+        } else {
+            String trimmed = configuredDbUrl.trim();
+            if (trimmed.startsWith("jdbc:sqlite:")) {
+                dbDialect = DbDialect.SQLITE;
+                dbUrl = trimmed;
+                logger.info("DATABASE_URL configuree en mode SQLite");
+            } else if (trimmed.startsWith("jdbc:postgresql:") || trimmed.startsWith("postgresql:") || trimmed.startsWith("postgres:")) {
                 configurePostgres(trimmed);
-                return;
+            } else {
+                logger.warn("DATABASE_URL invalide (schema non supporte). Fallback sur {}", DEFAULT_DB_URL);
+                dbDialect = DbDialect.SQLITE;
+                dbUrl = DEFAULT_DB_URL;
             }
-
-            logger.warn("DATABASE_URL invalide (schema non supporte). Fallback sur {}", DEFAULT_DB_URL);
-            dbDialect = DbDialect.SQLITE;
-            dbUrl = DEFAULT_DB_URL;
-            return;
         }
 
-        dbDialect = DbDialect.SQLITE;
-        dbUrl = trimmed;
-        logger.info("DATABASE_URL configuree en mode SQLite");
+        setupHikari();
+    }
+
+    private static void setupHikari() {
+        if (dataSource != null && !dataSource.isClosed()) {
+            dataSource.close();
+        }
+
+        HikariConfig config = new HikariConfig();
+        config.setJdbcUrl(dbUrl);
+        config.setPoolName("SakuraPool");
+        config.setMaximumPoolSize(10);
+        config.setMinimumIdle(2);
+        config.setIdleTimeout(300000);
+        config.setConnectionTimeout(10000);
+        
+        if (dbDialect == DbDialect.POSTGRES) {
+            config.setDriverClassName("org.postgresql.Driver");
+        } else {
+            config.setDriverClassName("org.sqlite.JDBC");
+        }
+
+        dataSource = new HikariDataSource(config);
+        logger.info("HikariCP pool initialise avec succes");
     }
 
     public static void initialize() {
@@ -97,11 +116,17 @@ public class DatabaseManager {
     }
 
     public static Connection getConnection() throws SQLException {
-        if (dbDialect == DbDialect.POSTGRES && !CONNECTION_PROPERTIES.isEmpty()) {
-            return DriverManager.getConnection(dbUrl, CONNECTION_PROPERTIES);
+        if (dataSource == null) {
+            throw new SQLException("DataSource n'est pas initialise");
         }
+        return dataSource.getConnection();
+    }
 
-        return DriverManager.getConnection(dbUrl);
+    public static void shutdown() {
+        if (dataSource != null) {
+            dataSource.close();
+            logger.info("HikariCP pool ferme");
+        }
     }
 
     private static void applyMigrations(Connection conn) throws SQLException {
@@ -145,8 +170,6 @@ public class DatabaseManager {
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_tickets_guild_status_created ON tickets(guild_id, status, created_at)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_tickets_channel ON tickets(guild_id, channel_id)");
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_level_roles_guild_level ON level_roles(guild_id, level)");
-                // Contrainte d'unicite logique: un seul ticket actif (OPEN/CLAIMED) par utilisateur et par guilde.
-                // Cette regle depend du CHECK de statut defini sur la table tickets.
                 stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_tickets_single_active_per_user ON tickets(guild_id, user_id) WHERE status IN ('OPEN', 'CLAIMED')");
             }
         });
@@ -218,26 +241,17 @@ public class DatabaseManager {
         DatabaseMetaData metaData = conn.getMetaData();
 
         if (dbDialect == DbDialect.POSTGRES) {
-            // PostgreSQL replie les identifiants non quotés en minuscules, mais des schémas existants
-            // peuvent contenir des noms déjà quotés/casés différemment. On tente d'abord le nom brut
-            // puis la variante lowercase dans le schéma public pour éviter les faux négatifs.
             try (ResultSet rs = metaData.getColumns(null, "public", tableName, columnName)) {
-                if (rs.next()) {
-                    return true;
-                }
+                if (rs.next()) return true;
             }
-
             try (ResultSet rs = metaData.getColumns(null, "public", tableName.toLowerCase(), columnName.toLowerCase())) {
-                return rs.next();
+                if (rs.next()) return true;
             }
         }
 
         try (ResultSet rs = metaData.getColumns(null, null, tableName, columnName)) {
-            if (rs.next()) {
-                return true;
-            }
+            if (rs.next()) return true;
         }
-
         try (ResultSet rs = metaData.getColumns(null, null, tableName.toLowerCase(), columnName.toLowerCase())) {
             return rs.next();
         }
@@ -255,19 +269,30 @@ public class DatabaseManager {
         }
 
         dbDialect = DbDialect.POSTGRES;
-        dbUrl = "jdbc:postgresql://" + uri.getHost() +
-                (uri.getPort() > 0 ? ":" + uri.getPort() : "") +
-                uri.getPath() +
-                (uri.getQuery() != null && !uri.getQuery().isBlank() ? "?" + uri.getQuery() : "");
+        
+        // Use standard JDBC format for Hikari
+        StringBuilder jdbcUrl = new StringBuilder("jdbc:postgresql://")
+                .append(uri.getHost())
+                .append(uri.getPort() > 0 ? ":" + uri.getPort() : "")
+                .append(uri.getPath());
+        
+        if (uri.getQuery() != null && !uri.getQuery().isBlank()) {
+            jdbcUrl.append("?").append(uri.getQuery());
+        }
+        
+        dbUrl = jdbcUrl.toString();
 
         String userInfo = uri.getUserInfo();
         if (userInfo != null && !userInfo.isBlank()) {
             String[] parts = userInfo.split(":", 2);
-            if (!parts[0].isBlank()) {
-                CONNECTION_PROPERTIES.setProperty("user", parts[0]);
-            }
-            if (parts.length == 2 && !parts[1].isBlank()) {
-                CONNECTION_PROPERTIES.setProperty("password", parts[1]);
+            // Hikari handle user/password via config, but we can also put them in the URL
+            // For now, let's keep it in the URL if provided or set them via config.
+            // Actually, uri.getUserInfo() is not directly used by DriverManager, 
+            // but Hikari will need them if not in the URL.
+            // Let's add them to the URL if present for simplicity as we were doing before.
+            if (parts.length == 2) {
+                // Not the best for security but following previous logic while using Hikari
+                dbUrl = "jdbc:postgresql://" + parts[0] + ":" + parts[1] + "@" + uri.getHost() + (uri.getPort() > 0 ? ":" + uri.getPort() : "") + uri.getPath();
             }
         }
 

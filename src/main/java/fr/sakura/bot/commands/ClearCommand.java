@@ -27,6 +27,11 @@ public class ClearCommand implements ICommand {
     }
 
     @Override
+    public String getCategory() {
+        return "Modération";
+    }
+
+    @Override
     public SlashCommandData getCommandData() {
         return Commands.slash(getName(), "Supprime un certain nombre de messages récents")
                 .addOptions(new OptionData(OptionType.INTEGER, "montant", "Le nombre de messages à supprimer (1-100)", true)

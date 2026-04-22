@@ -40,6 +40,7 @@ class TicketStoreLifecycleTest {
             TicketEntry afterClose = store.getActiveTicket("guild-1", "user-1");
             assertNull(afterClose);
         } finally {
+            DatabaseManager.shutdown();
             Files.deleteIfExists(dbPath);
         }
     }

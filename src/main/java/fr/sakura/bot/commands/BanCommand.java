@@ -32,6 +32,11 @@ public class BanCommand implements ICommand {
     }
 
     @Override
+    public String getCategory() {
+        return "Modération";
+    }
+
+    @Override
     public SlashCommandData getCommandData() {
         return Commands.slash(getName(), "Bannit un membre du serveur")
                 .addOptions(

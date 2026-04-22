@@ -26,6 +26,7 @@ class DatabaseManagerInitializationTest {
                 assertTrue(indexExists(conn, "uq_tickets_single_active_per_user"));
             }
         } finally {
+            DatabaseManager.shutdown();
             Files.deleteIfExists(dbPath);
         }
     }

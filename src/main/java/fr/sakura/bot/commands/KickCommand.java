@@ -29,6 +29,11 @@ public class KickCommand implements ICommand {
     }
 
     @Override
+    public String getCategory() {
+        return "Modération";
+    }
+
+    @Override
     public SlashCommandData getCommandData() {
         return Commands.slash(getName(), "Expulse un membre du serveur")
                 .addOptions(

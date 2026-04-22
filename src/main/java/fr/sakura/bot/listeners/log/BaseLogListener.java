@@ -25,7 +25,7 @@ public abstract class BaseLogListener extends ListenerAdapter {
 
     protected static final Logger logger = LoggerFactory.getLogger(BaseLogListener.class);
 
-    private final String logChannelId;
+    protected final String logChannelId;
 
     public BaseLogListener(String logChannelId) {
         this.logChannelId = logChannelId;

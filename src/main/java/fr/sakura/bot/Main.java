@@ -60,7 +60,7 @@ public class Main {
 
         // Initialisation des services
         SettingsManager settingsManager = new SettingsManager();
-        ModerationLogListener moderationLogListener = new ModerationLogListener(logChannelId);
+        ModerationLogListener moderationLogListener = new ModerationLogListener(settingsManager, logChannelId);
         MessageLogListener messageLogListener = new MessageLogListener(logChannelId);
         VoiceLogListener voiceLogListener = new VoiceLogListener(logChannelId);
         

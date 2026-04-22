@@ -1,22 +1,27 @@
 package fr.sakura.bot.listeners.log;
 
+import fr.sakura.bot.database.SettingsManager;
 import fr.sakura.bot.utils.EmbedStyle;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.awt.Color;
 import java.time.Instant;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * Listener et service pour les logs de modération (Style Sakura).
  * Centralise les actions comme Kick, Ban, Warn, Timeout, etc.
  */
 public class ModerationLogListener extends BaseLogListener {
+
+    private final SettingsManager settingsManager;
 
     public record ActionStyle(Color color, String emoji, String label) {}
 
@@ -25,6 +30,7 @@ public class ModerationLogListener extends BaseLogListener {
             Map.entry("BAN",                  new ActionStyle(new Color(200,  30,  60), "🔨", "Bannissement")),
             Map.entry("CLEAR",                new ActionStyle(new Color( 80, 160, 230), "🧹", "Nettoyage")),
             Map.entry("TIMEOUT",              new ActionStyle(new Color(160,  60, 200), "⏳", "Timeout")),
+            Map.entry("UNTIMEOUT",            new ActionStyle(new Color(130, 210, 150), "🔓", "Fin de Timeout")),
             Map.entry("UNBAN",                new ActionStyle(new Color( 80, 200, 130), "🔓", "Débannissement")),
             Map.entry("WARN",                 new ActionStyle(new Color(255, 200,  50), "⚠️", "Avertissement")),
             Map.entry("AUTOMOD_WARN",         new ActionStyle(new Color(255, 160,  60), "🤖", "AutoMod")),
@@ -39,8 +45,24 @@ public class ModerationLogListener extends BaseLogListener {
             Map.entry("TICKET_CLOSE",         new ActionStyle(new Color(219,  98, 152), "🔒", "Ticket fermé"))
     );
 
-    public ModerationLogListener(String logChannelId) {
-        super(logChannelId);
+    public ModerationLogListener(SettingsManager settingsManager, String envLogChannelId) {
+        super(envLogChannelId);
+        this.settingsManager = settingsManager;
+    }
+
+    @Override
+    protected void sendLogToChannel(@NotNull Guild guild, Consumer<EmbedBuilder> embedConfigurator) {
+        String dbChannelId = settingsManager.getLogChannelId(guild.getId());
+        String finalChannelId = (dbChannelId != null && !dbChannelId.isBlank()) ? dbChannelId : this.logChannelId;
+
+        if (finalChannelId == null || finalChannelId.isBlank()) return;
+
+        TextChannel channel = guild.getTextChannelById(finalChannelId);
+        if (channel == null) return;
+
+        EmbedBuilder embed = new EmbedBuilder();
+        embedConfigurator.accept(embed);
+        channel.sendMessageEmbeds(embed.build()).queue();
     }
 
     /**

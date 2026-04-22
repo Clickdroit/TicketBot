@@ -15,6 +15,13 @@ public interface ICommand {
     SlashCommandData getCommandData();
 
     /**
+     * @return La catégorie de la commande
+     */
+    default String getCategory() {
+        return "Général";
+    }
+
+    /**
      * Code exécuté lorsque la commande est appelée
      * @param event L'événement d'interaction
      */

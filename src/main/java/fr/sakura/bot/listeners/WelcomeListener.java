@@ -9,6 +9,7 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -45,63 +46,71 @@ public class WelcomeListener extends ListenerAdapter {
 
     @Override
     public void onGuildMemberJoin(@NotNull GuildMemberJoinEvent event) {
-        String guildId = event.getGuild().getId();
-        String welcomeChannelId = firstNonBlank(settingsManager.getWelcomeChannelId(guildId), defaultWelcomeChannelId);
-        if (welcomeChannelId == null || welcomeChannelId.isBlank()) {
-            logger.debug("Message de bienvenue ignoré : WELCOME_CHANNEL_ID non configuré");
-            return;
+        MDC.put("guildId", event.getGuild().getId());
+        MDC.put("userId", event.getUser().getId());
+
+        try {
+            String guildId = event.getGuild().getId();
+            String welcomeChannelId = firstNonBlank(settingsManager.getWelcomeChannelId(guildId), defaultWelcomeChannelId);
+            if (welcomeChannelId == null || welcomeChannelId.isBlank()) {
+                logger.debug("Message de bienvenue ignoré : WELCOME_CHANNEL_ID non configuré");
+                return;
+            }
+
+            TextChannel channel = event.getGuild().getTextChannelById(welcomeChannelId);
+            if (channel == null) {
+                logger.warn("Salon de bienvenue introuvable : channelId={}", welcomeChannelId);
+                return;
+            }
+
+            var member = event.getMember();
+            var user   = event.getUser();
+            var guild  = event.getGuild();
+
+            int memberNumber = guild.getMemberCount();
+
+            // ── Résolution de l'image ────────────────────────────────────────────────
+            // Discord n'anime les GIF que via setImage() (grande bannière en bas).
+            // setThumbnail() ne supporte pas l'animation — on l'utilise pour l'avatar.
+            String configuredImage = firstNonBlank(settingsManager.getWelcomeImageUrl(guildId), defaultWelcomeImageUrl);
+            String bannerUrl = resolveImageUrl(configuredImage);
+
+            // ── Construction de l'embed ──────────────────────────────────────────────
+            EmbedBuilder embed = EmbedStyle.newInfoEmbed("🌸", "Bienvenue sur " + guild.getName() + " !");
+
+            // Description principale — mise en avant du membre
+            embed.setDescription(
+                    "✨ " + member.getAsMention() + " vient de rejoindre le serveur !\n\n" +
+                            "Nous sommes ravis de t'accueillir parmi nous. N'hésite pas à te présenter et à lire les règles du serveur. 🎉"
+            );
+
+            // Avatar en thumbnail (visible même si le GIF prend toute la largeur)
+            String avatarUrl = user.getEffectiveAvatarUrl();
+            if (avatarUrl != null) {
+                embed.setThumbnail(avatarUrl + "?size=256");
+            }
+
+            // GIF en bannière principale
+            if (bannerUrl != null) {
+                embed.setImage(bannerUrl);
+            }
+
+            // Footer avec icône du serveur
+            EmbedStyle.setFooter(
+                    embed,
+                    "Membre n°" + memberNumber + " • Bienvenu(e) !",
+                    guild.getIconUrl()
+            );
+
+            channel.sendMessageEmbeds(embed.build()).queue(
+                    success -> logger.info("Message de bienvenue envoyé : userId={}, guildId={}, channelId={}",
+                            user.getId(), guild.getId(), channel.getId()),
+                    error -> logger.error("Échec envoi message de bienvenue : userId={}", user.getId(), error)
+            );
+        } finally {
+            MDC.remove("guildId");
+            MDC.remove("userId");
         }
-
-        TextChannel channel = event.getGuild().getTextChannelById(welcomeChannelId);
-        if (channel == null) {
-            logger.warn("Salon de bienvenue introuvable : channelId={}", welcomeChannelId);
-            return;
-        }
-
-        var member = event.getMember();
-        var user   = event.getUser();
-        var guild  = event.getGuild();
-
-        int memberNumber = guild.getMemberCount();
-
-        // ── Résolution de l'image ────────────────────────────────────────────────
-        // Discord n'anime les GIF que via setImage() (grande bannière en bas).
-        // setThumbnail() ne supporte pas l'animation — on l'utilise pour l'avatar.
-        String configuredImage = firstNonBlank(settingsManager.getWelcomeImageUrl(guildId), defaultWelcomeImageUrl);
-        String bannerUrl = resolveImageUrl(configuredImage);
-
-        // ── Construction de l'embed ──────────────────────────────────────────────
-        EmbedBuilder embed = EmbedStyle.newInfoEmbed("🌸", "Bienvenue sur " + guild.getName() + " !");
-
-        // Description principale — mise en avant du membre
-        embed.setDescription(
-                "✨ " + member.getAsMention() + " vient de rejoindre le serveur !\n\n" +
-                        "Nous sommes ravis de t'accueillir parmi nous. N'hésite pas à te présenter et à lire les règles du serveur. 🎉"
-        );
-
-        // Avatar en thumbnail (visible même si le GIF prend toute la largeur)
-        String avatarUrl = user.getEffectiveAvatarUrl();
-        if (avatarUrl != null) {
-            embed.setThumbnail(avatarUrl + "?size=256");
-        }
-
-        // GIF en bannière principale
-        if (bannerUrl != null) {
-            embed.setImage(bannerUrl);
-        }
-
-        // Footer avec icône du serveur
-        EmbedStyle.setFooter(
-                embed,
-                "Membre n°" + memberNumber + " • Bienvenu(e) !",
-                guild.getIconUrl()
-        );
-
-        channel.sendMessageEmbeds(embed.build()).queue(
-                success -> logger.info("Message de bienvenue envoyé : userId={}, guildId={}, channelId={}",
-                        user.getId(), guild.getId(), channel.getId()),
-                error -> logger.error("Échec envoi message de bienvenue : userId={}", user.getId(), error)
-        );
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────────
