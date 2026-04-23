@@ -13,6 +13,7 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.GenericComponentInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
+import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -159,7 +160,7 @@ public class TicketListener extends ListenerAdapter {
                 EmbedStyle.setFooter(embed, "Ticket ID: " + channel.getName());
 
                 channel.sendMessage(requester.getAsMention() + " " + supportMention).setEmbeds(embed.build())
-                        .setActionRow(ticketService.claimButton(), ticketService.closeButton())
+                        .setComponents(ActionRow.of(ticketService.claimButton(), ticketService.closeButton()))
                         .queue();
 
                 event.getHook().sendMessage("✅ Ticket créé : " + channel.getAsMention()).queue();

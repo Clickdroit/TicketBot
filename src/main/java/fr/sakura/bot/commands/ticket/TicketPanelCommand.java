@@ -13,7 +13,8 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
-import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
+import net.dv8tion.jda.api.components.selections.StringSelectMenu;
+import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,7 +77,7 @@ public class TicketPanelCommand implements ICommand {
                 .build();
 
         event.getChannel().sendMessageEmbeds(embed.build())
-                .addActionRow(menu)
+                .setComponents(ActionRow.of(menu))
                 .queue(
                         success -> {
                             event.reply("✅ Panel de tickets envoyé.").setEphemeral(true).queue();

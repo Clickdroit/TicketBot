@@ -12,9 +12,8 @@ import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.ActionRow;
-import net.dv8tion.jda.api.interactions.components.LayoutComponent;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
+import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.components.buttons.Button;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -175,7 +174,7 @@ public class RolesPanelService {
             return;
         }
 
-        List<LayoutComponent> rows = new ArrayList<>();
+        List<ActionRow> rows = new ArrayList<>();
         for (int i = 0; i < buttons.size(); i += MAX_BUTTONS_PER_ROW) {
             int end = Math.min(i + MAX_BUTTONS_PER_ROW, buttons.size());
             rows.add(ActionRow.of(buttons.subList(i, end)));

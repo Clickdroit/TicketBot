@@ -13,7 +13,7 @@ repositories {
 
 dependencies {
     // JDA (Java Discord API) pour interagir avec Discord
-    implementation 'net.dv8tion:JDA:5.0.0-beta.21'
+    implementation 'net.dv8tion:JDA:6.4.1'
     
     // Logback pour la gestion des logs
     implementation 'ch.qos.logback:logback-classic:1.4.14'

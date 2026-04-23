@@ -13,7 +13,8 @@ import org.jetbrains.annotations.NotNull;
 import java.time.Instant;
 
 /**
- * Listener pour les logs vocaux.
+ * Listener pour les logs vocaux refait pour JDA 6.
+ * Utilise les événements spécifiques pour chaque changement d'état.
  */
 public class VoiceLogListener extends BaseLogListener {
 
@@ -24,20 +25,48 @@ public class VoiceLogListener extends BaseLogListener {
     @Override
     public void onGuildVoiceUpdate(@NotNull GuildVoiceUpdateEvent event) {
         Member member = event.getMember();
-        AudioChannel channelJoined = event.getChannelJoined();
-        AudioChannel channelLeft = event.getChannelLeft();
+        AudioChannel joined = event.getChannelJoined();
+        AudioChannel left = event.getChannelLeft();
 
-        if (channelJoined == null && channelLeft == null) return;
-        if (channelJoined != null && channelLeft != null
-                && channelJoined.getId().equals(channelLeft.getId())) return;
-
-        if (channelJoined != null && channelLeft == null) {
-            handleJoin(event.getMember(), channelJoined);
-        } else if (channelLeft != null && channelJoined == null) {
-            handleLeave(event, member, channelLeft);
-        } else if (channelLeft != null && channelJoined != null) {
-            handleMove(event, member, channelLeft, channelJoined);
+        if (joined != left) {
+            if (left == null) {
+                handleJoin(member, joined);
+            } else if (joined == null) {
+                handleLeave(event, member, left);
+            } else {
+                handleMove(event, member, left, joined);
+            }
         }
+    }
+
+    @Override
+    public void onGuildVoiceSelfMute(@NotNull GuildVoiceSelfMuteEvent event) {
+        logVoiceStatus(event.getMember(), event.isSelfMuted() ? "Micro coupé" : "Micro activé", "🎙️");
+    }
+
+    @Override
+    public void onGuildVoiceSelfDeafen(@NotNull GuildVoiceSelfDeafenEvent event) {
+        logVoiceStatus(event.getMember(), event.isSelfDeafened() ? "Casque coupé" : "Casque activé", "🎧");
+    }
+
+    @Override
+    public void onGuildVoiceGuildMute(@NotNull GuildVoiceGuildMuteEvent event) {
+        logVoiceStatus(event.getMember(), event.isGuildMuted() ? "Réduit au silence (Serveur)" : "Parole rendue (Serveur)", "🙊");
+    }
+
+    @Override
+    public void onGuildVoiceGuildDeafen(@NotNull GuildVoiceGuildDeafenEvent event) {
+        logVoiceStatus(event.getMember(), event.isGuildDeafened() ? "Sourdine forcée (Serveur)" : "Sourdine levée (Serveur)", "🔇");
+    }
+
+    @Override
+    public void onGuildVoiceVideo(@NotNull GuildVoiceVideoEvent event) {
+        logVoiceStatus(event.getMember(), event.isSendingVideo() ? "Caméra activée" : "Caméra coupée", "📷");
+    }
+
+    @Override
+    public void onGuildVoiceStream(@NotNull GuildVoiceStreamEvent event) {
+        logVoiceStatus(event.getMember(), event.isStream() ? "Début de stream" : "Fin de stream", "📺");
     }
 
     private void handleJoin(Member member, AudioChannel channel) {
@@ -130,24 +159,17 @@ public class VoiceLogListener extends BaseLogListener {
                 });
     }
 
-    @Override
-    public void onGuildVoiceSelfMute(@NotNull GuildVoiceSelfMuteEvent event) {
-        logVoiceState(event.getMember(), event.isSelfMuted() ? "Micro coupé" : "Micro activé", "🎙️");
-    }
-
-    @Override
-    public void onGuildVoiceSelfDeafen(@NotNull GuildVoiceSelfDeafenEvent event) {
-        logVoiceState(event.getMember(), event.isSelfDeafened() ? "Casque coupé" : "Casque activé", "🎧");
-    }
-
-    private void logVoiceState(Member member, String action, String emoji) {
+    private void logVoiceStatus(Member member, String statusMessage, String emoji) {
         sendLogToChannel(member.getGuild(), embed -> {
             embed.setColor(EmbedStyle.SAKURA_PINK);
             embed.setTitle(emoji + "  ✦  État Vocal");
 
             StringBuilder desc = new StringBuilder();
-            desc.append(EmbedStyle.detailLine("Utilisateur", member.getAsMention())).append("\n");
-            desc.append(EmbedStyle.detailLine("Action", action));
+            desc.append(EmbedStyle.SEPARATOR).append("\n");
+            desc.append(emoji).append(" **MISE À JOUR ÉTAT**\n");
+            desc.append(EmbedStyle.SEPARATOR).append("\n\n");
+            desc.append(EmbedStyle.detailLine("Utilisateur", member.getAsMention() + " (`" + member.getUser().getName() + "`)")).append("\n");
+            desc.append(EmbedStyle.detailLine("Action", statusMessage)).append("\n");
 
             embed.setDescription(desc.toString());
             embed.setTimestamp(Instant.now());
