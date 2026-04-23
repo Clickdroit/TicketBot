@@ -6,8 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Utilitaire permettant de gÃ©rer le MDC (Mapped Diagnostic Context) avec le pattern try-with-resources.
- * Assure que les clÃ©s ajoutÃ©es sont systÃ©matiquement retirÃ©es en fin de bloc.
+ * Utilitaire permettant de gérer le MDC (Mapped Diagnostic Context) avec le pattern try-with-resources.
+ * Assure que les clés ajoutées sont systématiquement retirées en fin de bloc.
  */
 public class MdcContext implements AutoCloseable {
 
@@ -16,13 +16,13 @@ public class MdcContext implements AutoCloseable {
     private MdcContext() {}
 
     /**
-     * Ajoute des paires clÃ©/valeur au MDC.
-     * @param pairs Paires de clÃ©s et valeurs (doit Ãªtre de longueur paire).
-     * @return Une instance de MdcContext Ã  utiliser dans un try-with-resources.
+     * Ajoute des paires clé/valeur au MDC.
+     * @param pairs Paires de clés et valeurs (doit être de longueur paire).
+     * @return Une instance de MdcContext à utiliser dans un try-with-resources.
      */
     public static MdcContext of(String... pairs) {
         if (pairs.length % 2 != 0) {
-            throw new IllegalArgumentException("MdcContext.of attend un nombre pair d'arguments (clÃ©s/valeurs)");
+            throw new IllegalArgumentException("MdcContext.of attend un nombre pair d'arguments (clés/valeurs)");
         }
 
         MdcContext ctx = new MdcContext();

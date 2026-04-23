@@ -32,13 +32,13 @@ public class UntimeoutCommand implements ICommand {
 
     @Override
     public String getCategory() {
-        return "ModÃƒÆ’Ã‚Â©ration";
+        return "Modération";
     }
 
     @Override
     public SlashCommandData getCommandData() {
         return Commands.slash(getName(), "Retire le timeout d'un membre")
-                .addOption(OptionType.USER, "membre", "Le membre ÃƒÆ’Ã‚Â  libÃƒÆ’Ã‚Â©rer", true)
+                .addOption(OptionType.USER, "membre", "Le membre à libérer", true)
                 .addOption(OptionType.STRING, "raison", "Raison du retrait du timeout", false)
                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MODERATE_MEMBERS));
     }
@@ -49,29 +49,29 @@ public class UntimeoutCommand implements ICommand {
         String reason = event.getOption("raison", "Aucune raison fournie", OptionMapping::getAsString);
 
         if (target == null) {
-            event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Membre introuvable.").setEphemeral(true).queue();
+            event.reply("❌ Membre introuvable.").setEphemeral(true).queue();
             return;
         }
 
         if (target.getTimeOutEnd() == null) {
-            event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Ce membre n'est pas sous timeout.").setEphemeral(true).queue();
+            event.reply("❌ Ce membre n'est pas sous timeout.").setEphemeral(true).queue();
             return;
         }
 
         Member selfMember = event.getGuild().getSelfMember();
         if (!selfMember.hasPermission(Permission.MODERATE_MEMBERS) || !selfMember.canInteract(target)) {
-            event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Je n'ai pas les permissions nÃƒÆ’Ã‚Â©cessaires pour retirer le timeout de ce membre.").setEphemeral(true).queue();
+            event.reply("❌ Je n'ai pas les permissions nécessaires pour retirer le timeout de ce membre.").setEphemeral(true).queue();
             return;
         }
 
         target.removeTimeout().reason(reason + " (par " + event.getUser().getName() + ")").queue(
                 success -> {
-                    event.reply("ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Le timeout de " + target.getAsMention() + " a ÃƒÆ’Ã‚Â©tÃƒÆ’Ã‚Â© retirÃƒÆ’Ã‚Â©.").queue();
+                    event.reply("✅ Le timeout de " + target.getAsMention() + " a été retiré.").queue();
                     moderationLogListener.logAction(event.getGuild(), "UNTIMEOUT", event.getMember(), target, reason, null);
                     logger.info("Untimeout: userId={} par modId={} guildId={}", target.getId(), event.getUser().getId(), event.getGuild().getId());
                 },
                 error -> {
-                    event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Impossible de retirer le timeout : " + error.getMessage()).setEphemeral(true).queue();
+                    event.reply("❌ Impossible de retirer le timeout : " + error.getMessage()).setEphemeral(true).queue();
                     logger.error("Erreur untimeout guildId={}", event.getGuild().getId(), error);
                 }
         );

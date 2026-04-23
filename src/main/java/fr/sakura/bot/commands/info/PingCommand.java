@@ -21,7 +21,7 @@ public class PingCommand implements ICommand {
 
     @Override
     public SlashCommandData getCommandData() {
-        return Commands.slash(getName(), "RÃƒÆ’Ã‚Â©pond avec Pong ! et affiche la latence du bot");
+        return Commands.slash(getName(), "Répond avec Pong ! et affiche la latence du bot");
     }
 
     @Override

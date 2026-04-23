@@ -33,32 +33,32 @@ public class SlowmodeCommand implements ICommand {
 
     @Override
     public String getCategory() {
-        return "ModÃƒÆ’Ã‚Â©ration";
+        return "Modération";
     }
 
     @Override
     public SlashCommandData getCommandData() {
-        return Commands.slash(getName(), "RÃƒÆ’Ã‚Â¨gle le slowmode du salon (0-21600 secondes)")
-                .addOptions(new OptionData(OptionType.INTEGER, "secondes", "DurÃƒÆ’Ã‚Â©e en secondes", true).setMinValue(0).setMaxValue(21600))
+        return Commands.slash(getName(), "Règle le slowmode du salon (0-21600 secondes)")
+                .addOptions(new OptionData(OptionType.INTEGER, "secondes", "Durée en secondes", true).setMinValue(0).setMaxValue(21600))
                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL));
     }
 
     @Override
     public void execute(SlashCommandInteractionEvent event) {
         if (event.getGuild() == null || !(event.getChannel() instanceof TextChannel textChannel)) {
-            event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Cette commande fonctionne uniquement dans un salon texte serveur.").setEphemeral(true).queue();
+            event.reply("❌ Cette commande fonctionne uniquement dans un salon texte serveur.").setEphemeral(true).queue();
             return;
         }
 
         int seconds = event.getOption("secondes", 0, OptionMapping::getAsInt);
         textChannel.getManager().setSlowmode(seconds).queue(
                 ok -> {
-                    event.reply("ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Slowmode rÃƒÆ’Ã‚Â©glÃƒÆ’Ã‚Â© ÃƒÆ’Ã‚Â  **" + seconds + "** seconde(s)." ).queue();
-                    moderationLogListener.logAction(event.getGuild(), "SLOWMODE", event.getMember(), event.getUser(), "Slowmode modifiÃƒÆ’Ã‚Â©", "Salon: #" + textChannel.getName() + " ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ " + seconds + "s");
+                    event.reply("✅ Slowmode réglé à **" + seconds + "** seconde(s)." ).queue();
+                    moderationLogListener.logAction(event.getGuild(), "SLOWMODE", event.getMember(), event.getUser(), "Slowmode modifié", "Salon: #" + textChannel.getName() + " • " + seconds + "s");
                 },
                 err -> {
                     logger.warn("Echec slowmode channelId={}, seconds={}", textChannel.getId(), seconds, err);
-                    event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Impossible de modifier le slowmode.").setEphemeral(true).queue();
+                    event.reply("❌ Impossible de modifier le slowmode.").setEphemeral(true).queue();
                 }
         );
     }

@@ -32,30 +32,30 @@ public class UnlockCommand implements ICommand {
 
     @Override
     public String getCategory() {
-        return "ModÃƒÆ’Ã‚Â©ration";
+        return "Modération";
     }
 
     @Override
     public SlashCommandData getCommandData() {
-        return Commands.slash(getName(), "DÃƒÆ’Ã‚Â©verrouille le salon actuel")
+        return Commands.slash(getName(), "Déverrouille le salon actuel")
                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL));
     }
 
     @Override
     public void execute(SlashCommandInteractionEvent event) {
         if (event.getGuild() == null || !(event.getChannel() instanceof TextChannel textChannel)) {
-            event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Cette commande fonctionne uniquement dans un salon texte serveur.").setEphemeral(true).queue();
+            event.reply("❌ Cette commande fonctionne uniquement dans un salon texte serveur.").setEphemeral(true).queue();
             return;
         }
 
         textChannel.getManager().putPermissionOverride(event.getGuild().getPublicRole(), EnumSet.of(Permission.MESSAGE_SEND), null).queue(
                 ok -> {
-                    event.reply("ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ¢â‚¬Å“ Salon dÃƒÆ’Ã‚Â©verrouillÃƒÆ’Ã‚Â©.").queue();
-                    moderationLogListener.logAction(event.getGuild(), "UNLOCK", event.getMember(), event.getUser(), "Salon dÃƒÆ’Ã‚Â©verrouillÃƒÆ’Ã‚Â©", "Salon: #" + textChannel.getName());
+                    event.reply("❌ Salon déverrouillé.").queue();
+                    moderationLogListener.logAction(event.getGuild(), "UNLOCK", event.getMember(), event.getUser(), "Salon déverrouillé", "Salon: #" + textChannel.getName());
                 },
                 err -> {
                     logger.warn("Echec unlock channelId={}", textChannel.getId(), err);
-                    event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Impossible de dÃƒÆ’Ã‚Â©verrouiller le salon.").setEphemeral(true).queue();
+                    event.reply("❌ Impossible de déverrouiller le salon.").setEphemeral(true).queue();
                 }
         );
     }

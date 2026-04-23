@@ -37,14 +37,14 @@ public class BanCommand implements ICommand {
 
     @Override
     public String getCategory() {
-        return "ModÃƒÆ’Ã‚Â©ration";
+        return "Modération";
     }
 
     @Override
     public SlashCommandData getCommandData() {
         return Commands.slash(getName(), "Bannit un membre du serveur")
                 .addOptions(
-                        new OptionData(OptionType.USER, "membre", "Le membre ÃƒÆ’Ã‚Â  bannir", true),
+                        new OptionData(OptionType.USER, "membre", "Le membre à bannir", true),
                         new OptionData(OptionType.STRING, "raison", "La raison du bannissement", false)
                 )
                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.BAN_MEMBERS));
@@ -55,7 +55,7 @@ public class BanCommand implements ICommand {
         logger.debug("Execution /ban par userId={}", event.getUser().getId());
 
         if (event.getGuild() == null) {
-            event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Cette commande doit etre utilisee dans un serveur.").setEphemeral(true).queue();
+            event.reply("❌ Cette commande doit etre utilisee dans un serveur.").setEphemeral(true).queue();
             return;
         }
 
@@ -63,10 +63,10 @@ public class BanCommand implements ICommand {
 
         OptionMapping memberOption = event.getOption("membre");
         OptionMapping reasonOption = event.getOption("raison");
-        String reason = reasonOption != null ? reasonOption.getAsString() : "Aucune raison spÃƒÆ’Ã‚Â©cifiÃƒÆ’Ã‚Â©e";
+        String reason = reasonOption != null ? reasonOption.getAsString() : "Aucune raison spécifiée";
 
         if (memberOption == null) {
-            event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Membre introuvable.").setEphemeral(true).queue();
+            event.reply("❌ Membre introuvable.").setEphemeral(true).queue();
             return;
         }
 
@@ -74,20 +74,20 @@ public class BanCommand implements ICommand {
 
         Member target = guild.getMember(targetUser);
 
-        // L'utilisateur a peut-ÃƒÆ’Ã‚Âªtre quittÃƒÆ’Ã‚Â© le serveur : fallback sur User pour quand mÃƒÆ’Ã‚Âªme bannir
+        // L'utilisateur a peut-être quitté le serveur : fallback sur User pour quand même bannir
         if (target == null) {
             logger.warn("/ban cible non membre du serveur, tentative ban par userId={} demandeurId={}",
                     targetUser.getId(), event.getUser().getId());
 
             guild.ban(targetUser, 0, TimeUnit.SECONDS).reason(reason).queue(
                     success -> {
-                        event.reply("ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ **" + targetUser.getName() + "** a ÃƒÆ’Ã‚Â©tÃƒÆ’Ã‚Â© banni (hors serveur). Raison : " + reason).queue();
+                        event.reply("✅ **" + targetUser.getName() + "** a été banni (hors serveur). Raison : " + reason).queue();
                         logger.info("/ban reussi (hors serveur): modId={}, targetId={}", event.getUser().getId(), targetUser.getId());
                         moderationLogListener.logAction(event.getGuild(), "BAN", event.getMember(), targetUser, reason, "(hors serveur)");
                     },
                     error -> {
                         logger.error("/ban echec API (hors serveur): modId={}, targetId={}", event.getUser().getId(), targetUser.getId(), error);
-                        event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Impossible de bannir cet utilisateur.").setEphemeral(true).queue();
+                        event.reply("❌ Impossible de bannir cet utilisateur.").setEphemeral(true).queue();
                     }
             );
             return;
@@ -95,7 +95,7 @@ public class BanCommand implements ICommand {
 
         if (event.getMember() == null || !event.getMember().canInteract(target)) {
             logger.warn("/ban refuse hierarchie: modId={}, targetId={}", event.getUser().getId(), target.getId());
-            event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Vous ne pouvez pas bannir cet utilisateur (rÃƒÆ’Ã‚Â´le supÃƒÆ’Ã‚Â©rieur).").setEphemeral(true).queue();
+            event.reply("❌ Vous ne pouvez pas bannir cet utilisateur (rôle supérieur).").setEphemeral(true).queue();
             return;
         }
 
@@ -103,14 +103,14 @@ public class BanCommand implements ICommand {
 
         guild.ban(target, 0, TimeUnit.SECONDS).reason(reason).queue(
                 success -> {
-                    event.reply("ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ **" + target.getUser().getName() + "** a ÃƒÆ’Ã‚Â©tÃƒÆ’Ã‚Â© banni. Raison : " + reason).queue();
+                    event.reply("✅ **" + target.getUser().getName() + "** a été banni. Raison : " + reason).queue();
                     logger.info("/ban reussi: modId={}, targetId={}", event.getUser().getId(), target.getId());
 
                     moderationLogListener.logAction(event.getGuild(), "BAN", event.getMember(), target, reason, null);
                 },
                 error -> {
                     logger.error("/ban echec API: modId={}, targetId={}", event.getUser().getId(), target.getId(), error);
-                    event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Une erreur est survenue (Ai-je les bonnes permissions ?).").setEphemeral(true).queue();
+                    event.reply("❌ Une erreur est survenue (Ai-je les bonnes permissions ?).").setEphemeral(true).queue();
                 }
         );
     }

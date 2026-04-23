@@ -30,27 +30,27 @@ public class UserInfoCommand implements ICommand {
     @Override
     public SlashCommandData getCommandData() {
         return Commands.slash(getName(), "Affiche les informations d'un membre")
-                .addOptions(new OptionData(OptionType.USER, "membre", "Le membre ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â  inspecter", false));
+                .addOptions(new OptionData(OptionType.USER, "membre", "Le membre à inspecter", false));
     }
 
     @Override
     public void execute(SlashCommandInteractionEvent event) {
         logger.debug("Execution /userinfo par userId={}", event.getUser().getId());
-        // Si aucun membre spÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©cifiÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©, on prend l'auteur de la commande
+        // Si aucun membre spécifié, on prend l'auteur de la commande
         Member target = event.getOption("membre") != null
                 ? event.getOption("membre").getAsMember()
                 : event.getMember();
 
         if (target == null) {
             logger.warn("/userinfo cible introuvable userId={}", event.getUser().getId());
-            event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Utilisateur introuvable.").setEphemeral(true).queue();
+            event.reply("❌ Utilisateur introuvable.").setEphemeral(true).queue();
             return;
         }
 
         String roles = target.getRoles().stream()
                 .map(Role::getAsMention)
                 .collect(Collectors.joining(", "));
-        if (roles.isEmpty()) roles = "Aucun rÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â´le";
+        if (roles.isEmpty()) roles = "Aucun rôle";
 
         EmbedBuilder embed = EmbedStyle.newInfoEmbed("\uD83D\uDCCB", "Informations sur " + target.getUser().getName());
         String avatarUrl = target.getUser().getEffectiveAvatarUrl();
@@ -59,11 +59,11 @@ public class UserInfoCommand implements ICommand {
         }
 
         embed.addField("\uD83D\uDCDB Pseudo", target.getUser().getName(), true);
-        embed.addField("\uD83C\uDFF7ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â Surnom", target.getNickname() != null ? target.getNickname() : "Aucun", true);
+        embed.addField("\uD83C\uDFF7❌ Surnom", target.getNickname() != null ? target.getNickname() : "Aucun", true);
         embed.addField("\uD83E\uDD16 Bot", target.getUser().isBot() ? "Oui" : "Non", true);
-        embed.addField("\uD83D\uDCC5 Compte crÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© le", EmbedStyle.formatInfoDate(target.getUser().getTimeCreated()), true);
+        embed.addField("\uD83D\uDCC5 Compte créé le", EmbedStyle.formatInfoDate(target.getUser().getTimeCreated()), true);
         embed.addField("\uD83D\uDCE5 A rejoint le serveur le", EmbedStyle.formatInfoDate(target.getTimeJoined()), true);
-        embed.addField("\uD83C\uDFAD RÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â´les (" + target.getRoles().size() + ")", roles, false);
+        embed.addField("\uD83C\uDFAD Rôles (" + target.getRoles().size() + ")", roles, false);
 
         EmbedStyle.setInfoFooterWithId(embed, target.getId());
 

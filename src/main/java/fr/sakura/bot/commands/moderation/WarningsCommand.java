@@ -26,7 +26,7 @@ import java.util.List;
 public class WarningsCommand implements ICommand {
 
     private static final Logger logger = LoggerFactory.getLogger(WarningsCommand.class);
-    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â  HH:mm");
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy à HH:mm");
 
     private final WarningService warningService;
 
@@ -41,7 +41,7 @@ public class WarningsCommand implements ICommand {
 
     @Override
     public String getCategory() {
-        return "ModÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©ration";
+        return "Modération";
     }
 
     @Override
@@ -58,13 +58,13 @@ public class WarningsCommand implements ICommand {
 
         if (event.getGuild() == null) {
             logger.warn("/warnings appelee hors serveur userId={}", event.getUser().getId());
-            event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Cette commande doit etre utilisee dans un serveur.").setEphemeral(true).queue();
+            event.reply("❌ Cette commande doit etre utilisee dans un serveur.").setEphemeral(true).queue();
             return;
         }
 
         if (target == null) {
             logger.warn("/warnings cible introuvable modId={}", event.getUser().getId());
-            event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Membre introuvable.").setEphemeral(true).queue();
+            event.reply("❌ Membre introuvable.").setEphemeral(true).queue();
             return;
         }
 
@@ -74,7 +74,7 @@ public class WarningsCommand implements ICommand {
 
         if (warnings.isEmpty()) {
             logger.info("/warnings aucun resultat pour targetId={}", target.getId());
-            event.reply("ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¹ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â Aucun avertissement pour **" + target.getUser().getName() + "**.")
+            event.reply("❌ Aucun avertissement pour **" + target.getUser().getName() + "**.")
                     .setEphemeral(true)
                     .queue();
             return;
@@ -84,7 +84,7 @@ public class WarningsCommand implements ICommand {
         int displayed = Math.min(10, total);
 
         StringBuilder message = new StringBuilder();
-        message.append("ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ Warnings de **")
+        message.append("📋 Warnings de **")
                 .append(target.getUser().getName())
                 .append("** (total: ")
                 .append(total)
@@ -106,13 +106,13 @@ public class WarningsCommand implements ICommand {
             message.append("**").append(i + 1).append(".** ")
                     .append(warning.reason())
                     .append("\n")
-                    .append("   ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Âº Mod : ").append(moderatorDisplay)
-                    .append(" ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ ").append(formattedDate)
+                    .append("   › Mod : ").append(moderatorDisplay)
+                    .append(" • ").append(formattedDate)
                     .append("\n\n");
         }
 
         if (total > displayed) {
-            message.append("*ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ et ").append(total - displayed).append(" warning(s) supplÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©mentaire(s).*");
+            message.append("*… et ").append(total - displayed).append(" warning(s) supplémentaire(s).*");
         }
 
         event.reply(message.toString()).setEphemeral(true).queue();

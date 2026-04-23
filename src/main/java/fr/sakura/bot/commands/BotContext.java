@@ -9,7 +9,7 @@ import fr.sakura.bot.core.service.WarningService;
 import fr.sakura.bot.listeners.log.ModerationLogListener;
 
 /**
- * Regroupe les dÃ©pendances globales injectÃ©es dans les commandes.
+ * Regroupe les dépendances globales injectées dans les commandes.
  */
 public record BotContext(
     String guildId,

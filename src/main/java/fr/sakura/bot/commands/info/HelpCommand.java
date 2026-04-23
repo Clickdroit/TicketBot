@@ -42,8 +42,8 @@ public class HelpCommand implements ICommand {
     public void execute(SlashCommandInteractionEvent event) {
         logger.debug("Execution /help par userId={}", event.getUser().getId());
 
-        EmbedBuilder embed = EmbedStyle.newInfoEmbed("ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã¢â‚¬â„¢Ãƒâ€šÃ‚Â¸", "Guide des commandes Sakura");
-        embed.setDescription("Voici les commandes disponibles sur ce serveur, classÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©es par catÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©gorie.");
+        EmbedBuilder embed = EmbedStyle.newInfoEmbed("🌸", "Guide des commandes Sakura");
+        embed.setDescription("Voici les commandes disponibles sur ce serveur, classées par catégorie.");
         
         // Group commands by category
         Map<String, List<ICommand>> categories = new TreeMap<>();
@@ -65,7 +65,7 @@ public class HelpCommand implements ICommand {
         if (event.getJDA().getSelfUser().getEffectiveAvatarUrl() != null) {
             embed.setThumbnail(event.getJDA().getSelfUser().getEffectiveAvatarUrl());
         }
-        EmbedStyle.setFooter(embed, "DemandÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© par " + event.getUser().getName());
+        EmbedStyle.setFooter(embed, "Demandé par " + event.getUser().getName());
 
         event.replyEmbeds(embed.build()).setEphemeral(true).queue();
         logger.info("/help envoye userId={}", event.getUser().getId());

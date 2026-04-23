@@ -16,7 +16,7 @@ public class WarningStore {
     private static final Logger logger = LoggerFactory.getLogger(WarningStore.class);
 
     public WarningStore() {
-        logger.info("WarningStore initialisÃ© â€” stockage via DatabaseManager ({})",
+        logger.info("WarningStore initialisé — stockage via DatabaseManager ({})",
                 DatabaseManager.isPostgres() ? "PostgreSQL" : "SQLite");
     }
 

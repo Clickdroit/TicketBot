@@ -42,13 +42,13 @@ public class ServerInfoCommand implements ICommand {
             embed.setThumbnail(guild.getIconUrl());
         }
 
-        embed.addField("\uD83D\uDC51 PropriÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©taire", guild.getOwner() != null ? guild.getOwner().getAsMention() : "Inconnu", true);
+        embed.addField("\uD83D\uDC51 Propriétaire", guild.getOwner() != null ? guild.getOwner().getAsMention() : "Inconnu", true);
         embed.addField("\uD83D\uDC65 Membres", String.valueOf(guild.getMemberCount()), true);
         embed.addField("\uD83D\uDCAC Salons", String.valueOf(guild.getChannels().size()), true);
-        embed.addField("\uD83C\uDFAD RÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â´les", String.valueOf(guild.getRoles().size()), true);
+        embed.addField("\uD83C\uDFAD Rôles", String.valueOf(guild.getRoles().size()), true);
         embed.addField("\uD83D\uDE00 Emojis", String.valueOf(guild.getEmojis().size()), true);
-        embed.addField("\uD83D\uDD12 Niveau de vÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©rification", guild.getVerificationLevel().name(), true);
-        embed.addField("\uD83D\uDCC5 CrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© le", EmbedStyle.formatInfoDate(guild.getTimeCreated()), false);
+        embed.addField("\uD83D\uDD12 Niveau de vérification", guild.getVerificationLevel().name(), true);
+        embed.addField("\uD83D\uDCC5 Créé le", EmbedStyle.formatInfoDate(guild.getTimeCreated()), false);
 
         if (guild.getBannerUrl() != null) {
             embed.setImage(guild.getBannerUrl() + "?size=1024");

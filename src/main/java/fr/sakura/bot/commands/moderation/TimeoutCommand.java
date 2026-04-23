@@ -36,7 +36,7 @@ public class TimeoutCommand implements ICommand {
 
     @Override
     public String getCategory() {
-        return "ModÃƒÆ’Ã‚Â©ration";
+        return "Modération";
     }
 
     @Override
@@ -61,13 +61,13 @@ public class TimeoutCommand implements ICommand {
 
         if (target == null || minutes == null) {
             logger.warn("/timeout invalide: target ou minutes absent userId={}", event.getUser().getId());
-            event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Parametres invalides.").setEphemeral(true).queue();
+            event.reply("❌ Parametres invalides.").setEphemeral(true).queue();
             return;
         }
 
         if (event.getMember() == null || !event.getMember().canInteract(target)) {
             logger.warn("/timeout refuse hierarchie: modId={}, targetId={}", event.getUser().getId(), target.getId());
-            event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Vous ne pouvez pas timeout cet utilisateur (role superieur).")
+            event.reply("❌ Vous ne pouvez pas timeout cet utilisateur (role superieur).")
                     .setEphemeral(true)
                     .queue();
             return;
@@ -80,7 +80,7 @@ public class TimeoutCommand implements ICommand {
 
         target.timeoutFor(duration).reason(finalReason).queue(
                 success -> {
-                    event.reply("ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ **" + target.getUser().getName() + "** a ete timeout pendant " + minutes + " minute(s). Raison : " + finalReason)
+                    event.reply("✅ **" + target.getUser().getName() + "** a ete timeout pendant " + minutes + " minute(s). Raison : " + finalReason)
                             .queue();
                     logger.info("/timeout reussi: modId={}, targetId={}, minutes={}", event.getUser().getId(), target.getId(), minutes);
 
@@ -96,7 +96,7 @@ public class TimeoutCommand implements ICommand {
                 error -> {
                     logger.error("/timeout echec API: modId={}, targetId={}, minutes={}",
                             event.getUser().getId(), target.getId(), minutes, error);
-                    event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Une erreur est survenue (permissions manquantes ?).")
+                    event.reply("❌ Une erreur est survenue (permissions manquantes ?).")
                             .setEphemeral(true)
                             .queue();
                 }

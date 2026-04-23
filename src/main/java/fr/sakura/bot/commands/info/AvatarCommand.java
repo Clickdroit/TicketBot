@@ -26,7 +26,7 @@ public class AvatarCommand implements ICommand {
 
     @Override
     public SlashCommandData getCommandData() {
-        return Commands.slash(getName(), "Affiche l'avatar d'un membre en taille rÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©elle")
+        return Commands.slash(getName(), "Affiche l'avatar d'un membre en taille réelle")
                 .addOptions(new OptionData(OptionType.USER, "membre", "Le membre dont afficher l'avatar", false));
     }
 
@@ -39,13 +39,13 @@ public class AvatarCommand implements ICommand {
 
         if (target == null) {
             logger.warn("/avatar cible introuvable userId={}", event.getUser().getId());
-            event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Utilisateur introuvable.").setEphemeral(true).queue();
+            event.reply("❌ Utilisateur introuvable.").setEphemeral(true).queue();
             return;
         }
 
         String effectiveAvatarUrl = target.getUser().getEffectiveAvatarUrl();
 
-        EmbedBuilder embed = EmbedStyle.newInfoEmbed("\uD83D\uDDBCÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â", "Avatar de " + target.getUser().getName());
+        EmbedBuilder embed = EmbedStyle.newInfoEmbed("\uD83D\uDDBC❌ "Avatar de " + target.getUser().getName());
         if (effectiveAvatarUrl != null) {
             embed.setImage(effectiveAvatarUrl + "?size=1024");
             EmbedStyle.setFooter(embed, "Clique sur l'image pour la voir en taille originale");

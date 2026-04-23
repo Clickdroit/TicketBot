@@ -19,7 +19,7 @@ import java.util.Locale;
 import java.util.stream.Collectors;
 
 /**
- * Logique mÃ©tier pour la gestion des tickets.
+ * Logique métier pour la gestion des tickets.
  */
 public class TicketService {
 
@@ -82,7 +82,7 @@ public class TicketService {
 
     public String supportMention(Guild guild) {
         List<Role> roles = resolveSupportRoles(guild);
-        if (roles.isEmpty()) return "l'Ã©quipe de support";
+        if (roles.isEmpty()) return "l'équipe de support";
         return roles.stream().map(Role::getAsMention).collect(Collectors.joining(" "));
     }
 
@@ -129,14 +129,14 @@ public class TicketService {
     }
 
     public Button createButton() {
-        return Button.primary("ticket:create", "ðŸŽ« Ouvrir un ticket");
+        return Button.primary("ticket:create", "🎫 Ouvrir un ticket");
     }
 
     public Button claimButton() {
-        return Button.success("ticket:claim", "âœ… Prendre en charge");
+        return Button.success("ticket:claim", "✅ Prendre en charge");
     }
 
     public Button closeButton() {
-        return Button.danger("ticket:close", "ðŸ”’ Fermer le ticket");
+        return Button.danger("ticket:close", "🔒 Fermer le ticket");
     }
 }

@@ -39,7 +39,7 @@ public class ClearWarningsCommand implements ICommand {
 
     @Override
     public String getCategory() {
-        return "ModÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©ration";
+        return "Modération";
     }
 
     @Override
@@ -56,13 +56,13 @@ public class ClearWarningsCommand implements ICommand {
 
         if (event.getGuild() == null || event.getMember() == null) {
             logger.warn("/clearwarnings appelee hors serveur ou member null userId={}", event.getUser().getId());
-            event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Cette commande doit etre utilisee dans un serveur.").setEphemeral(true).queue();
+            event.reply("❌ Cette commande doit etre utilisee dans un serveur.").setEphemeral(true).queue();
             return;
         }
 
         if (target == null) {
             logger.warn("/clearwarnings cible introuvable modId={}", event.getUser().getId());
-            event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Membre introuvable.").setEphemeral(true).queue();
+            event.reply("❌ Membre introuvable.").setEphemeral(true).queue();
             return;
         }
 
@@ -71,13 +71,13 @@ public class ClearWarningsCommand implements ICommand {
         int removed = warningService.clearWarnings(event.getGuild().getId(), target.getId());
         if (removed == 0) {
             logger.info("/clearwarnings aucun warning a supprimer targetId={}", target.getId());
-            event.reply("ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¹ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â Aucun warning a supprimer pour **" + target.getUser().getName() + "**.")
+            event.reply("❌ Aucun warning a supprimer pour **" + target.getUser().getName() + "**.")
                     .setEphemeral(true)
                     .queue();
             return;
         }
 
-        event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ " + removed + " warning(s) supprime(s) pour **" + target.getUser().getName() + "**.")
+        event.reply("✅ " + removed + " warning(s) supprime(s) pour **" + target.getUser().getName() + "**.")
                 .queue();
         logger.info("/clearwarnings reussi: targetId={}, removed={}", target.getId(), removed);
 

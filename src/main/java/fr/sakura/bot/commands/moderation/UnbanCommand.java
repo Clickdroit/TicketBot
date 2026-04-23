@@ -38,7 +38,7 @@ public class UnbanCommand implements ICommand {
 
     @Override
     public String getCategory() {
-        return "ModÃƒÆ’Ã‚Â©ration";
+        return "Modération";
     }
 
     @Override
@@ -58,7 +58,7 @@ public class UnbanCommand implements ICommand {
         Guild guild = event.getGuild();
         if (guild == null) {
             logger.warn("/unban appelee hors serveur userId={}", event.getUser().getId());
-            event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Cette commande doit etre utilisee dans un serveur.").setEphemeral(true).queue();
+            event.reply("❌ Cette commande doit etre utilisee dans un serveur.").setEphemeral(true).queue();
             return;
         }
 
@@ -67,27 +67,27 @@ public class UnbanCommand implements ICommand {
 
         if (userId == null || !userId.matches("\\d{17,20}")) {
             logger.warn("/unban invalide: user_id incorrect modId={} userId={}", event.getUser().getId(), userId);
-            event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ ID utilisateur invalide.").setEphemeral(true).queue();
+            event.reply("❌ ID utilisateur invalide.").setEphemeral(true).queue();
             return;
         }
 
         String finalReason = (reason == null || reason.isBlank()) ? "Aucune raison specifiee" : reason;
         logger.info("/unban demande: modId={}, targetId={}, reason={}", event.getUser().getId(), userId, finalReason);
 
-        // Defer immÃƒÆ’Ã‚Â©diat : retrieveBan est asynchrone et peut dÃƒÆ’Ã‚Â©passer les 3 secondes
+        // Defer immédiat : retrieveBan est asynchrone et peut dépasser les 3 secondes
         event.deferReply(false).queue();
 
-        // retrieveBan cible directement l'utilisateur ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â pas besoin de charger toute la liste
+        // retrieveBan cible directement l'utilisateur ❌ pas besoin de charger toute la liste
         guild.retrieveBan(UserSnowflake.fromId(userId)).queue(
                 ban -> {
-                    // L'utilisateur est bien banni, on procÃƒÆ’Ã‚Â¨de au unban
+                    // L'utilisateur est bien banni, on procède au unban
                     User bannedUser = ban.getUser();
                     logger.info("/unban cible confirmee bannie: targetId={}", userId);
 
                     guild.unban(UserSnowflake.fromId(userId)).reason(finalReason).queue(
                             success -> {
                                 event.getHook().sendMessage(
-                                        "ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ **" + bannedUser.getName() + "** a ÃƒÆ’Ã‚Â©tÃƒÆ’Ã‚Â© dÃƒÆ’Ã‚Â©banni. Raison : " + finalReason
+                                        "✅ **" + bannedUser.getName() + "** a été débanni. Raison : " + finalReason
                                 ).queue();
                                 logger.info("/unban reussi: modId={}, targetId={}", event.getUser().getId(), userId);
 
@@ -97,12 +97,12 @@ public class UnbanCommand implements ICommand {
                                         event.getMember(),
                                         bannedUser,
                                         finalReason,
-                                        "Utilisateur dÃƒÆ’Ã‚Â©banni: " + bannedUser.getName() + " (" + userId + ")"
+                                        "Utilisateur débanni: " + bannedUser.getName() + " (" + userId + ")"
                                 );
                             },
                             error -> {
                                 logger.error("/unban echec API: modId={}, targetId={}", event.getUser().getId(), userId, error);
-                                event.getHook().sendMessage("ÃƒÂ¢Ã‚ÂÃ…â€™ Une erreur est survenue pendant le deban.").queue();
+                                event.getHook().sendMessage("❌ Une erreur est survenue pendant le deban.").queue();
                             }
                     );
                 },
@@ -110,10 +110,10 @@ public class UnbanCommand implements ICommand {
                     // ErrorResponse.UNKNOWN_BAN = l'utilisateur n'est pas banni
                     if (error instanceof ErrorResponseException ere && ere.getErrorResponse() == ErrorResponse.UNKNOWN_BAN) {
                         logger.warn("/unban refuse: cible non bannie targetId={}", userId);
-                        event.getHook().sendMessage("ÃƒÂ¢Ã‚ÂÃ…â€™ Cet utilisateur n'est pas banni.").queue();
+                        event.getHook().sendMessage("❌ Cet utilisateur n'est pas banni.").queue();
                     } else {
                         logger.error("/unban echec retrieveBan: modId={}, targetId={}", event.getUser().getId(), userId, error);
-                        event.getHook().sendMessage("ÃƒÂ¢Ã‚ÂÃ…â€™ Impossible de vÃƒÆ’Ã‚Â©rifier le bannissement de cet utilisateur.").queue();
+                        event.getHook().sendMessage("❌ Impossible de vérifier le bannissement de cet utilisateur.").queue();
                     }
                 }
         );
