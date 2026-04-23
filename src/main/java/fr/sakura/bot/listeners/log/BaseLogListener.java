@@ -1,52 +1,49 @@
 package fr.sakura.bot.listeners.log;
 
-import fr.sakura.bot.utils.EmbedStyle;
+import fr.sakura.bot.core.service.MessageCacheService;
 import net.dv8tion.jda.api.EmbedBuilder;
-import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.audit.ActionType;
 import net.dv8tion.jda.api.audit.AuditLogEntry;
 import net.dv8tion.jda.api.entities.Guild;
-import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Classe de base pour tous les listeners de logs (Style Sakura).
- * Fournit les méthodes utilitaires partagées: cache, envoi de logs, audit logs.
+ * Classe de base pour tous les listeners de logs.
+ * Fournit les mÃ©thodes utilitaires partagÃ©es: envoi de logs, audit logs.
  */
 public abstract class BaseLogListener extends ListenerAdapter {
 
     protected static final Logger logger = LoggerFactory.getLogger(BaseLogListener.class);
 
     protected final String logChannelId;
+    protected final MessageCacheService messageCacheService;
 
-    public BaseLogListener(String logChannelId) {
-        this.logChannelId = logChannelId;
-    }
-
-    // Cache des messages récents pour détecter les suppressions et ghost pings
-    protected static final Map<String, CachedMessage> messageCache = new ConcurrentHashMap<>();
-    protected static final int MAX_CACHE_SIZE = 10000;
-    protected static final long CACHE_DURATION_MS = 3600000; // 1 heure
-
-    // Cache des audit logs pour éviter les requêtes répétées
-    protected static final Map<String, List<CachedAuditEntry>> auditLogCache = new ConcurrentHashMap<>();
+    // Cache des audit logs pour Ã©viter les requÃªtes rÃ©pÃ©tÃ©es
+    protected final Map<String, List<CachedAuditEntry>> auditLogCache = new ConcurrentHashMap<>();
     protected static final long AUDIT_CACHE_DURATION_MS = 5000; // 5 secondes
     protected static final int MAX_AUDIT_CACHE_ENTRIES = 10;
 
-    // Fenêtres temporelles pour l'audit log (en millisecondes)
+    // FenÃªtres temporelles pour l'audit log (en millisecondes)
     protected static final long AUDIT_TIMING_STANDARD = 5000;
     protected static final long RETRY_DELAY_MS = 1000;
 
+    public BaseLogListener(String logChannelId, MessageCacheService messageCacheService) {
+        this.logChannelId = logChannelId;
+        this.messageCacheService = messageCacheService;
+    }
+
     /**
-     * Cache d'entrées d'audit log
+     * Cache d'entrÃ©es d'audit log
      */
     protected static class CachedAuditEntry {
         public AuditLogEntry entry;
@@ -63,84 +60,7 @@ public abstract class BaseLogListener extends ListenerAdapter {
     }
 
     /**
-     * Classe pour mettre en cache les messages récents
-     */
-    protected static class CachedMessage {
-        public String content;
-        public String authorId;
-        public String authorName;
-        public String authorAvatar;
-        public String channelId;
-        public String channelName;
-        public Set<String> mentionedUserIds;
-        public List<CachedAttachment> attachments;
-        public long timestamp;
-
-        public CachedMessage(Message message) {
-            this.content = message.getContentDisplay();
-            this.authorId = message.getAuthor().getId();
-            this.authorName = message.getAuthor().getName();
-            this.authorAvatar = message.getAuthor().getEffectiveAvatarUrl();
-            this.channelId = message.getChannel().getId();
-            this.channelName = message.getChannel().getName();
-            this.mentionedUserIds = new HashSet<>();
-            message.getMentions().getUsers().forEach(user -> mentionedUserIds.add(user.getId()));
-            this.attachments = new ArrayList<>();
-            message.getAttachments().forEach(att -> attachments.add(new CachedAttachment(att)));
-            this.timestamp = System.currentTimeMillis();
-        }
-    }
-
-    /**
-     * Classe pour mettre en cache les pièces jointes
-     */
-    protected static class CachedAttachment {
-        public String url;
-        public String proxyUrl;
-        public String fileName;
-        public String contentType;
-        public long size;
-        public boolean isImage;
-
-        public CachedAttachment(Message.Attachment attachment) {
-            this.url = attachment.getUrl();
-            this.proxyUrl = attachment.getProxyUrl();
-            this.fileName = attachment.getFileName();
-            this.contentType = attachment.getContentType();
-            this.size = attachment.getSize();
-            this.isImage = attachment.isImage();
-        }
-
-        public String getEmoji() {
-            if (isImage) return "🖼️";
-            if (contentType != null && contentType.startsWith("video")) return "🎬";
-            if (contentType != null && contentType.startsWith("audio")) return "🎵";
-            return "📎";
-        }
-
-        public String getFormattedSize() {
-            if (size < 1024) return size + " B";
-            if (size < 1024 * 1024) return String.format("%.1f KB", size / 1024.0);
-            return String.format("%.1f MB", size / (1024.0 * 1024.0));
-        }
-    }
-
-    /**
-     * Cache un message pour la détection ultérieure
-     */
-    public static void cacheMessageStatic(Message message) {
-        if (message.getAuthor().isBot()) return;
-
-        if (messageCache.size() > MAX_CACHE_SIZE) {
-            long now = System.currentTimeMillis();
-            messageCache.entrySet().removeIf(entry -> now - entry.getValue().timestamp > CACHE_DURATION_MS);
-        }
-
-        messageCache.put(message.getId(), new CachedMessage(message));
-    }
-
-    /**
-     * Envoie un embed de log dans le salon configuré
+     * Envoie un embed de log dans le salon configurÃ©
      */
     protected void sendLogToChannel(Guild guild, java.util.function.Consumer<EmbedBuilder> embedConsumer) {
         if (logChannelId == null || logChannelId.isEmpty()) return;
@@ -157,14 +77,14 @@ public abstract class BaseLogListener extends ListenerAdapter {
     }
 
     /**
-     * Trouve une action récente dans l'audit log
+     * Trouve une action rÃ©cente dans l'audit log
      */
     protected CompletableFuture<AuditLogEntry> findRecentAuditAction(
             Guild guild, ActionType actionType, String targetId, long maxDelay, int maxRetries) {
         CompletableFuture<AuditLogEntry> future = new CompletableFuture<>();
         String cacheKey = guild.getId() + "_" + actionType.name();
 
-        // Vérifier le cache d'abord
+        // VÃ©rifier le cache d'abord
         List<CachedAuditEntry> cached = auditLogCache.get(cacheKey);
         if (cached != null) {
             cached.removeIf(CachedAuditEntry::isExpired);
@@ -181,7 +101,7 @@ public abstract class BaseLogListener extends ListenerAdapter {
             }
         }
 
-        // Requête API
+        // RequÃªte API
         guild.retrieveAuditLogs()
                 .type(actionType)
                 .limit(5)

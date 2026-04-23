@@ -1,6 +1,7 @@
 package fr.sakura.bot.listeners.log;
 
-import fr.sakura.bot.utils.EmbedStyle;
+import fr.sakura.bot.core.service.MessageCacheService;
+import fr.sakura.bot.core.util.EmbedStyle;
 import net.dv8tion.jda.api.audit.ActionType;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.User;
@@ -12,8 +13,8 @@ import java.time.Instant;
 
 public class VoiceLogListener extends BaseLogListener {
 
-    public VoiceLogListener(String logChannelId) {
-        super(logChannelId);
+    public VoiceLogListener(String logChannelId, MessageCacheService messageCacheService) {
+        super(logChannelId, messageCacheService);
     }
 
     @Override
@@ -22,8 +23,6 @@ public class VoiceLogListener extends BaseLogListener {
         AudioChannel channelJoined = event.getChannelJoined();
         AudioChannel channelLeft = event.getChannelLeft();
 
-        // Changement d'état pur (mute/casque/video) dans le même salon → ignoré ici,
-        // géré par onGuildVoiceSelfMute / onGuildVoiceSelfDeafen
         if (channelJoined == null && channelLeft == null) return;
         if (channelJoined != null && channelLeft != null
                 && channelJoined.getId().equals(channelLeft.getId())) return;
@@ -64,11 +63,11 @@ public class VoiceLogListener extends BaseLogListener {
 
                     sendLogToChannel(event.getGuild(), embed -> {
                         embed.setColor(wasKicked ? EmbedStyle.SAKURA_DEEP : EmbedStyle.SAKURA_GOLD);
-                        embed.setTitle(wasKicked ? "🚫  ✦  Déconnexion Forcée" : "🔇  ✦  Déconnexion Vocale");
+                        embed.setTitle(wasKicked ? "🚫  ✦  Déconnexion Forcée" : "🔉  ✦  Déconnexion Vocale");
 
                         StringBuilder desc = new StringBuilder();
                         desc.append(EmbedStyle.SEPARATOR).append("\n");
-                        desc.append(wasKicked ? "🚫 **EXPULSION VOCALE**" : "🔇 **DÉCONNEXION VOCALE**").append("\n");
+                        desc.append(wasKicked ? "🚫 **EXPULSION VOCALE**" : "🔉 **DÉCONNEXION VOCALE**").append("\n");
                         desc.append(EmbedStyle.SEPARATOR).append("\n\n");
                         desc.append(EmbedStyle.detailLine("Utilisateur", member.getAsMention() + " (`" + member.getUser().getName() + "`)")).append("\n");
                         desc.append(EmbedStyle.detailLine("Depuis", fromChannel.getName())).append("\n");
@@ -95,11 +94,11 @@ public class VoiceLogListener extends BaseLogListener {
 
                     sendLogToChannel(event.getGuild(), embed -> {
                         embed.setColor(wasMoved ? EmbedStyle.SAKURA_PINK : EmbedStyle.SAKURA_MIST);
-                        embed.setTitle(wasMoved ? "⚡  ✦  Déplacement Forcé" : "🔁  ✦  Déplacement Vocal");
+                        embed.setTitle(wasMoved ? "⚡  ✦  Déplacement Forcé" : "🔄  ✦  Déplacement Vocal");
 
                         StringBuilder desc = new StringBuilder();
                         desc.append(EmbedStyle.SEPARATOR).append("\n");
-                        desc.append(wasMoved ? "⚡ **DÉPLACEMENT FORCÉ**" : "🔁 **DÉPLACEMENT VOLONTAIRE**").append("\n");
+                        desc.append(wasMoved ? "⚡ **DÉPLACEMENT FORCÉ**" : "🔄 **DÉPLACEMENT VOLONTAIRE**").append("\n");
                         desc.append(EmbedStyle.SEPARATOR).append("\n\n");
                         desc.append(EmbedStyle.detailLine("Utilisateur", member.getAsMention() + " (`" + member.getUser().getName() + "`)")).append("\n");
 

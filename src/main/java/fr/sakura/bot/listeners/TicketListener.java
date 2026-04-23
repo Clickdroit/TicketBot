@@ -1,9 +1,10 @@
 package fr.sakura.bot.listeners;
 
-import fr.sakura.bot.utils.EmbedStyle;
+import fr.sakura.bot.core.util.EmbedStyle;
 import fr.sakura.bot.listeners.log.ModerationLogListener;
-import fr.sakura.bot.utils.TicketEntry;
-import fr.sakura.bot.utils.TicketService;
+import fr.sakura.bot.core.model.TicketEntry;
+import fr.sakura.bot.core.service.TicketService;
+import fr.sakura.bot.core.util.MdcContext;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
@@ -16,8 +17,6 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
-
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -44,10 +43,7 @@ public class TicketListener extends ListenerAdapter {
             return;
         }
 
-        MDC.put("guildId", event.getGuild().getId());
-        MDC.put("userId", event.getUser().getId());
-
-        try {
+        try (var ignored = MdcContext.of("guildId", event.getGuild().getId(), "userId", event.getUser().getId())) {
             if (CATEGORY_ID.equals(event.getComponentId())) {
                 if (event.getValues().isEmpty()) {
                     return;
@@ -56,9 +52,6 @@ public class TicketListener extends ListenerAdapter {
                 String categoryName = getCategoryName(selected);
                 handleCreate(event, categoryName);
             }
-        } finally {
-            MDC.remove("guildId");
-            MDC.remove("userId");
         }
     }
 
@@ -68,10 +61,7 @@ public class TicketListener extends ListenerAdapter {
             return;
         }
 
-        MDC.put("guildId", event.getGuild().getId());
-        MDC.put("userId", event.getUser().getId());
-
-        try {
+        try (var ignored = MdcContext.of("guildId", event.getGuild().getId(), "userId", event.getUser().getId())) {
             if (CREATE_ID.equals(event.getComponentId())) {
                 handleCreate(event, "Support");
                 return;
@@ -85,9 +75,6 @@ public class TicketListener extends ListenerAdapter {
             if (CLOSE_ID.equals(event.getComponentId())) {
                 handleClose(event);
             }
-        } finally {
-            MDC.remove("guildId");
-            MDC.remove("userId");
         }
     }
 
@@ -147,7 +134,7 @@ public class TicketListener extends ListenerAdapter {
             }
 
             action.queue(channel -> {
-                TicketEntry created = ticketService.createTicketRecord(guildId, requester.getId(), channel.getId());
+                ticketService.createTicketRecord(guildId, requester.getId(), channel.getId());
 
                 EmbedBuilder embed = EmbedStyle.newActionEmbed("📩", "Nouveau Ticket : " + categoryLabel);
                 embed.setAuthor("Support • " + guild.getName(), null, guild.getIconUrl());
@@ -177,9 +164,9 @@ public class TicketListener extends ListenerAdapter {
 
                 event.getHook().sendMessage("✅ Ticket créé : " + channel.getAsMention()).queue();
                 moderationLogListener.logAction(guild, "TICKET_CREATE", requester, requester, "Ticket ouvert (" + categoryLabel + ")", channel.getId());
-                logger.info("Ticket créé guildId={}, userId={}, channelId={}, category={}", guildId, requester.getId(), channel.getId(), categoryLabel);
+                logger.info("Ticket créé");
             }, error -> {
-                logger.error("Echec creation ticket guildId={}, userId={}", guildId, requester.getId(), error);
+                logger.error("Echec creation ticket", error);
                 event.getHook().sendMessage("❌ Impossible de créer le ticket.").queue();
             });
         });
@@ -217,7 +204,7 @@ public class TicketListener extends ListenerAdapter {
             channel.sendMessage("✅ " + event.getUser().getAsMention() + " prend en charge ce ticket.").queue();
         }
 
-        logger.info("Ticket claim guildId={}, channelId={}, staffId={}", guild.getId(), channel.getId(), event.getUser().getId());
+        logger.info("Ticket claim");
     }
 
     private void handleClose(ButtonInteractionEvent event) {
@@ -255,6 +242,6 @@ public class TicketListener extends ListenerAdapter {
         if (channel instanceof TextChannel textChannel) {
             textChannel.delete().queueAfter(10, TimeUnit.SECONDS);
         }
-        logger.info("Ticket close guildId={}, channelId={}, closedBy={}", guild.getId(), channel.getId(), event.getUser().getId());
+        logger.info("Ticket close");
     }
 }

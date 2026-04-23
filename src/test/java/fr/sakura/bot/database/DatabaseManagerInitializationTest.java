@@ -27,6 +27,8 @@ class DatabaseManagerInitializationTest {
             }
         } finally {
             DatabaseManager.shutdown();
+            // Petit délai pour laisser Windows libérer le verrou sur le fichier
+            Thread.sleep(200);
             Files.deleteIfExists(dbPath);
         }
     }

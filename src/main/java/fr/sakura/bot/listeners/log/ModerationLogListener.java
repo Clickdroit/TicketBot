@@ -1,7 +1,8 @@
 package fr.sakura.bot.listeners.log;
 
+import fr.sakura.bot.core.service.MessageCacheService;
 import fr.sakura.bot.database.SettingsManager;
-import fr.sakura.bot.utils.EmbedStyle;
+import fr.sakura.bot.core.util.EmbedStyle;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
@@ -45,15 +46,17 @@ public class ModerationLogListener extends BaseLogListener {
             Map.entry("TICKET_CLOSE",         new ActionStyle(new Color(219,  98, 152), "🔒", "Ticket fermé"))
     );
 
-    public ModerationLogListener(SettingsManager settingsManager, String envLogChannelId) {
-        super(envLogChannelId);
+    private static final ActionStyle DEFAULT_STYLE = new ActionStyle(EmbedStyle.SAKURA_PINK, "🌸", "Action");
+
+    public ModerationLogListener(SettingsManager settingsManager, String envLogChannelId, MessageCacheService messageCacheService) {
+        super(envLogChannelId, messageCacheService);
         this.settingsManager = settingsManager;
     }
 
     @Override
     protected void sendLogToChannel(@NotNull Guild guild, Consumer<EmbedBuilder> embedConfigurator) {
-        String dbChannelId = settingsManager.getLogChannelId(guild.getId());
-        String finalChannelId = (dbChannelId != null && !dbChannelId.isBlank()) ? dbChannelId : this.logChannelId;
+        String dbChannelId = settingsManager.getLogChannelId(guild.getId()).orElse(null);
+        String finalChannelId = (dbChannelId != null) ? dbChannelId : this.logChannelId;
 
         if (finalChannelId == null || finalChannelId.isBlank()) return;
 
@@ -76,15 +79,21 @@ public class ModerationLogListener extends BaseLogListener {
      * Log une action de modération en utilisant les styles prédéfinis (Cible User).
      */
     public void logAction(@NotNull Guild guild, @NotNull String actionKey, @Nullable Member moderator, @NotNull User target, @Nullable String reason, @Nullable String extra) {
-        ActionStyle style = ACTION_STYLES.getOrDefault(actionKey.toUpperCase(), new ActionStyle(EmbedStyle.SAKURA_PINK, "🌸", "Action"));
+        ActionStyle style = ACTION_STYLES.get(actionKey.toUpperCase());
+        if (style == null) {
+            logger.warn("ACTION_STYLES: clé inconnue '{}'", actionKey);
+            style = DEFAULT_STYLE;
+        }
+
+        final ActionStyle finalStyle = style;
         
         sendLogToChannel(guild, embed -> {
-            embed.setColor(style.color());
-            embed.setTitle(style.emoji() + "  ✦  " + style.label());
+            embed.setColor(finalStyle.color());
+            embed.setTitle(finalStyle.emoji() + "  ✦  " + finalStyle.label());
             
             StringBuilder desc = new StringBuilder();
             desc.append(EmbedStyle.SEPARATOR).append("\n");
-            desc.append(style.emoji()).append(" **").append(style.label().toUpperCase()).append("**\n");
+            desc.append(finalStyle.emoji()).append(" **").append(finalStyle.label().toUpperCase()).append("**\n");
             desc.append(EmbedStyle.SEPARATOR).append("\n\n");
             
             if (moderator != null) {

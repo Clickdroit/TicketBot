@@ -1,30 +1,29 @@
 package fr.sakura.bot;
 
+import fr.sakura.bot.core.service.WarningService;
+import fr.sakura.bot.core.service.RolesPanelService;
+import fr.sakura.bot.commands.BotContext;
 import fr.sakura.bot.commands.CommandManager;
-import fr.sakura.bot.listeners.SecurityListener;
-import fr.sakura.bot.listeners.WelcomeListener;
+import fr.sakura.bot.core.service.*;
+import fr.sakura.bot.core.store.*;
+import fr.sakura.bot.database.DatabaseManager;
+import fr.sakura.bot.database.SettingsManager;
+import fr.sakura.bot.listeners.*;
 import fr.sakura.bot.listeners.log.MessageLogListener;
 import fr.sakura.bot.listeners.log.ModerationLogListener;
 import fr.sakura.bot.listeners.log.VoiceLogListener;
+import io.github.cdimascio.dotenv.Dotenv;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.cache.CacheFlag;
-import io.github.cdimascio.dotenv.Dotenv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import fr.sakura.bot.database.DatabaseManager;
-import fr.sakura.bot.database.SettingsManager;
-import fr.sakura.bot.listeners.AutoModListener;
-import fr.sakura.bot.listeners.LevelListener;
-import fr.sakura.bot.listeners.TicketListener;
-import fr.sakura.bot.utils.LevelService;
-import fr.sakura.bot.utils.TicketService;
-import fr.sakura.bot.utils.WarningService;
-import fr.sakura.bot.utils.RolesPanelService;
-import fr.sakura.bot.utils.RolesPanelStore;
-import fr.sakura.bot.listeners.RolesPanelListener;
 
+/**
+ * Point d'entrÃ©e principal du bot Sakura.
+ * Orchestre l'initialisation des services, de la base de donnÃ©es et de JDA.
+ */
 public class Main {
 
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
@@ -32,51 +31,65 @@ public class Main {
     public static void main(String[] args) {
         Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
 
-        String token          = dotenv.get("DISCORD_TOKEN");
-        String guildId        = dotenv.get("GUILD_ID");
-        String welcomeChannelId = dotenv.get("WELCOME_CHANNEL_ID");
-        String welcomeImageUrl = dotenv.get("WELCOME_IMAGE_URL");
-        String logChannelId = dotenv.get("LOG_CHANNEL_ID");
-        String databaseUrl = dotenv.get("DATABASE_URL");
+        String token            = dotenv.get("DISCORD_TOKEN");
+        String guildId          = dotenv.get("GUILD_ID");
+        String welcomeChannelId  = dotenv.get("WELCOME_CHANNEL_ID");
+        String welcomeImageUrl   = dotenv.get("WELCOME_IMAGE_URL");
+        String logChannelId      = dotenv.get("LOG_CHANNEL_ID");
+        String databaseUrl       = dotenv.get("DATABASE_URL");
 
         if (token == null || token.isEmpty()) {
-            logger.error("❌ DISCORD_TOKEN absent ou vide dans le fichier .env");
+            logger.error("DISCORD_TOKEN absent ou vide dans le fichier .env");
             return;
         }
 
         if (guildId == null || guildId.isEmpty()) {
-            logger.error("❌ GUILD_ID absent ou vide dans le fichier .env");
+            logger.error("GUILD_ID absent ou vide dans le fichier .env");
             return;
         }
 
-        logger.info("🚀 Demarrage du bot Discord pour le serveur autorise {}", guildId);
-        logger.info("⚙️ Configuration: welcomeChannelId={}, logChannelId={}, databaseUrl={}",
-                welcomeChannelId,
-                logChannelId,
-                databaseUrl != null ? "(configurée)" : "jdbc:sqlite:data/sakura.db");
+        logger.info("ðŸš€ Démarrage du bot Sakura pour la guilde {}", guildId);
 
-        // Init SQLite DB
+        // 1. Infrastructure Data
         DatabaseManager.initialize(databaseUrl);
-
-        // Initialisation des services
         SettingsManager settingsManager = new SettingsManager();
-        ModerationLogListener moderationLogListener = new ModerationLogListener(settingsManager, logChannelId);
-        MessageLogListener messageLogListener = new MessageLogListener(logChannelId);
-        VoiceLogListener voiceLogListener = new VoiceLogListener(logChannelId);
-        
-        LevelService levelService = new LevelService(settingsManager);
-        TicketService ticketService = new TicketService();
-        WarningService warningService = new WarningService();
-        RolesPanelService rolesPanelService = new RolesPanelService(new RolesPanelStore());
 
-        CommandManager commandManager = new CommandManager(guildId, moderationLogListener, settingsManager, levelService, ticketService, warningService, rolesPanelService);
+        // 2. Services MÃ©tier
+        MessageCacheService messageCacheService = new MessageCacheService();
+        SpamDetector spamDetector = new SpamDetector();
+        
+        LevelStore levelStore = new LevelStore();
+        LevelService levelService = new LevelService(levelStore, settingsManager);
+        
+        TicketStore ticketStore = new TicketStore();
+        TicketService ticketService = new TicketService(ticketStore);
+        
+        WarningStore warningStore = new WarningStore();
+        WarningService warningService = new WarningService(warningStore);
+        
+        RolesPanelStore rolesPanelStore = new RolesPanelStore();
+        RolesPanelService rolesPanelService = new RolesPanelService(rolesPanelStore);
+
+        // 3. Listeners de Logs
+        ModerationLogListener moderationLogListener = new ModerationLogListener(settingsManager, logChannelId, messageCacheService);
+        MessageLogListener messageLogListener = new MessageLogListener(logChannelId, messageCacheService);
+        VoiceLogListener voiceLogListener = new VoiceLogListener(logChannelId, messageCacheService);
+
+        // 4. Contexte et Commandes
+        BotContext botContext = new BotContext(
+                guildId, settingsManager, levelService, ticketService, warningService, rolesPanelService, moderationLogListener
+        );
+        CommandManager commandManager = new CommandManager(botContext);
+
+        // 5. Autres Listeners
         SecurityListener securityListener = new SecurityListener(guildId, commandManager, rolesPanelService);
         WelcomeListener welcomeListener = new WelcomeListener(settingsManager, welcomeChannelId, welcomeImageUrl);
-        AutoModListener autoModListener = new AutoModListener(moderationLogListener, settingsManager);
+        AutoModListener autoModListener = new AutoModListener(moderationLogListener, settingsManager, spamDetector);
         LevelListener levelListener = new LevelListener(levelService);
         TicketListener ticketListener = new TicketListener(ticketService, moderationLogListener);
         RolesPanelListener rolesPanelListener = new RolesPanelListener(rolesPanelService);
 
+        // 6. Lancement JDA
         net.dv8tion.jda.api.JDA jda = JDABuilder.createLight(token)
                 .enableIntents(
                         GatewayIntent.GUILD_MESSAGES,
@@ -97,14 +110,16 @@ public class Main {
                         ticketListener, 
                         rolesPanelListener
                 )
-                .setActivity(Activity.playing("Bot Sakura au service de Sena"))
+                .setActivity(Activity.playing("Sakura Bot au service de Sena"))
                 .build();
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            logger.info("🛑 Extinction du bot demandée: fermeture de JDA...");
+            logger.info("ðŸ›‘ Extinction du bot : libération des ressources...");
+            messageCacheService.shutdown();
+            DatabaseManager.shutdown();
             jda.shutdown();
         }));
 
-        logger.info("✅ Initialisation JDA lancee avec intents: GUILD_MESSAGES, GUILD_MEMBERS, GUILD_VOICE_STATES, MESSAGE_CONTENT");
+        logger.info("Sakura Bot au service de Sena");
     }
 }

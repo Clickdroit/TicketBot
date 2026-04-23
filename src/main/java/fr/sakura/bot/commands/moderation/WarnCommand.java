@@ -1,0 +1,103 @@
+package fr.sakura.bot.commands.moderation;
+
+
+
+import fr.sakura.bot.commands.ICommand;
+
+import fr.sakura.bot.listeners.log.ModerationLogListener;
+import fr.sakura.bot.core.service.WarningService;
+import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
+import net.dv8tion.jda.api.interactions.commands.OptionMapping;
+import net.dv8tion.jda.api.interactions.commands.OptionType;
+import net.dv8tion.jda.api.interactions.commands.build.Commands;
+import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
+
+public class WarnCommand implements ICommand {
+
+    private static final Logger logger = LoggerFactory.getLogger(WarnCommand.class);
+
+    private final ModerationLogListener moderationLogListener;
+    private final WarningService warningService;
+
+    public WarnCommand(ModerationLogListener moderationLogListener, WarningService warningService) {
+        this.moderationLogListener = moderationLogListener;
+        this.warningService = warningService;
+    }
+
+    @Override
+    public String getName() {
+        return "warn";
+    }
+
+    @Override
+    public String getCategory() {
+        return "ModÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©ration";
+    }
+
+    @Override
+    public SlashCommandData getCommandData() {
+        return Commands.slash(getName(), "Ajoute un avertissement a un membre")
+                .addOptions(
+                        new OptionData(OptionType.USER, "membre", "Le membre a avertir", true),
+                        new OptionData(OptionType.STRING, "raison", "La raison de l'avertissement", true).setMaxLength(500)
+                )
+                .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MODERATE_MEMBERS));
+    }
+
+    @Override
+    public void execute(SlashCommandInteractionEvent event) {
+        logger.debug("Execution /warn par userId={}", event.getUser().getId());
+        Member target = event.getOption("membre", OptionMapping::getAsMember);
+        String reason = event.getOption("raison", OptionMapping::getAsString);
+
+        if (event.getGuild() == null || event.getMember() == null) {
+            logger.warn("/warn appelee hors serveur ou member null userId={}", event.getUser().getId());
+            event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Cette commande doit etre utilisee dans un serveur.").setEphemeral(true).queue();
+            return;
+        }
+
+        if (target == null || reason == null || reason.isBlank()) {
+            logger.warn("/warn invalide: target/reason manquant modId={}", event.getUser().getId());
+            event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Parametres invalides.").setEphemeral(true).queue();
+            return;
+        }
+
+        if (event.getMember() == null || !event.getMember().canInteract(target)) {
+            logger.warn("/warn refuse hierarchie: modId={}, targetId={}", event.getUser().getId(), target.getId());
+            event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Vous ne pouvez pas avertir cet utilisateur (role superieur).")
+                    .setEphemeral(true)
+                    .queue();
+            return;
+        }
+
+        logger.info("/warn demande: modId={}, targetId={}, reasonLength={}",
+                event.getUser().getId(), target.getId(), reason.length());
+
+        int totalWarnings = warningService.addWarning(
+                event.getGuild().getId(),
+                target.getId(),
+                event.getMember().getId(),
+                reason
+        );
+
+        event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **" + target.getUser().getName() + "** a recu un avertissement. Total: " + totalWarnings).queue();
+        logger.info("/warn reussi: modId={}, targetId={}, total={}", event.getUser().getId(), target.getId(), totalWarnings);
+
+        moderationLogListener.logAction(
+                event.getGuild(),
+                "WARN",
+                event.getMember(),
+                target,
+                reason,
+                "Total warnings: " + totalWarnings
+        );
+    }
+}
