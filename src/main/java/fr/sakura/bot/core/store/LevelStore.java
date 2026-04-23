@@ -16,7 +16,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 /**
- * Stockage des donnÃ©es de niveaux et d'XP.
+ * Stockage des données de niveaux et d'XP.
  */
 public class LevelStore {
 
@@ -67,12 +67,13 @@ public class LevelStore {
         });
     }
 
-    public List<LevelProfile> getLeaderboard(String guildId, int limit) {
-        String sql = "SELECT user_id, xp, level FROM levels WHERE guild_id = ? ORDER BY level DESC, xp DESC LIMIT ?";
+    public List<LevelProfile> getLeaderboard(String guildId, int limit, int offset) {
+        String sql = "SELECT user_id, xp, level FROM levels WHERE guild_id = ? ORDER BY level DESC, xp DESC LIMIT ? OFFSET ?";
         return DbHelper.queryList(sql,
                 pstmt -> {
                     pstmt.setString(1, guildId);
                     pstmt.setInt(2, Math.max(1, limit));
+                    pstmt.setInt(3, Math.max(0, offset));
                 },
                 rs -> new LevelProfile(guildId, rs.getString("user_id"), rs.getLong("xp"), rs.getInt("level"))
         );
@@ -149,7 +150,7 @@ public class LevelStore {
             }
         }
         if (removed > 0) {
-            logger.debug("LevelStore cleanup: {} lock(s) pÃ©rimÃ©(s) retirÃ©(s)", removed);
+            logger.debug("LevelStore cleanup: {} lock(s) périmé(s) retiré(s)", removed);
         }
     }
 }

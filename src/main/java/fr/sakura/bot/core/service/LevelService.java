@@ -1,19 +1,20 @@
 package fr.sakura.bot.core.service;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import fr.sakura.bot.core.model.LevelProfile;
 import fr.sakura.bot.core.store.LevelStore;
 import fr.sakura.bot.database.SettingsManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 /**
- * Logique mÃ©tier pour le systÃ¨me de niveaux et d'XP.
+ * Logique métier pour le système de niveaux et d'XP.
  */
 public class LevelService {
 
@@ -27,13 +28,18 @@ public class LevelService {
 
     private final LevelStore levelStore;
     private final SettingsManager settingsManager;
-    private final Map<String, Long> lastAwardByMember = new ConcurrentHashMap<>();
+    private final Cache<String, Long> lastAwardByMember;
 
     public LevelService(LevelStore levelStore, SettingsManager settingsManager) {
         this.levelStore = levelStore;
         this.settingsManager = settingsManager;
+        this.lastAwardByMember = Caffeine.newBuilder()
+                .expireAfterWrite(Duration.ofMinutes(10)) // TTL de 10 minutes pour éviter les fuites
+                .maximumSize(10_000)
+                .build();
+        
         if (settingsManager == null) {
-            logger.warn("LevelService initialisÃ© sans SettingsManager: fallback silencieux sur les constantes par dÃ©faut");
+            logger.warn("LevelService initialisé sans SettingsManager: fallback silencieux sur les constantes par défaut");
         }
     }
 
@@ -86,9 +92,13 @@ public class LevelService {
         String memberKey = guildId + ":" + userId;
         long now = Instant.now().toEpochMilli();
         long cooldownMs = settingsManager != null ? settingsManager.getXpCooldownMs(guildId) : DEFAULT_COOLDOWN_MS;
-        if (!tryAcquireCooldown(memberKey, now, cooldownMs)) {
+        
+        Long last = lastAwardByMember.getIfPresent(memberKey);
+        if (last != null && now - last < cooldownMs) {
             return new XpResult(levelStore.getProfile(guildId, userId), false, false, 0);
         }
+        
+        lastAwardByMember.put(memberKey, now);
 
         int minGain = settingsManager != null ? settingsManager.getXpMinGain(guildId) : DEFAULT_MIN_GAIN;
         int maxGain = settingsManager != null ? settingsManager.getXpMaxGain(guildId) : DEFAULT_MAX_GAIN;
@@ -103,7 +113,7 @@ public class LevelService {
         boolean leveledUp = after.level() > before.level();
 
         if (leveledUp) {
-            logger.info("Level up dÃ©tectÃ© guildId={}, userId={}, oldLevel={}, newLevel={}", guildId, userId, before.level(), after.level());
+            logger.info("Level up détecté guildId={}, userId={}, oldLevel={}, newLevel={}", guildId, userId, before.level(), after.level());
         }
 
         return new XpResult(updated, true, leveledUp, xpGain);
@@ -118,7 +128,11 @@ public class LevelService {
     }
 
     public List<LevelProfile> getLeaderboard(String guildId, int limit) {
-        return levelStore.getLeaderboard(guildId, limit);
+        return getLeaderboard(guildId, limit, 0);
+    }
+
+    public List<LevelProfile> getLeaderboard(String guildId, int limit, int offset) {
+        return levelStore.getLeaderboard(guildId, limit, offset);
     }
 
     public void resetUser(String guildId, String userId) {
@@ -200,19 +214,5 @@ public class LevelService {
     }
 
     public record XpResult(LevelProfile profile, boolean xpAwarded, boolean leveledUp, int xpGained) {
-    }
-
-    private boolean tryAcquireCooldown(String memberKey, long now, long cooldownMs) {
-        final boolean[] allowed = {false};
-        lastAwardByMember.compute(memberKey, (key, previous) -> {
-            long last = previous != null ? previous : 0L;
-            if (now - last < cooldownMs) {
-                allowed[0] = false;
-                return last;
-            }
-            allowed[0] = true;
-            return now;
-        });
-        return allowed[0];
     }
 }

@@ -1,9 +1,6 @@
 package fr.sakura.bot.commands.staff;
 
-
-
 import fr.sakura.bot.commands.ICommand;
-
 import fr.sakura.bot.core.util.EmbedStyle;
 import fr.sakura.bot.core.service.RolesPanelService;
 import fr.sakura.bot.core.store.RolesPanelStore;
@@ -41,20 +38,22 @@ public class RolesPanelCommand implements ICommand {
 
     @Override
     public SlashCommandData getCommandData() {
-        return Commands.slash(getName(), "Gestion des panels de rÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â´les")
+        return Commands.slash(getName(), "Gestion des panels de rôles")
                 .addSubcommands(
-                        new SubcommandData("create", "CrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©e un panel dans le salon courant"),
-                        new SubcommandData("add", "Ajoute un bouton de rÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â´le")
+                        new SubcommandData("create", "Crée un panel dans le salon courant"),
+                        new SubcommandData("delete", "Supprime un panel")
+                                .addOptions(new OptionData(OptionType.INTEGER, "panel_id", "ID du panel", true)),
+                        new SubcommandData("add", "Ajoute un bouton de rôle")
                                 .addOptions(
                                         new OptionData(OptionType.INTEGER, "panel_id", "ID du panel", true),
-                                        new OptionData(OptionType.ROLE, "role", "RÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â´le ciblÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©", true),
+                                        new OptionData(OptionType.ROLE, "role", "Rôle ciblé", true),
                                         new OptionData(OptionType.STRING, "label", "Texte du bouton", true).setMaxLength(80),
                                         new OptionData(OptionType.STRING, "emoji", "Emoji (optionnel)")
                                 ),
-                        new SubcommandData("remove", "Retire un bouton de rÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â´le")
+                        new SubcommandData("remove", "Retire un bouton de rôle")
                                 .addOptions(
                                         new OptionData(OptionType.INTEGER, "panel_id", "ID du panel", true),
-                                        new OptionData(OptionType.ROLE, "role", "RÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â´le ciblÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©", true)
+                                        new OptionData(OptionType.ROLE, "role", "Rôle ciblé", true)
                                 ),
                         new SubcommandData("list", "Liste les panels actifs")
                 )
@@ -64,30 +63,31 @@ public class RolesPanelCommand implements ICommand {
     @Override
     public void execute(SlashCommandInteractionEvent event) {
         if (event.getGuild() == null || event.getMember() == null) {
-            event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Commande utilisable uniquement sur un serveur.").setEphemeral(true).queue();
+            event.reply("❌ Commande utilisable uniquement sur un serveur.").setEphemeral(true).queue();
             return;
         }
 
         String sub = event.getSubcommandName();
         if (sub == null) {
-            event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Sous-commande manquante.").setEphemeral(true).queue();
+            event.reply("❌ Sous-commande manquante.").setEphemeral(true).queue();
             return;
         }
 
         switch (sub) {
             case "create" -> handleCreate(event);
+            case "delete" -> handleDelete(event);
             case "add" -> handleAdd(event);
             case "remove" -> handleRemove(event);
             case "list" -> handleList(event);
-            default -> event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Sous-commande inconnue.").setEphemeral(true).queue();
+            default -> event.reply("❌ Sous-commande inconnue.").setEphemeral(true).queue();
         }
     }
 
     private void handleCreate(SlashCommandInteractionEvent event) {
         event.deferReply(true).queue();
-        EmbedBuilder embed = EmbedStyle.newInfoEmbed("ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã‚Â½Ãƒâ€šÃ‚Â­", "Choisis tes rÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â´les");
-        embed.setDescription("Clique sur un bouton pour ajouter/retirer un rÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â´le.");
-        EmbedStyle.setFooter(embed, "Panel auto-rÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â´les");
+        EmbedBuilder embed = EmbedStyle.newInfoEmbed("🎭", "Choisis tes rôles");
+        embed.setDescription("Clique sur un bouton pour ajouter/retirer un rôle.");
+        EmbedStyle.setFooter(embed, "Panel auto-rôles");
 
         event.getChannel().sendMessageEmbeds(embed.build()).queue(message -> {
             RolesPanelStore.RolePanel panel = rolesPanelService.createPanel(
@@ -96,11 +96,26 @@ public class RolesPanelCommand implements ICommand {
                     message.getId()
             );
             if (panel == null) {
-                event.getHook().sendMessage("ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Impossible de crÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©er le panel en base.").queue();
+                event.getHook().sendMessage("❌ Impossible de créer le panel en base.").queue();
                 return;
             }
-            event.getHook().sendMessage("ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Panel crÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© : ID **" + panel.id() + "** dans " + event.getChannel().getAsMention()).queue();
-        }, err -> event.getHook().sendMessage("ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Impossible d'envoyer le panel.").queue());
+            event.getHook().sendMessage("✅ Panel créé : ID **" + panel.id() + "** dans " + event.getChannel().getAsMention()).queue();
+        }, err -> event.getHook().sendMessage("❌ Impossible d'envoyer le panel.").queue());
+    }
+
+    private void handleDelete(SlashCommandInteractionEvent event) {
+        long panelId = event.getOption("panel_id", 0L, OptionMapping::getAsLong);
+        if (panelId <= 0) {
+            event.reply("❌ ID de panel invalide.").setEphemeral(true).queue();
+            return;
+        }
+
+        boolean ok = rolesPanelService.deletePanel(event.getGuild(), panelId);
+        if (ok) {
+            event.reply("✅ Panel **" + panelId + "** supprimé.").setEphemeral(true).queue();
+        } else {
+            event.reply("❌ Panel introuvable.").setEphemeral(true).queue();
+        }
     }
 
     private void handleAdd(SlashCommandInteractionEvent event) {
@@ -110,60 +125,60 @@ public class RolesPanelCommand implements ICommand {
         String emoji = event.getOption("emoji", "", OptionMapping::getAsString).trim();
 
         if (role == null || panelId <= 0) {
-            event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ ParamÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¨tres invalides.").setEphemeral(true).queue();
+            event.reply("❌ Paramètres invalides.").setEphemeral(true).queue();
             return;
         }
 
         var guild = event.getGuild();
         var self = guild.getSelfMember();
         if (!self.hasPermission(Permission.MANAGE_ROLES) || !self.canInteract(role)) {
-            event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Je ne peux pas gÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©rer ce rÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â´le (permission/hierarchie).").setEphemeral(true).queue();
+            event.reply("❌ Je ne peux pas gérer ce rôle (permission/hierarchie).").setEphemeral(true).queue();
             return;
         }
 
         boolean ok = rolesPanelService.addButton(guild.getId(), panelId, role.getId(), label, emoji.isBlank() ? null : emoji);
         if (!ok) {
-            event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Ajout impossible (panel introuvable ou limite de 5 boutons atteinte).").setEphemeral(true).queue();
+            event.reply("❌ Ajout impossible (panel introuvable ou limite de " + RolesPanelService.MAX_BUTTONS + " boutons atteinte).").setEphemeral(true).queue();
             return;
         }
 
         RolesPanelStore.RolePanel panel = rolesPanelService.getPanel(guild.getId(), panelId);
         rolesPanelService.refreshPanelMessage(guild, panel);
-        event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Bouton ajoutÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© au panel **" + panelId + "** pour " + role.getAsMention() + ".").setEphemeral(true).queue();
+        event.reply("✅ Bouton ajouté au panel **" + panelId + "** pour " + role.getAsMention() + ".").setEphemeral(true).queue();
     }
 
     private void handleRemove(SlashCommandInteractionEvent event) {
         long panelId = event.getOption("panel_id", 0L, OptionMapping::getAsLong);
         Role role = event.getOption("role", OptionMapping::getAsRole);
         if (role == null || panelId <= 0) {
-            event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ ParamÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¨tres invalides.").setEphemeral(true).queue();
+            event.reply("❌ Paramètres invalides.").setEphemeral(true).queue();
             return;
         }
 
         boolean removed = rolesPanelService.removeButton(event.getGuild().getId(), panelId, role.getId());
         if (!removed) {
-            event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Aucun bouton trouvÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© pour ce rÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â´le/panel.").setEphemeral(true).queue();
+            event.reply("❌ Aucun bouton trouvé pour ce rôle/panel.").setEphemeral(true).queue();
             return;
         }
 
         RolesPanelStore.RolePanel panel = rolesPanelService.getPanel(event.getGuild().getId(), panelId);
         rolesPanelService.refreshPanelMessage(event.getGuild(), panel);
-        event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Bouton supprimÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© du panel **" + panelId + "**.").setEphemeral(true).queue();
+        event.reply("✅ Bouton supprimé du panel **" + panelId + "**.").setEphemeral(true).queue();
     }
 
     private void handleList(SlashCommandInteractionEvent event) {
         List<RolesPanelStore.RolePanel> panels = rolesPanelService.listPanels(event.getGuild().getId());
         if (panels.isEmpty()) {
-            event.reply("ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¹ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â Aucun panel actif.").setEphemeral(true).queue();
+            event.reply("ℹ️ Aucun panel actif.").setEphemeral(true).queue();
             return;
         }
 
-        StringBuilder content = new StringBuilder("ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ Panels actifs :\n");
+        StringBuilder content = new StringBuilder("📋 Panels actifs :\n");
         for (RolesPanelStore.RolePanel panel : panels) {
-            content.append("ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ ID **").append(panel.id())
-                    .append("** ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â salon <#").append(panel.channelId())
-                    .append("> ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â boutons: ").append(panel.buttons().size())
-                    .append(" ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â [message](https://discord.com/channels/")
+            content.append("• ID **").append(panel.id())
+                    .append("** — salon <#").append(panel.channelId())
+                    .append("> — boutons: ").append(panel.buttons().size())
+                    .append(" — [message](https://discord.com/channels/")
                     .append(event.getGuild().getId()).append("/")
                     .append(panel.channelId()).append("/")
                     .append(panel.messageId()).append(")\n");

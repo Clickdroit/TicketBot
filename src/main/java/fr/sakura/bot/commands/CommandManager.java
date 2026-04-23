@@ -47,7 +47,7 @@ public class CommandManager extends ListenerAdapter {
             new TimeoutCommand(ctx.moderationLog()),
             new UntimeoutCommand(ctx.moderationLog()),
             new UnbanCommand(ctx.moderationLog()),
-            new WarnCommand(ctx.moderationLog(), ctx.warningService()),
+            new WarnCommand(ctx.moderationLog(), ctx.warningService(), ctx.settings()),
             new WarningsCommand(ctx.warningService()),
             new ClearWarningsCommand(ctx.moderationLog(), ctx.warningService()),
             new LockCommand(ctx.moderationLog()),

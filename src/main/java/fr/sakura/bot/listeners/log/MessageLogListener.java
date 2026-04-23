@@ -2,6 +2,7 @@ package fr.sakura.bot.listeners.log;
 
 import fr.sakura.bot.core.service.MessageCacheService;
 import fr.sakura.bot.core.util.EmbedStyle;
+import fr.sakura.bot.database.SettingsManager;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.audit.ActionType;
 import net.dv8tion.jda.api.entities.User;
@@ -14,12 +15,12 @@ import java.time.Instant;
 
 /**
  * Listener pour les logs de messages (Style Sakura).
- * GÃ¨re: cache, Ã©ditions, suppressions, ghost pings.
+ * Gère : cache, éditions, suppressions, ghost pings.
  */
 public class MessageLogListener extends BaseLogListener {
 
-    public MessageLogListener(String logChannelId, MessageCacheService messageCacheService) {
-        super(logChannelId, messageCacheService);
+    public MessageLogListener(SettingsManager settingsManager, MessageCacheService messageCacheService) {
+        super(settingsManager, messageCacheService);
     }
 
     @Override
@@ -39,11 +40,11 @@ public class MessageLogListener extends BaseLogListener {
 
         sendLogToChannel(event.getGuild(), embed -> {
             embed.setColor(EmbedStyle.SAKURA_PINK);
-            embed.setTitle("âœï¸  âœ¦  Message ModifiÃ©");
+            embed.setTitle("✏️  ✧  Message Modifié");
             
             StringBuilder desc = new StringBuilder();
             desc.append(EmbedStyle.SEPARATOR).append("\n");
-            desc.append("âœï¸  **Ã‰DITION DE MESSAGE**\n");
+            desc.append("✏️  **ÉDITION DE MESSAGE**\n");
             desc.append(EmbedStyle.SEPARATOR).append("\n\n");
             
             desc.append(EmbedStyle.detailLine("Auteur", "<@" + cached.authorId + "> (`" + cached.authorName + "`)")).append("\n");
@@ -51,11 +52,11 @@ public class MessageLogListener extends BaseLogListener {
             desc.append(EmbedStyle.detailLine("Lien", "[Aller au message](" + event.getMessage().getJumpUrl() + ")")).append("\n");
             
             desc.append("\n").append(EmbedStyle.SEP_LIGHT).append("\n");
-            desc.append("ðŸ“‹ **Avant**\n");
+            desc.append("📋 **Avant**\n");
             desc.append("```\n").append(EmbedStyle.truncate(cached.content.isEmpty() ? "(vide)" : cached.content, 900)).append("\n```");
             
             desc.append(EmbedStyle.SEP_LIGHT).append("\n");
-            desc.append("ðŸ“ **AprÃ¨s**\n");
+            desc.append("📝 **Après**\n");
             desc.append("```\n").append(EmbedStyle.truncate(newContent.isEmpty() ? "(vide)" : newContent, 900)).append("\n```");
             
             embed.setDescription(desc.toString());
@@ -64,7 +65,7 @@ public class MessageLogListener extends BaseLogListener {
             EmbedStyle.setFooter(embed, "Message ID: " + event.getMessageId());
         });
 
-        // Mettre Ã  jour le cache
+        // Mettre à jour le cache
         cached.content = newContent;
     }
 
@@ -94,16 +95,16 @@ public class MessageLogListener extends BaseLogListener {
 
                 sendLogToChannel(event.getGuild(), embed -> {
                     embed.setColor(isGhostPing ? EmbedStyle.SAKURA_MIST : (isModeratorAction ? EmbedStyle.SAKURA_DEEP : EmbedStyle.SAKURA_PINK));
-                    embed.setTitle(isGhostPing ? "ðŸ‘»  âœ¦  Ghost Ping DÃ©tectÃ©" : (isModeratorAction ? "ðŸ› ï¸  âœ¦  Message SupprimÃ© (Staff)" : "ðŸ—‘ï¸  âœ¦  Message SupprimÃ©"));
+                    embed.setTitle(isGhostPing ? "👻  ✧  Ghost Ping Détecté" : (isModeratorAction ? "🛠️  ✧  Message Supprimé (Staff)" : "🗑️  ✧  Message Supprimé"));
                     
                     StringBuilder desc = new StringBuilder();
                     desc.append(EmbedStyle.SEPARATOR).append("\n");
-                    desc.append(isGhostPing ? "ðŸ‘» **GHOST PING DÃ‰TECTÃ‰**" : (isModeratorAction ? "ðŸ› ï¸ **SUPPRESSION STAFF**" : "ðŸ—‘ï¸ **MESSAGE SUPPRIMÃ‰**")).append("\n");
+                    desc.append(isGhostPing ? "👻 **GHOST PING DÉTECTÉ**" : (isModeratorAction ? "🛠️ **SUPPRESSION STAFF**" : "🗑️ **MESSAGE SUPPRIMÉ**")).append("\n");
                     desc.append(EmbedStyle.SEPARATOR).append("\n\n");
                     
                     desc.append(EmbedStyle.detailLine("Auteur", "<@" + cached.authorId + "> (`" + cached.authorName + "`)")).append("\n");
                     desc.append(EmbedStyle.detailLine("Salon", "<#" + cached.channelId + ">")).append("\n");
-                    desc.append(EmbedStyle.detailLine("Par", finalSelfDeleted ? "L'auteur lui-mÃªme" : (finalDeletedBy != null ? finalDeletedBy.getAsMention() : "Inconnu (Audit Log)"))).append("\n");
+                    desc.append(EmbedStyle.detailLine("Par", finalSelfDeleted ? "L'auteur lui-même" : (finalDeletedBy != null ? finalDeletedBy.getAsMention() : "Inconnu (Audit Log)"))).append("\n");
                     
                     if (isGhostPing) {
                         StringBuilder mentions = new StringBuilder();
@@ -112,11 +113,11 @@ public class MessageLogListener extends BaseLogListener {
                     }
 
                     desc.append("\n").append(EmbedStyle.SEP_LIGHT).append("\n");
-                    desc.append("ðŸ’¬ **Contenu SupprimÃ©**\n");
-                    desc.append("```\n").append(EmbedStyle.truncate(cached.content.isEmpty() ? "(piÃ¨ce jointe uniquement)" : cached.content, 1800)).append("\n```");
+                    desc.append("💬 **Contenu Supprimé**\n");
+                    desc.append("```\n").append(EmbedStyle.truncate(cached.content.isEmpty() ? "(pièce jointe uniquement)" : cached.content, 1800)).append("\n```");
                     
                     if (!cached.attachments.isEmpty()) {
-                        desc.append("\nðŸ“Ž **PiÃ¨ces jointes :**\n");
+                        desc.append("\n🖇️ **Pièces jointes :**\n");
                         for (MessageCacheService.CachedAttachment att : cached.attachments) {
                             desc.append(att.getEmoji()).append(" [").append(att.fileName).append("](").append(att.url).append(") (").append(att.getFormattedSize()).append(")\n");
                         }

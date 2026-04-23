@@ -57,7 +57,7 @@ public class RankCommand implements ICommand {
 
         Member target = event.getOption("membre", event.getMember(), OptionMapping::getAsMember);
         if (target == null) {
-            event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Membre introuvable.").setEphemeral(true).queue();
+            event.reply("❌ Membre introuvable.").setEphemeral(true).queue();
             return;
         }
 
@@ -67,13 +67,13 @@ public class RankCommand implements ICommand {
         int progress = levelService.getCurrentProgressWithinLevel(profile.xp());
         int nextThreshold = levelService.getXpThresholdForLevel(profile.level() + 1);
 
-        EmbedBuilder embed = EmbedStyle.newInfoEmbed("ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã¢â‚¬â„¢Ãƒâ€šÃ‚Â¸", "Niveau de " + target.getEffectiveName());
+        EmbedBuilder embed = EmbedStyle.newInfoEmbed("📊", "Niveau de " + target.getEffectiveName());
         embed.setThumbnail(target.getEffectiveAvatarUrl());
-        embed.addField("ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã‚Â½Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â Niveau", String.valueOf(profile.level()), true);
-        embed.addField("ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“Ãƒâ€šÃ‚Â¨ XP total", String.valueOf(profile.xp()), true);
-        embed.addField("ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã‚Â½Ãƒâ€šÃ‚Â¯ XP restante", String.valueOf(xpToNext), true);
-        embed.addField("ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒâ€¹Ã¢â‚¬Â  Progression", progress + " / " + Math.max(1, nextThreshold - currentLevelFloor), false);
-        EmbedStyle.setFooter(embed, "DemandÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© par " + event.getUser().getName());
+        embed.addField("🎖️ Niveau", String.valueOf(profile.level()), true);
+        embed.addField("✨ XP total", String.valueOf(profile.xp()), true);
+        embed.addField("🎯 XP restante", String.valueOf(xpToNext), true);
+        embed.addField("📈 Progression", progress + " / " + Math.max(1, nextThreshold - currentLevelFloor), false);
+        EmbedStyle.setFooter(embed, "Demandé par " + event.getUser().getName());
 
         event.replyEmbeds(embed.build()).queue();
         logger.info("/rank envoye guildId={}, targetId={}, requesterId={}", event.getGuild().getId(), target.getId(), event.getUser().getId());

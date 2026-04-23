@@ -7,7 +7,6 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.User;
-import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -21,8 +20,6 @@ import java.util.function.Consumer;
  * Centralise les actions comme Kick, Ban, Warn, Timeout, etc.
  */
 public class ModerationLogListener extends BaseLogListener {
-
-    private final SettingsManager settingsManager;
 
     public record ActionStyle(Color color, String emoji, String label) {}
 
@@ -48,24 +45,8 @@ public class ModerationLogListener extends BaseLogListener {
 
     private static final ActionStyle DEFAULT_STYLE = new ActionStyle(EmbedStyle.SAKURA_PINK, "🌸", "Action");
 
-    public ModerationLogListener(SettingsManager settingsManager, String envLogChannelId, MessageCacheService messageCacheService) {
-        super(envLogChannelId, messageCacheService);
-        this.settingsManager = settingsManager;
-    }
-
-    @Override
-    protected void sendLogToChannel(@NotNull Guild guild, Consumer<EmbedBuilder> embedConfigurator) {
-        String dbChannelId = settingsManager.getLogChannelId(guild.getId()).orElse(null);
-        String finalChannelId = (dbChannelId != null) ? dbChannelId : this.logChannelId;
-
-        if (finalChannelId == null || finalChannelId.isBlank()) return;
-
-        TextChannel channel = guild.getTextChannelById(finalChannelId);
-        if (channel == null) return;
-
-        EmbedBuilder embed = new EmbedBuilder();
-        embedConfigurator.accept(embed);
-        channel.sendMessageEmbeds(embed.build()).queue();
+    public ModerationLogListener(SettingsManager settingsManager, MessageCacheService messageCacheService) {
+        super(settingsManager, messageCacheService);
     }
 
     /**

@@ -21,8 +21,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Point d'entrÃ©e principal du bot Sakura.
- * Orchestre l'initialisation des services, de la base de donnÃ©es et de JDA.
+ * Point d'entrée principal du bot Sakura.
+ * Orchestre l'initialisation des services, de la base de données et de JDA.
  */
 public class Main {
 
@@ -35,7 +35,6 @@ public class Main {
         String guildId          = dotenv.get("GUILD_ID");
         String welcomeChannelId  = dotenv.get("WELCOME_CHANNEL_ID");
         String welcomeImageUrl   = dotenv.get("WELCOME_IMAGE_URL");
-        String logChannelId      = dotenv.get("LOG_CHANNEL_ID");
         String databaseUrl       = dotenv.get("DATABASE_URL");
 
         if (token == null || token.isEmpty()) {
@@ -48,13 +47,13 @@ public class Main {
             return;
         }
 
-        logger.info("ðŸš€ Démarrage du bot Sakura pour la guilde {}", guildId);
+        logger.info("🚀 Démarrage du bot Sakura pour la guilde {}", guildId);
 
         // 1. Infrastructure Data
         DatabaseManager.initialize(databaseUrl);
         SettingsManager settingsManager = new SettingsManager();
 
-        // 2. Services MÃ©tier
+        // 2. Services Métier
         MessageCacheService messageCacheService = new MessageCacheService();
         SpamDetector spamDetector = new SpamDetector();
         
@@ -71,9 +70,9 @@ public class Main {
         RolesPanelService rolesPanelService = new RolesPanelService(rolesPanelStore);
 
         // 3. Listeners de Logs
-        ModerationLogListener moderationLogListener = new ModerationLogListener(settingsManager, logChannelId, messageCacheService);
-        MessageLogListener messageLogListener = new MessageLogListener(logChannelId, messageCacheService);
-        VoiceLogListener voiceLogListener = new VoiceLogListener(logChannelId, messageCacheService);
+        ModerationLogListener moderationLogListener = new ModerationLogListener(settingsManager, messageCacheService);
+        MessageLogListener messageLogListener = new MessageLogListener(settingsManager, messageCacheService);
+        VoiceLogListener voiceLogListener = new VoiceLogListener(settingsManager, messageCacheService);
 
         // 4. Contexte et Commandes
         BotContext botContext = new BotContext(
@@ -114,7 +113,7 @@ public class Main {
                 .build();
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            logger.info("ðŸ›‘ Extinction du bot : libération des ressources...");
+            logger.info("🛑 Extinction du bot : libération des ressources...");
             messageCacheService.shutdown();
             DatabaseManager.shutdown();
             jda.shutdown();

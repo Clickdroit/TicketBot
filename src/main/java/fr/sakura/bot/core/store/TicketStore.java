@@ -11,7 +11,8 @@ import java.time.OffsetDateTime;
 import java.util.List;
 
 /**
- * Stockage des donnÃ©es de tickets de support.
+ * Stockage des données de tickets de support.
+ * Retrait des synchronized : HikariCP gère déjà la thread-safety des connexions.
  */
 public class TicketStore {
 
@@ -20,7 +21,7 @@ public class TicketStore {
     public TicketStore() {
     }
 
-    public synchronized TicketEntry getActiveTicket(String guildId, String userId) {
+    public TicketEntry getActiveTicket(String guildId, String userId) {
         String sql = "SELECT * FROM tickets WHERE guild_id = ? AND user_id = ? AND status IN ('OPEN', 'CLAIMED') ORDER BY id DESC LIMIT 1";
         return DbHelper.queryOne(sql,
                 pstmt -> {
@@ -31,7 +32,7 @@ public class TicketStore {
         ).orElse(null);
     }
 
-    public synchronized TicketEntry getOpenTicket(String guildId, String userId) {
+    public TicketEntry getOpenTicket(String guildId, String userId) {
         String sql = "SELECT * FROM tickets WHERE guild_id = ? AND user_id = ? AND status = 'OPEN' ORDER BY id DESC LIMIT 1";
         return DbHelper.queryOne(sql,
                 pstmt -> {
@@ -42,7 +43,7 @@ public class TicketStore {
         ).orElse(null);
     }
 
-    public synchronized TicketEntry getByChannelId(String guildId, String channelId) {
+    public TicketEntry getByChannelId(String guildId, String channelId) {
         String sql = "SELECT * FROM tickets WHERE guild_id = ? AND channel_id = ? ORDER BY id DESC LIMIT 1";
         return DbHelper.queryOne(sql,
                 pstmt -> {
@@ -53,7 +54,7 @@ public class TicketStore {
         ).orElse(null);
     }
 
-    public synchronized TicketEntry createTicket(String guildId, String userId, String channelId) {
+    public TicketEntry createTicket(String guildId, String userId, String channelId) {
         TicketEntry existing = getActiveTicket(guildId, userId);
         if (existing != null) {
             return existing;
@@ -74,7 +75,7 @@ public class TicketStore {
         return getActiveTicket(guildId, userId);
     }
 
-    public synchronized TicketEntry claimTicket(String guildId, String channelId, String claimedBy) {
+    public TicketEntry claimTicket(String guildId, String channelId, String claimedBy) {
         String sql = "UPDATE tickets SET status = 'CLAIMED', claimed_by = ?, claimed_at = ? " +
                 "WHERE guild_id = ? AND channel_id = ? AND status = 'OPEN'";
         DbHelper.update(sql, pstmt -> {
@@ -87,7 +88,7 @@ public class TicketStore {
         return getByChannelId(guildId, channelId);
     }
 
-    public synchronized TicketEntry closeTicket(String guildId, String channelId, String closedBy, String closeReason) {
+    public TicketEntry closeTicket(String guildId, String channelId, String closedBy, String closeReason) {
         String sql = "UPDATE tickets SET status = 'CLOSED', closed_by = ?, closed_at = ?, close_reason = ? " +
                 "WHERE guild_id = ? AND channel_id = ? AND status IN ('OPEN', 'CLAIMED')";
         DbHelper.update(sql, pstmt -> {
@@ -101,7 +102,7 @@ public class TicketStore {
         return getByChannelId(guildId, channelId);
     }
 
-    public synchronized List<TicketEntry> getOpenTickets(String guildId) {
+    public List<TicketEntry> getOpenTickets(String guildId) {
         String sql = "SELECT * FROM tickets WHERE guild_id = ? AND status IN ('OPEN', 'CLAIMED') ORDER BY id DESC";
         return DbHelper.queryList(sql,
                 pstmt -> pstmt.setString(1, guildId),

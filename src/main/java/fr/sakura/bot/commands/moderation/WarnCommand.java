@@ -1,11 +1,9 @@
 package fr.sakura.bot.commands.moderation;
 
-
-
 import fr.sakura.bot.commands.ICommand;
-
-import fr.sakura.bot.listeners.log.ModerationLogListener;
 import fr.sakura.bot.core.service.WarningService;
+import fr.sakura.bot.database.SettingsManager;
+import fr.sakura.bot.listeners.log.ModerationLogListener;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -18,18 +16,23 @@ import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 
-
+/**
+ * Commande pour avertir un membre, avec escalade automatique en timeout.
+ */
 public class WarnCommand implements ICommand {
 
     private static final Logger logger = LoggerFactory.getLogger(WarnCommand.class);
 
     private final ModerationLogListener moderationLogListener;
     private final WarningService warningService;
+    private final SettingsManager settingsManager;
 
-    public WarnCommand(ModerationLogListener moderationLogListener, WarningService warningService) {
+    public WarnCommand(ModerationLogListener moderationLogListener, WarningService warningService, SettingsManager settingsManager) {
         this.moderationLogListener = moderationLogListener;
         this.warningService = warningService;
+        this.settingsManager = settingsManager;
     }
 
     @Override
@@ -39,14 +42,14 @@ public class WarnCommand implements ICommand {
 
     @Override
     public String getCategory() {
-        return "ModÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©ration";
+        return "Modération";
     }
 
     @Override
     public SlashCommandData getCommandData() {
-        return Commands.slash(getName(), "Ajoute un avertissement a un membre")
+        return Commands.slash(getName(), "Ajoute un avertissement à un membre")
                 .addOptions(
-                        new OptionData(OptionType.USER, "membre", "Le membre a avertir", true),
+                        new OptionData(OptionType.USER, "membre", "Le membre à avertir", true),
                         new OptionData(OptionType.STRING, "raison", "La raison de l'avertissement", true).setMaxLength(500)
                 )
                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MODERATE_MEMBERS));
@@ -54,32 +57,28 @@ public class WarnCommand implements ICommand {
 
     @Override
     public void execute(SlashCommandInteractionEvent event) {
-        logger.debug("Execution /warn par userId={}", event.getUser().getId());
         Member target = event.getOption("membre", OptionMapping::getAsMember);
         String reason = event.getOption("raison", OptionMapping::getAsString);
 
         if (event.getGuild() == null || event.getMember() == null) {
-            logger.warn("/warn appelee hors serveur ou member null userId={}", event.getUser().getId());
-            event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Cette commande doit etre utilisee dans un serveur.").setEphemeral(true).queue();
+            event.reply("❌ Cette commande doit être utilisée dans un serveur.").setEphemeral(true).queue();
             return;
         }
 
         if (target == null || reason == null || reason.isBlank()) {
-            logger.warn("/warn invalide: target/reason manquant modId={}", event.getUser().getId());
-            event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Parametres invalides.").setEphemeral(true).queue();
+            event.reply("❌ Paramètres invalides.").setEphemeral(true).queue();
             return;
         }
 
-        if (event.getMember() == null || !event.getMember().canInteract(target)) {
-            logger.warn("/warn refuse hierarchie: modId={}, targetId={}", event.getUser().getId(), target.getId());
-            event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Vous ne pouvez pas avertir cet utilisateur (role superieur).")
-                    .setEphemeral(true)
-                    .queue();
+        if (target.getUser().isBot()) {
+            event.reply("❌ Vous ne pouvez pas avertir un bot.").setEphemeral(true).queue();
             return;
         }
 
-        logger.info("/warn demande: modId={}, targetId={}, reasonLength={}",
-                event.getUser().getId(), target.getId(), reason.length());
+        if (!event.getMember().canInteract(target)) {
+            event.reply("❌ Vous ne pouvez pas avertir cet utilisateur (hiérarchie supérieure).").setEphemeral(true).queue();
+            return;
+        }
 
         int totalWarnings = warningService.addWarning(
                 event.getGuild().getId(),
@@ -88,16 +87,46 @@ public class WarnCommand implements ICommand {
                 reason
         );
 
-        event.reply("ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ **" + target.getUser().getName() + "** a recu un avertissement. Total: " + totalWarnings).queue();
-        logger.info("/warn reussi: modId={}, targetId={}, total={}", event.getUser().getId(), target.getId(), totalWarnings);
-
+        event.reply("✅ **" + target.getUser().getName() + "** a reçu un avertissement. Total : " + totalWarnings).queue();
+        
         moderationLogListener.logAction(
                 event.getGuild(),
                 "WARN",
                 event.getMember(),
                 target,
                 reason,
-                "Total warnings: " + totalWarnings
+                "Total warnings : " + totalWarnings
         );
+
+        // Escalade AutoMod
+        checkEscalation(event, target, totalWarnings);
+    }
+
+    private void checkEscalation(SlashCommandInteractionEvent event, Member target, int totalWarnings) {
+        String guildId = event.getGuild().getId();
+        int threshold = settingsManager.getAutomodStrikesToTimeout(guildId);
+        int timeoutMins = settingsManager.getAutomodTimeoutMinutes(guildId);
+
+        if (threshold > 0 && totalWarnings >= threshold) {
+            if (!event.getGuild().getSelfMember().hasPermission(Permission.MODERATE_MEMBERS) || !event.getGuild().getSelfMember().canInteract(target)) {
+                logger.warn("Escalade échouée : permissions manquantes pour timeout targetId={} guildId={}", target.getId(), guildId);
+                return;
+            }
+
+            target.timeoutFor(Duration.ofMinutes(timeoutMins)).reason("Escalade automatique Sakura (Seuil: " + threshold + " warns)").queue(
+                    ok -> {
+                        event.getChannel().sendMessage("⏳ Escalade AutoMod : **" + target.getUser().getName() + "** a été réduit au silence pendant " + timeoutMins + " minutes.").queue();
+                        moderationLogListener.logAction(
+                                event.getGuild(),
+                                "TIMEOUT",
+                                null, // Auto
+                                target,
+                                "Escalade automatique (" + totalWarnings + " avertissements)",
+                                "Durée : " + timeoutMins + " minutes"
+                        );
+                    },
+                    err -> logger.error("Erreur lors du timeout d'escalade targetId={}", target.getId(), err)
+            );
+        }
     }
 }

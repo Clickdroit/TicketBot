@@ -2,6 +2,7 @@ package fr.sakura.bot.listeners.log;
 
 import fr.sakura.bot.core.service.MessageCacheService;
 import fr.sakura.bot.core.util.EmbedStyle;
+import fr.sakura.bot.database.SettingsManager;
 import net.dv8tion.jda.api.audit.ActionType;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.User;
@@ -11,10 +12,13 @@ import org.jetbrains.annotations.NotNull;
 
 import java.time.Instant;
 
+/**
+ * Listener pour les logs vocaux.
+ */
 public class VoiceLogListener extends BaseLogListener {
 
-    public VoiceLogListener(String logChannelId, MessageCacheService messageCacheService) {
-        super(logChannelId, messageCacheService);
+    public VoiceLogListener(SettingsManager settingsManager, MessageCacheService messageCacheService) {
+        super(settingsManager, messageCacheService);
     }
 
     @Override

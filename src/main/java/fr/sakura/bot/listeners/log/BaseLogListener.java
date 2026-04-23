@@ -1,6 +1,7 @@
 package fr.sakura.bot.listeners.log;
 
 import fr.sakura.bot.core.service.MessageCacheService;
+import fr.sakura.bot.database.SettingsManager;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.audit.ActionType;
 import net.dv8tion.jda.api.audit.AuditLogEntry;
@@ -19,31 +20,31 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Classe de base pour tous les listeners de logs.
- * Fournit les mÃ©thodes utilitaires partagÃ©es: envoi de logs, audit logs.
+ * Fournit les méthodes utilitaires partagées : envoi de logs, audit logs.
  */
 public abstract class BaseLogListener extends ListenerAdapter {
 
     protected static final Logger logger = LoggerFactory.getLogger(BaseLogListener.class);
 
-    protected final String logChannelId;
+    protected final SettingsManager settingsManager;
     protected final MessageCacheService messageCacheService;
 
-    // Cache des audit logs pour Ã©viter les requÃªtes rÃ©pÃ©tÃ©es
+    // Cache des audit logs pour éviter les requêtes répétées
     protected final Map<String, List<CachedAuditEntry>> auditLogCache = new ConcurrentHashMap<>();
     protected static final long AUDIT_CACHE_DURATION_MS = 5000; // 5 secondes
     protected static final int MAX_AUDIT_CACHE_ENTRIES = 10;
 
-    // FenÃªtres temporelles pour l'audit log (en millisecondes)
+    // Fenêtres temporelles pour l'audit log (en millisecondes)
     protected static final long AUDIT_TIMING_STANDARD = 5000;
     protected static final long RETRY_DELAY_MS = 1000;
 
-    public BaseLogListener(String logChannelId, MessageCacheService messageCacheService) {
-        this.logChannelId = logChannelId;
+    public BaseLogListener(SettingsManager settingsManager, MessageCacheService messageCacheService) {
+        this.settingsManager = settingsManager;
         this.messageCacheService = messageCacheService;
     }
 
     /**
-     * Cache d'entrÃ©es d'audit log
+     * Cache d'entrées d'audit log
      */
     protected static class CachedAuditEntry {
         public AuditLogEntry entry;
@@ -60,31 +61,34 @@ public abstract class BaseLogListener extends ListenerAdapter {
     }
 
     /**
-     * Envoie un embed de log dans le salon configurÃ©
+     * Envoie un embed de log dans le salon configuré
      */
     protected void sendLogToChannel(Guild guild, java.util.function.Consumer<EmbedBuilder> embedConsumer) {
-        if (logChannelId == null || logChannelId.isEmpty()) return;
+        if (settingsManager == null) return;
 
-        TextChannel logChannel = guild.getTextChannelById(logChannelId);
-        if (logChannel != null) {
-            EmbedBuilder embed = new EmbedBuilder();
-            embedConsumer.accept(embed);
-            logChannel.sendMessageEmbeds(embed.build()).queue(
-                    success -> {},
-                    error -> logger.error("Erreur lors de l'envoi du log: {}", error.getMessage())
-            );
-        }
+        String guildId = guild.getId();
+        settingsManager.getLogChannelId(guildId).ifPresent(channelId -> {
+            TextChannel logChannel = guild.getTextChannelById(channelId);
+            if (logChannel != null) {
+                EmbedBuilder embed = new EmbedBuilder();
+                embedConsumer.accept(embed);
+                logChannel.sendMessageEmbeds(embed.build()).queue(
+                        success -> {},
+                        error -> logger.error("Erreur lors de l'envoi du log (guildId={}): {}", guildId, error.getMessage())
+                );
+            }
+        });
     }
 
     /**
-     * Trouve une action rÃ©cente dans l'audit log
+     * Trouve une action récente dans l'audit log
      */
     protected CompletableFuture<AuditLogEntry> findRecentAuditAction(
             Guild guild, ActionType actionType, String targetId, long maxDelay, int maxRetries) {
         CompletableFuture<AuditLogEntry> future = new CompletableFuture<>();
         String cacheKey = guild.getId() + "_" + actionType.name();
 
-        // VÃ©rifier le cache d'abord
+        // Vérifier le cache d'abord
         List<CachedAuditEntry> cached = auditLogCache.get(cacheKey);
         if (cached != null) {
             cached.removeIf(CachedAuditEntry::isExpired);
@@ -101,7 +105,7 @@ public abstract class BaseLogListener extends ListenerAdapter {
             }
         }
 
-        // RequÃªte API
+        // Requête API
         guild.retrieveAuditLogs()
                 .type(actionType)
                 .limit(5)

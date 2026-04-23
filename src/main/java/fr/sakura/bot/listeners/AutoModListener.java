@@ -48,6 +48,7 @@ public class AutoModListener extends ListenerAdapter {
         try (var ignored = MdcContext.of("guildId", event.getGuild().getId(), "userId", event.getAuthor().getId())) {
             String content = event.getMessage().getContentRaw();
             String guildId = event.getGuild().getId();
+            String memberKey = guildId + ":" + member.getId();
 
             // ── Anti-Spam ─────────────────────────────────────────────────────────────
             if (settingsManager.isAntiSpamEnabled(guildId)) {
@@ -67,12 +68,12 @@ public class AutoModListener extends ListenerAdapter {
                     event.getMessage().delete().queue();
                     
                     long now = System.currentTimeMillis();
-                    long last = lastWarnTime.getOrDefault(member.getId(), 0L);
+                    long last = lastWarnTime.getOrDefault(memberKey, 0L);
                     long noticeCooldown = (long) settingsManager.getAutomodNoticeCooldownSeconds(guildId) * 1000L;
                     
                     if (now - last > noticeCooldown) {
                         event.getChannel().sendMessage("⚠️ " + member.getAsMention() + ", les liens ne sont pas autorisés ici.").queue();
-                        lastWarnTime.put(member.getId(), now);
+                        lastWarnTime.put(memberKey, now);
                         
                         moderationLogListener.logAction(event.getGuild(), "AUTOMOD_WARN", null, member, "Envoi de lien non autorisé", "> **Contenu :** " + content);
                     }
@@ -88,13 +89,14 @@ public class AutoModListener extends ListenerAdapter {
         
         long now = System.currentTimeMillis();
         String userId = member.getId();
-        long lastNotice = lastWarnTime.getOrDefault(userId, 0L);
+        String memberKey = guildId + ":" + userId;
+        long lastNotice = lastWarnTime.getOrDefault(memberKey, 0L);
         long noticeCooldown = (long) settingsManager.getAutomodNoticeCooldownSeconds(guildId) * 1000L;
 
-        int currentStrikes = spamDetector.getStrikes(userId);
+        int currentStrikes = spamDetector.getStrikes(guildId, userId);
         int strikesToTimeout = settingsManager.getAutomodStrikesToTimeout(guildId);
         
-        if (currentStrikes >= strikesToTimeout) {
+        if (strikesToTimeout > 0 && currentStrikes >= strikesToTimeout) {
             int timeoutMinutes = settingsManager.getAutomodTimeoutMinutes(guildId);
             member.timeoutFor(timeoutMinutes, TimeUnit.MINUTES).reason("Anti-spam (AutoMod)").queue(
                     success -> {
@@ -103,10 +105,10 @@ public class AutoModListener extends ListenerAdapter {
                     },
                     error -> logger.error("Echec timeout AutoMod", error)
             );
-            spamDetector.resetStrikes(userId);
+            spamDetector.resetStrikes(guildId, userId);
         } else if (now - lastNotice > noticeCooldown) {
             event.getChannel().sendMessage("⚠️ " + member.getAsMention() + ", merci de ralentir l'envoi de messages.").queue();
-            lastWarnTime.put(userId, now);
+            lastWarnTime.put(memberKey, now);
             moderationLogListener.logAction(event.getGuild(), "AUTOMOD_WARN", null, member, "Spam détecté", "> **Strike :** " + currentStrikes + "/" + strikesToTimeout);
         }
     }

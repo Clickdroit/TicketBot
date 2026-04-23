@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Stockage des panels de choix de rÃ´les.
+ * Stockage des panels de choix de rôles.
  */
 public class RolesPanelStore {
 
@@ -53,6 +53,19 @@ public class RolesPanelStore {
         return null;
     }
 
+    public boolean deletePanel(String guildId, long panelId) {
+        String sql = "DELETE FROM role_panels WHERE guild_id = ? AND id = ?";
+        try {
+            return DbHelper.update(sql, pstmt -> {
+                pstmt.setString(1, guildId);
+                pstmt.setLong(2, panelId);
+            }) > 0;
+        } catch (Exception e) {
+            logger.error("Erreur delete role panel guildId={}, panelId={}", guildId, panelId, e);
+            return false;
+        }
+    }
+
     public RolePanel findPanel(String guildId, long panelId) {
         String sql = "SELECT id, guild_id, channel_id, message_id, created_at FROM role_panels WHERE guild_id = ? AND id = ?";
         return DbHelper.queryOne(sql,
@@ -72,7 +85,7 @@ public class RolesPanelStore {
     }
 
     /**
-     * Liste tous les panels d'une guilde avec leurs boutons (OptimisÃ© via JOIN).
+     * Liste tous les panels d'une guilde avec leurs boutons (Optimisé via JOIN).
      */
     public List<RolePanel> listPanels(String guildId) {
         String sql = "SELECT p.id, p.guild_id, p.channel_id, p.message_id, p.created_at, " +

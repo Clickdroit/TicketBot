@@ -88,14 +88,14 @@ public class ConfigCommand implements ICommand {
         switch (subcommand) {
             case "view" -> {
                 EmbedBuilder embed = EmbedStyle.newInfoEmbed("⚙️", "Configuration du serveur");
-                embed.addField("AutoMod - Liens", "**Anti-liens :** " + (settingsManager.isAntiLinkEnabled(guildId) ? "✅" : "❌") + "\n" +
+                embed.addField("🛡️ AutoMod - Liens", "**Anti-liens :** " + (settingsManager.isAntiLinkEnabled(guildId) ? "✅" : "❌") + "\n" +
                         "**Liens GIF auto :** " + (settingsManager.isGifLinksAllowed(guildId) ? "✅" : "❌"), false);
-                embed.addField("AutoMod - Spam", "**Anti-spam :** " + (settingsManager.isAntiSpamEnabled(guildId) ? "✅" : "❌") + "\n" +
+                embed.addField("🛡️ AutoMod - Spam", "**Anti-spam :** " + (settingsManager.isAntiSpamEnabled(guildId) ? "✅" : "❌") + "\n" +
                         "**Limite spam :** " + settingsManager.getSpamLimit(guildId) + "\n" +
                         "**Fenêtre spam :** " + (settingsManager.getSpamWindowMs(guildId) / 1000) + "s", false);
                 
                 boolean levelsEnabled = settingsManager.isLevelsEnabled(guildId);
-                embed.addField("XP", "**Système XP :** " + (levelsEnabled ? "✅" : "❌") + "\n" +
+                embed.addField("📊 XP", "**Système XP :** " + (levelsEnabled ? "✅" : "❌") + "\n" +
                         "**Cooldown :** " + (settingsManager.getXpCooldownMs(guildId) / 1000) + "s\n" +
                         "**Gain :** " + settingsManager.getXpMinGain(guildId) + " à " + settingsManager.getXpMaxGain(guildId) + " XP\n" +
                         "**Taille min :** " + settingsManager.getXpMinMessageLength(guildId) + "\n" +
@@ -103,8 +103,9 @@ public class ConfigCommand implements ICommand {
                 
                 String logChan = settingsManager.getLogChannelId(guildId).map(id -> "<#" + id + ">").orElse("non défini");
                 String welcomeChan = settingsManager.getWelcomeChannelId(guildId).map(id -> "<#" + id + ">").orElse("non défini");
+                String welcomeImg = settingsManager.getWelcomeImageUrl(guildId).map(url -> url.isEmpty() ? "par défaut" : "[Lien](" + url + ")").orElse("par défaut");
                 
-                embed.addField("Salons", "**Logs :** " + logChan + "\n**Bienvenue :** " + welcomeChan, false);
+                embed.addField("🏠 Salons & Bienvenue", "**Logs :** " + logChan + "\n**Bienvenue :** " + welcomeChan + "\n**Image :** " + welcomeImg, false);
                 event.replyEmbeds(embed.build()).queue();
             }
             case "antispam" -> {

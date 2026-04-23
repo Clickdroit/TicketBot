@@ -13,6 +13,7 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
+import net.dv8tion.jda.api.interactions.components.LayoutComponent;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,7 +24,9 @@ import java.util.List;
 public class RolesPanelService {
 
     private static final Logger logger = LoggerFactory.getLogger(RolesPanelService.class);
-    public static final int MAX_BUTTONS = 5;
+    public static final int MAX_BUTTONS_PER_ROW = 5;
+    public static final int MAX_ROWS = 5;
+    public static final int MAX_BUTTONS = MAX_BUTTONS_PER_ROW * MAX_ROWS; // 25
 
     private final RolesPanelStore store;
 
@@ -33,6 +36,22 @@ public class RolesPanelService {
 
     public RolesPanelStore.RolePanel createPanel(String guildId, String channelId, String messageId) {
         return store.createPanel(guildId, channelId, messageId);
+    }
+
+    public boolean deletePanel(Guild guild, long panelId) {
+        RolesPanelStore.RolePanel panel = store.findPanel(guild.getId(), panelId);
+        if (panel == null) return false;
+
+        // Tentative de suppression du message Discord
+        TextChannel channel = guild.getTextChannelById(panel.channelId());
+        if (channel != null) {
+            channel.deleteMessageById(panel.messageId()).queue(
+                    ok -> logger.info("RolesPanel: message supprime pour panelId={}", panelId),
+                    err -> logger.warn("RolesPanel: impossible de supprimer le message panelId={}", panelId)
+            );
+        }
+
+        return store.deletePanel(guild.getId(), panelId);
     }
 
     public RolesPanelStore.RolePanel getPanel(String guildId, long panelId) {
@@ -92,39 +111,39 @@ public class RolesPanelService {
 
     public void handleToggle(ButtonInteractionEvent event, long panelId, String roleId) {
         if (!event.isFromGuild() || event.getGuild() == null || event.getMember() == null) {
-            event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Interaction invalide.").setEphemeral(true).queue();
+            event.reply("❌ Interaction invalide.").setEphemeral(true).queue();
             return;
         }
         RolesPanelStore.RolePanelButton button = store.findButton(event.getGuild().getId(), panelId, roleId);
         if (button == null) {
-            event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Bouton de rÃƒÆ’Ã‚Â´le introuvable ou obsolÃƒÆ’Ã‚Â¨te.").setEphemeral(true).queue();
+            event.reply("❌ Bouton de rôle introuvable ou obsolète.").setEphemeral(true).queue();
             return;
         }
 
         Role role = event.getGuild().getRoleById(roleId);
         if (role == null) {
-            event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Le rÃƒÆ’Ã‚Â´le associÃƒÆ’Ã‚Â© n'existe plus.").setEphemeral(true).queue();
+            event.reply("❌ Le rôle associé n'existe plus.").setEphemeral(true).queue();
             return;
         }
 
         Member self = event.getGuild().getSelfMember();
         Member member = event.getMember();
         if (!self.hasPermission(Permission.MANAGE_ROLES) || !self.canInteract(role) || !self.canInteract(member)) {
-            event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Je ne peux pas gÃƒÆ’Ã‚Â©rer ce rÃƒÆ’Ã‚Â´le (permission/hierarchie).").setEphemeral(true).queue();
+            event.reply("❌ Je ne peux pas gérer ce rôle (permission/hierarchie).").setEphemeral(true).queue();
             return;
         }
 
         if (member.getRoles().stream().anyMatch(r -> r.getId().equals(roleId))) {
             event.getGuild().removeRoleFromMember(member, role).queue(
-                    ok -> event.reply("ÃƒÂ¢Ã…Â¾Ã¢â‚¬â€œ RÃƒÆ’Ã‚Â´le retirÃƒÆ’Ã‚Â© : " + role.getAsMention()).setEphemeral(true).queue(),
-                    err -> event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Impossible de retirer ce rÃƒÆ’Ã‚Â´le.").setEphemeral(true).queue()
+                    ok -> event.reply("➖ Rôle retiré : " + role.getAsMention()).setEphemeral(true).queue(),
+                    err -> event.reply("❌ Impossible de retirer ce rôle.").setEphemeral(true).queue()
             );
             return;
         }
 
         event.getGuild().addRoleToMember(member, role).queue(
-                ok -> event.reply("ÃƒÂ¢Ã…Â¾Ã¢â‚¬Â¢ RÃƒÆ’Ã‚Â´le ajoutÃƒÆ’Ã‚Â© : " + role.getAsMention()).setEphemeral(true).queue(),
-                err -> event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Impossible d'ajouter ce rÃƒÆ’Ã‚Â´le.").setEphemeral(true).queue()
+                ok -> event.reply("➕ Rôle ajouté : " + role.getAsMention()).setEphemeral(true).queue(),
+                err -> event.reply("❌ Impossible d'ajouter ce rôle.").setEphemeral(true).queue()
         );
     }
 
@@ -141,7 +160,7 @@ public class RolesPanelService {
                 try {
                     base = base.withEmoji(Emoji.fromFormatted(panelButton.emoji()));
                 } catch (IllegalArgumentException ignored) {
-                    logger.warn("Emoji invalide ignorÃƒÆ’Ã‚Â©e pour panelId={}, roleId={}", panelButton.panelId(), panelButton.roleId());
+                    logger.warn("Emoji invalide ignorée pour panelId={}, roleId={}", panelButton.panelId(), panelButton.roleId());
                 }
             }
             buttons.add(base);
@@ -153,8 +172,14 @@ public class RolesPanelService {
         List<Button> buttons = buildButtons(panelButtons);
         if (buttons.isEmpty()) {
             message.editMessageComponents().queue();
-        } else {
-            message.editMessageComponents(ActionRow.of(buttons)).queue();
+            return;
         }
+
+        List<LayoutComponent> rows = new ArrayList<>();
+        for (int i = 0; i < buttons.size(); i += MAX_BUTTONS_PER_ROW) {
+            int end = Math.min(i + MAX_BUTTONS_PER_ROW, buttons.size());
+            rows.add(ActionRow.of(buttons.subList(i, end)));
+        }
+        message.editMessageComponents(rows).queue();
     }
 }

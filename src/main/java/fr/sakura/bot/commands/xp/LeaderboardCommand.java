@@ -10,7 +10,10 @@ import fr.sakura.bot.core.service.LevelService;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import net.dv8tion.jda.api.interactions.commands.OptionMapping;
+import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
+import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +23,7 @@ import java.util.List;
 public class LeaderboardCommand implements ICommand {
 
     private static final Logger logger = LoggerFactory.getLogger(LeaderboardCommand.class);
-    private static final int LIMIT = 10;
+    private static final int PAGE_SIZE = 10;
     private final LevelService levelService;
 
     public LeaderboardCommand(LevelService levelService) {
@@ -39,7 +42,8 @@ public class LeaderboardCommand implements ICommand {
 
     @Override
     public SlashCommandData getCommandData() {
-        return Commands.slash(getName(), "Affiche le classement XP du serveur");
+        return Commands.slash(getName(), "Affiche le classement XP du serveur")
+                .addOptions(new OptionData(OptionType.INTEGER, "page", "Numéro de la page", false).setMinValue(1));
     }
 
     @Override
@@ -54,29 +58,39 @@ public class LeaderboardCommand implements ICommand {
             return;
         }
 
-        List<LevelProfile> profiles = levelService.getLeaderboard(event.getGuild().getId(), LIMIT);
+        int page = event.getOption("page", 1, OptionMapping::getAsInt);
+        int offset = (page - 1) * PAGE_SIZE;
+
+        List<LevelProfile> profiles = levelService.getLeaderboard(event.getGuild().getId(), PAGE_SIZE, offset);
         if (profiles.isEmpty()) {
-            event.reply("ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¹ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â Aucun membre n'a encore gagnÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© d'XP.").setEphemeral(true).queue();
+            if (page == 1) {
+                event.reply("ℹ️ Aucun membre n'a encore gagné d'XP.").setEphemeral(true).queue();
+            } else {
+                event.reply("❌ Cette page du classement est vide.").setEphemeral(true).queue();
+            }
             return;
         }
 
-        EmbedBuilder embed = EmbedStyle.newInfoEmbed("ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã¢â‚¬â„¢Ãƒâ€šÃ‚Â¸", "Leaderboard XP");
+        EmbedBuilder embed = EmbedStyle.newInfoEmbed("📊", "Leaderboard XP - Page " + page);
         StringBuilder description = new StringBuilder();
 
         for (int i = 0; i < profiles.size(); i++) {
             LevelProfile profile = profiles.get(i);
+            int rank = offset + i + 1;
             Member member = event.getGuild().getMemberById(profile.userId());
             String name = member != null ? member.getEffectiveName() : "<@" + profile.userId() + ">";
-            String medal = switch (i) {
-                case 0 -> "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€šÃ‚Â¥ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡";
-                case 1 -> "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€šÃ‚Â¥Ãƒâ€¹Ã¢â‚¬Â ";
-                case 2 -> "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€šÃ‚Â¥ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°";
-                default -> "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã¢â‚¬â„¢Ãƒâ€šÃ‚Â¸";
+            
+            String medal = switch (rank) {
+                case 1 -> "🥇";
+                case 2 -> "🥈";
+                case 3 -> "🥉";
+                default -> "🔹";
             };
-            description.append("**#").append(i + 1).append("** ")
+            
+            description.append("**#").append(rank).append("** ")
                     .append(medal).append(" ")
                     .append(name)
-                    .append(" ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â niveau **")
+                    .append(" — niveau **")
                     .append(profile.level())
                     .append("**, XP **")
                     .append(profile.xp())
@@ -87,8 +101,8 @@ public class LeaderboardCommand implements ICommand {
         if (event.getJDA().getSelfUser().getEffectiveAvatarUrl() != null) {
             embed.setThumbnail(event.getJDA().getSelfUser().getEffectiveAvatarUrl());
         }
-        EmbedStyle.setFooter(embed, "Top " + profiles.size() + " du serveur");
+        EmbedStyle.setFooter(embed, "Top du serveur • Page " + page);
         event.replyEmbeds(embed.build()).queue();
-        logger.info("/leaderboard envoye guildId={}, requesterId={}", event.getGuild().getId(), event.getUser().getId());
+        logger.info("/leaderboard page {} envoye guildId={}, requesterId={}", page, event.getGuild().getId(), event.getUser().getId());
     }
 }

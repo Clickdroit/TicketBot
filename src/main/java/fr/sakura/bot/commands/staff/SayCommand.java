@@ -1,9 +1,6 @@
 package fr.sakura.bot.commands.staff;
 
-
-
 import fr.sakura.bot.commands.ICommand;
-
 import fr.sakura.bot.listeners.log.ModerationLogListener;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -38,7 +35,7 @@ public class SayCommand implements ICommand {
     @Override
     public SlashCommandData getCommandData() {
         return Commands.slash(getName(), "Fait parler le bot dans le salon")
-                .addOptions(new OptionData(OptionType.STRING, "message", "Message ÃƒÆ’Ã‚Â  envoyer", true).setMaxLength(1800))
+                .addOptions(new OptionData(OptionType.STRING, "message", "Message à envoyer", true).setMaxLength(1800))
                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MESSAGE_MANAGE));
     }
 
@@ -46,15 +43,15 @@ public class SayCommand implements ICommand {
     public void execute(SlashCommandInteractionEvent event) {
         String message = event.getOption("message", "", OptionMapping::getAsString).trim();
         if (message.isBlank()) {
-            event.reply("ÃƒÂ¢Ã‚ÂÃ…â€™ Le message ne peut pas ÃƒÆ’Ã‚Âªtre vide.").setEphemeral(true).queue();
+            event.reply("❌ Le message ne peut pas être vide.").setEphemeral(true).queue();
             return;
         }
 
-        event.reply("ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Message envoyÃƒÆ’Ã‚Â©.").setEphemeral(true).queue();
+        event.reply("✅ Message envoyé.").setEphemeral(true).queue();
         event.getChannel().sendMessage(message).queue(
                 ok -> {
                     if (event.getGuild() != null) {
-                        moderationLogListener.logAction(event.getGuild(), "SAY", event.getMember(), event.getUser(), "Message staff publiÃƒÆ’Ã‚Â©", "Salon: <#" + event.getChannel().getId() + ">\nContenu: " + message);
+                        moderationLogListener.logAction(event.getGuild(), "SAY", event.getMember(), event.getUser(), "Message staff publié", "Salon: <#" + event.getChannel().getId() + ">\nContenu: " + message);
                     }
                 },
                 err -> {
