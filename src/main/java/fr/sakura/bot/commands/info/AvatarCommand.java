@@ -45,7 +45,7 @@ public class AvatarCommand implements ICommand {
 
         String effectiveAvatarUrl = target.getUser().getEffectiveAvatarUrl();
 
-        EmbedBuilder embed = EmbedStyle.newInfoEmbed("\uD83D\uDDBC❌ "Avatar de " + target.getUser().getName());
+        EmbedBuilder embed = EmbedStyle.newInfoEmbed("\uD83D\uDDBC️", "Avatar de " + target.getUser().getName());
         if (effectiveAvatarUrl != null) {
             embed.setImage(effectiveAvatarUrl + "?size=1024");
             EmbedStyle.setFooter(embed, "Clique sur l'image pour la voir en taille originale");

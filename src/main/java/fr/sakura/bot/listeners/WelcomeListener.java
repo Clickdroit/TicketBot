@@ -95,10 +95,12 @@ public class WelcomeListener extends ListenerAdapter {
                     guild.getIconUrl()
             );
 
-            channel.sendMessageEmbeds(embed.build()).queue(
-                    success -> logger.info("Message de bienvenue envoyé"),
-                    error -> logger.error("Échec envoi message de bienvenue", error)
-            );
+            channel.sendMessage("<@&1496923591349112903>")
+                    .setEmbeds(embed.build())
+                    .queue(
+                            success -> logger.info("Message de bienvenue envoyé"),
+                            error -> logger.error("Échec envoi message de bienvenue", error)
+                    );
         }
     }
 

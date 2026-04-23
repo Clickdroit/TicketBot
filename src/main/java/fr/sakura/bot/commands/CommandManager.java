@@ -67,7 +67,9 @@ public class CommandManager extends ListenerAdapter {
             new SayCommand(ctx.moderationLog()),
             new EmbedCommand(ctx.moderationLog()),
             new RolesPanelCommand(ctx.rolesPanelService()),
-            new ReglementsCommand()
+            new ReglementsCommand(),
+            new PubCommand(ctx.moderationLog()),
+            new ConditionCommand(ctx.moderationLog())
         );
 
         for (ICommand command : commandList) {
