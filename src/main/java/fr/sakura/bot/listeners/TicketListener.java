@@ -14,6 +14,11 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.GenericComponentInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
+import net.dv8tion.jda.api.components.textinput.TextInput;
+import net.dv8tion.jda.api.components.textinput.TextInputStyle;
+import net.dv8tion.jda.api.components.label.Label;
+import net.dv8tion.jda.api.modals.Modal;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -49,10 +54,52 @@ public class TicketListener extends ListenerAdapter {
                 if (event.getValues().isEmpty()) {
                     return;
                 }
+                
                 String selected = event.getValues().get(0);
-                String categoryName = getCategoryName(selected);
-                handleCreate(event, categoryName);
+                
+                // Vérification si un ticket est déjà ouvert
+                TicketEntry activeTicket = ticketService.findOpenTicket(event.getGuild().getId(), event.getUser().getId());
+                if (activeTicket != null) {
+                    event.reply("ℹ️ Vous avez déjà un ticket actif : <#" + activeTicket.channelId() + ">")
+                            .setEphemeral(true)
+                            .queue();
+                    return;
+                }
+
+                // Affichage du Modal avec deux questions (Components V2)
+                TextInput subjectInput = TextInput.create("subject", TextInputStyle.SHORT)
+                        .setPlaceholder("Ex: Problème d'XP, Question partenariat...")
+                        .setMinLength(5)
+                        .setMaxLength(50)
+                        .build();
+
+                TextInput descriptionInput = TextInput.create("description", TextInputStyle.PARAGRAPH)
+                        .setPlaceholder("Décrivez votre demande avec le plus de détails possible...")
+                        .setMinLength(20)
+                        .setMaxLength(1000)
+                        .build();
+
+                Modal modal = Modal.create("ticket:modal:" + selected, "Ouverture de Ticket")
+                        .addComponents(
+                                Label.of("Sujet de la demande", subjectInput),
+                                Label.of("Description détaillée", descriptionInput)
+                        )
+                        .build();
+
+                event.replyModal(modal).queue();
             }
+        }
+    }
+
+    @Override
+    public void onModalInteraction(@NotNull ModalInteractionEvent event) {
+        if (event.getModalId().startsWith("ticket:modal:")) {
+            String categoryId = event.getModalId().substring("ticket:modal:".length());
+            String subject = event.getValue("subject").getAsString();
+            String description = event.getValue("description").getAsString();
+            String categoryLabel = getCategoryName(categoryId);
+            
+            handleCreate(event, categoryLabel, subject, description);
         }
     }
 
@@ -63,11 +110,6 @@ public class TicketListener extends ListenerAdapter {
         }
 
         try (var ignored = MdcContext.of("guildId", event.getGuild().getId(), "userId", event.getUser().getId())) {
-            if (CREATE_ID.equals(event.getComponentId())) {
-                handleCreate(event, "Support");
-                return;
-            }
-
             if (CLAIM_ID.equals(event.getComponentId())) {
                 handleClaim(event);
                 return;
@@ -90,19 +132,11 @@ public class TicketListener extends ListenerAdapter {
         };
     }
 
-    private void handleCreate(GenericComponentInteractionCreateEvent event, String categoryLabel) {
+    private void handleCreate(ModalInteractionEvent event, String categoryLabel, String subject, String description) {
         Member requester = event.getMember();
         var guild = event.getGuild();
         if (guild == null || requester == null) return;
         String guildId = guild.getId();
-
-        TicketEntry activeTicket = ticketService.findOpenTicket(guildId, requester.getId());
-        if (activeTicket != null) {
-            event.reply("ℹ️ Vous avez déjà un ticket actif : <#" + activeTicket.channelId() + ">")
-                    .setEphemeral(true)
-                    .queue();
-            return;
-        }
 
         event.deferReply(true).queue(ignored -> {
             String channelName = ticketService.ticketChannelName(requester);
@@ -121,7 +155,7 @@ public class TicketListener extends ListenerAdapter {
             }
 
             var action = guild.createTextChannel(channelName)
-                    .setTopic("Ticket [" + categoryLabel + "] ouvert par " + requester.getUser().getName() + " (" + requester.getId() + ")")
+                    .setTopic("Ticket [" + categoryLabel + "] : " + subject)
                     .addPermissionOverride(guild.getPublicRole(), null, java.util.EnumSet.of(Permission.VIEW_CHANNEL))
                     .addPermissionOverride(requester, ticketService.ticketUserPermissions(), null)
                     .addPermissionOverride(guild.getSelfMember(), ticketService.ticketStaffPermissions(), null);
@@ -139,20 +173,20 @@ public class TicketListener extends ListenerAdapter {
 
                 EmbedBuilder embed = EmbedStyle.newActionEmbed("📩", "Nouveau Ticket : " + categoryLabel);
                 embed.setAuthor("Support • " + guild.getName(), null, guild.getIconUrl());
-                embed.setDescription(String.format("""
-                        Bonjour %s !
-                        
-                        Un membre de notre équipe %s va prendre en charge votre demande.
-                        Veuillez expliquer votre demande en détail et nous vous répondrons dès que possible.
-                        """,
-                        requester.getAsMention(),
-                        supportMention));
+                
+                embed.setDescription(
+                    "Bonjour " + requester.getAsMention() + " !\n" +
+                    "L'équipe " + supportMention + " a été prévenue et vous répondra dès que possible.\n\n" +
+                    EmbedStyle.sectionHeader("📝", "Détails de la demande")
+                );
                 
                 embed.addField("👤 Utilisateur", requester.getAsMention(), true);
-                embed.addField("📌 Sujet", categoryLabel, true);
-                embed.addField("⏳ Statut", "En attente de prise en charge", false);
+                embed.addField("📌 Sujet", subject, true);
+                embed.addField("📂 Catégorie", categoryLabel, true);
                 
-                embed.addField("🎯 Actions disponibles", 
+                embed.addField("📖 Description", "```" + description + "```", false);
+                
+                embed.addField("\u200B", 
                         "✅ **Prendre en charge** - Un modérateur s'occupe de vous\n" + 
                         "🔒 **Fermer** - Clôturer le ticket", false);
 
@@ -164,8 +198,8 @@ public class TicketListener extends ListenerAdapter {
                         .queue();
 
                 event.getHook().sendMessage("✅ Ticket créé : " + channel.getAsMention()).queue();
-                moderationLogListener.logAction(guild, "TICKET_CREATE", requester, requester, "Ticket ouvert (" + categoryLabel + ")", channel.getId());
-                logger.info("Ticket créé");
+                moderationLogListener.logAction(guild, "TICKET_CREATE", requester, requester, "Ticket ouvert (" + categoryLabel + ")", "Sujet: " + subject);
+                logger.info("Ticket créé avec sujet et description");
             }, error -> {
                 logger.error("Echec creation ticket", error);
                 event.getHook().sendMessage("❌ Impossible de créer le ticket.").queue();

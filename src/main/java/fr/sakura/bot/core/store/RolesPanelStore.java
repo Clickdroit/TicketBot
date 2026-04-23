@@ -23,14 +23,14 @@ public class RolesPanelStore {
 
     private static final Logger logger = LoggerFactory.getLogger(RolesPanelStore.class);
 
-    public record RolePanel(long id, String guildId, String channelId, String messageId, String createdAt, List<RolePanelButton> buttons) {
+    public record RolePanel(long id, String guildId, String channelId, String messageId, String createdAt, boolean exclusive, boolean useButtons, String title, String headerEmoji, List<RolePanelButton> buttons) {
     }
 
     public record RolePanelButton(long id, long panelId, String roleId, String label, String emoji) {
     }
 
-    public RolePanel createPanel(String guildId, String channelId, String messageId) {
-        String sql = "INSERT INTO role_panels (guild_id, channel_id, message_id, created_at) VALUES (?, ?, ?, ?)";
+    public RolePanel createPanel(String guildId, String channelId, String messageId, boolean exclusive, boolean useButtons, String title, String headerEmoji) {
+        String sql = "INSERT INTO role_panels (guild_id, channel_id, message_id, created_at, is_exclusive, use_buttons, title, header_emoji) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         String createdAt = OffsetDateTime.now().toString();
         
         try (Connection conn = DatabaseManager.getConnection();
@@ -39,12 +39,16 @@ public class RolesPanelStore {
             pstmt.setString(2, channelId);
             pstmt.setString(3, messageId);
             pstmt.setString(4, createdAt);
+            pstmt.setInt(5, exclusive ? 1 : 0);
+            pstmt.setInt(6, useButtons ? 1 : 0);
+            pstmt.setString(7, title);
+            pstmt.setString(8, headerEmoji);
             pstmt.executeUpdate();
 
             try (ResultSet keys = pstmt.getGeneratedKeys()) {
                 if (keys.next()) {
                     long panelId = keys.getLong(1);
-                    return new RolePanel(panelId, guildId, channelId, messageId, createdAt, new ArrayList<>());
+                    return new RolePanel(panelId, guildId, channelId, messageId, createdAt, exclusive, useButtons, title, headerEmoji, new ArrayList<>());
                 }
             }
         } catch (SQLException e) {
@@ -67,7 +71,7 @@ public class RolesPanelStore {
     }
 
     public RolePanel findPanel(String guildId, long panelId) {
-        String sql = "SELECT id, guild_id, channel_id, message_id, created_at FROM role_panels WHERE guild_id = ? AND id = ?";
+        String sql = "SELECT id, guild_id, channel_id, message_id, created_at, is_exclusive, use_buttons, title, header_emoji FROM role_panels WHERE guild_id = ? AND id = ?";
         return DbHelper.queryOne(sql,
                 pstmt -> {
                     pstmt.setString(1, guildId);
@@ -79,6 +83,10 @@ public class RolesPanelStore {
                         rs.getString("channel_id"),
                         rs.getString("message_id"),
                         rs.getString("created_at"),
+                        rs.getInt("is_exclusive") == 1,
+                        rs.getInt("use_buttons") == 1,
+                        rs.getString("title"),
+                        rs.getString("header_emoji"),
                         listButtons(rs.getLong("id"))
                 )
         ).orElse(null);
@@ -88,7 +96,7 @@ public class RolesPanelStore {
      * Liste tous les panels d'une guilde avec leurs boutons (Optimisé via JOIN).
      */
     public List<RolePanel> listPanels(String guildId) {
-        String sql = "SELECT p.id, p.guild_id, p.channel_id, p.message_id, p.created_at, " +
+        String sql = "SELECT p.id, p.guild_id, p.channel_id, p.message_id, p.created_at, p.is_exclusive, p.use_buttons, p.title, p.header_emoji, " +
                      "b.id AS b_id, b.role_id, b.label, b.emoji " +
                      "FROM role_panels p " +
                      "LEFT JOIN role_panel_buttons b ON b.panel_id = p.id " +
@@ -109,6 +117,10 @@ public class RolesPanelStore {
                                     rs.getString("channel_id"),
                                     rs.getString("message_id"),
                                     rs.getString("created_at"),
+                                    rs.getInt("is_exclusive") == 1,
+                                    rs.getInt("use_buttons") == 1,
+                                    rs.getString("title"),
+                                    rs.getString("header_emoji"),
                                     new ArrayList<>()
                             );
                         } catch (SQLException e) {
@@ -183,6 +195,21 @@ public class RolesPanelStore {
             }) > 0;
         } catch (Exception e) {
             logger.error("Erreur remove role panel button panelId={}, roleId={}", panelId, roleId, e);
+            return false;
+        }
+    }
+
+    public boolean updatePanelLocation(String guildId, long panelId, String channelId, String messageId) {
+        String sql = "UPDATE role_panels SET channel_id = ?, message_id = ? WHERE guild_id = ? AND id = ?";
+        try {
+            return DbHelper.update(sql, pstmt -> {
+                pstmt.setString(1, channelId);
+                pstmt.setString(2, messageId);
+                pstmt.setString(3, guildId);
+                pstmt.setLong(4, panelId);
+            }) > 0;
+        } catch (Exception e) {
+            logger.error("Erreur update role panel location guildId={}, panelId={}", guildId, panelId, e);
             return false;
         }
     }

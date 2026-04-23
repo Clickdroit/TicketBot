@@ -94,7 +94,8 @@ public class Main {
                         GatewayIntent.GUILD_MESSAGES,
                         GatewayIntent.GUILD_MEMBERS,
                         GatewayIntent.GUILD_VOICE_STATES,
-                        GatewayIntent.MESSAGE_CONTENT
+                        GatewayIntent.MESSAGE_CONTENT,
+                        GatewayIntent.GUILD_MESSAGE_REACTIONS
                 )
                 .enableCache(CacheFlag.VOICE_STATE)
                 .addEventListeners(

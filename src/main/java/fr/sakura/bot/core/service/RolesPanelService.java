@@ -33,8 +33,8 @@ public class RolesPanelService {
         this.store = store;
     }
 
-    public RolesPanelStore.RolePanel createPanel(String guildId, String channelId, String messageId) {
-        return store.createPanel(guildId, channelId, messageId);
+    public RolesPanelStore.RolePanel createPanel(String guildId, String channelId, String messageId, boolean exclusive, boolean useButtons, String title, String headerEmoji) {
+        return store.createPanel(guildId, channelId, messageId, exclusive, useButtons, title, headerEmoji);
     }
 
     public boolean deletePanel(Guild guild, long panelId) {
@@ -55,6 +55,10 @@ public class RolesPanelService {
 
     public RolesPanelStore.RolePanel getPanel(String guildId, long panelId) {
         return store.findPanel(guildId, panelId);
+    }
+
+    public boolean updatePanelLocation(String guildId, long panelId, String channelId, String messageId) {
+        return store.updatePanelLocation(guildId, panelId, channelId, messageId);
     }
 
     public List<RolesPanelStore.RolePanel> listPanels(String guildId) {
@@ -92,9 +96,71 @@ public class RolesPanelService {
             return;
         }
         channel.retrieveMessageById(panel.messageId()).queue(
-                message -> applyButtons(message, panel.buttons()),
+                message -> {
+                    if (panel.useButtons()) {
+                        applyButtons(message, panel.buttons());
+                    } else {
+                        // Mode Réactions : Mise en page esthétique Sakura
+                        updateReactionPanelDisplay(message, panel);
+                        syncReactions(message, panel.buttons());
+                    }
+                },
                 error -> logger.warn("RolesPanel: message introuvable panelId={}, messageId={}", panel.id(), panel.messageId(), error)
         );
+    }
+
+    private void updateReactionPanelDisplay(Message message, RolesPanelStore.RolePanel panel) {
+        String title = panel.title() != null ? panel.title() : "Choisis tes rôles";
+        String headerEmoji = panel.headerEmoji() != null ? panel.headerEmoji() : "🎭";
+        
+        StringBuilder desc = new StringBuilder();
+        desc.append("**").append(headerEmoji).append(" ・ ").append(title).append("**\n\n");
+
+        for (int i = 0; i < panel.buttons().size(); i++) {
+            RolesPanelStore.RolePanelButton btn = panel.buttons().get(i);
+            String emoji = btn.emoji() != null ? btn.emoji() : getNumberEmoji(i + 1);
+            desc.append(emoji).append(" ・ <@&").append(btn.roleId()).append(">\n");
+        }
+
+        if (panel.exclusive()) {
+            desc.append("\n*(Un seul rôle possible)*");
+        }
+
+        net.dv8tion.jda.api.EmbedBuilder embed = new net.dv8tion.jda.api.EmbedBuilder();
+        embed.setColor(EmbedStyle.SAKURA_PINK);
+        embed.setDescription(desc.toString());
+        EmbedStyle.setFooter(embed, "Sakura Role Panel");
+        
+        message.editMessageEmbeds(embed.build()).setComponents().queue();
+    }
+
+    private String getNumberEmoji(int n) {
+        return switch (n) {
+            case 1 -> "1️⃣";
+            case 2 -> "2️⃣";
+            case 3 -> "3️⃣";
+            case 4 -> "4️⃣";
+            case 5 -> "5️⃣";
+            case 6 -> "6️⃣";
+            case 7 -> "7️⃣";
+            case 8 -> "8️⃣";
+            case 9 -> "9️⃣";
+            case 10 -> "🔟";
+            default -> "🔘";
+        };
+    }
+
+    private void syncReactions(Message message, List<RolesPanelStore.RolePanelButton> buttons) {
+        for (int i = 0; i < buttons.size(); i++) {
+            RolesPanelStore.RolePanelButton button = buttons.get(i);
+            String emojiStr = button.emoji() != null ? button.emoji() : getNumberEmoji(i + 1);
+            try {
+                message.addReaction(Emoji.fromFormatted(emojiStr)).queue(
+                        null,
+                        err -> logger.warn("Impossible d'ajouter la réaction {} sur messageId={}", emojiStr, message.getId())
+                );
+            } catch (Exception ignored) {}
+        }
     }
 
     public void rebuildPanels(Guild guild) {
@@ -113,36 +179,113 @@ public class RolesPanelService {
             event.reply("❌ Interaction invalide.").setEphemeral(true).queue();
             return;
         }
-        RolesPanelStore.RolePanelButton button = store.findButton(event.getGuild().getId(), panelId, roleId);
+        RolesPanelStore.RolePanel panel = store.findPanel(event.getGuild().getId(), panelId);
+        if (panel == null) {
+            event.reply("❌ Panel introuvable.").setEphemeral(true).queue();
+            return;
+        }
+        RolesPanelStore.RolePanelButton button = panel.buttons().stream()
+                .filter(b -> b.roleId().equals(roleId))
+                .findFirst()
+                .orElse(null);
         if (button == null) {
             event.reply("❌ Bouton de rôle introuvable ou obsolète.").setEphemeral(true).queue();
             return;
         }
 
-        Role role = event.getGuild().getRoleById(roleId);
-        if (role == null) {
-            event.reply("❌ Le rôle associé n'existe plus.").setEphemeral(true).queue();
+        performToggle(event.getGuild(), event.getMember(), panel, button, successMsg -> {
+            event.reply(successMsg).setEphemeral(true).queue();
+        }, errMsg -> {
+            event.reply(errMsg).setEphemeral(true).queue();
+        });
+    }
+
+    public void handleReaction(Guild guild, Member member, String messageId, Emoji emoji, boolean added) {
+        List<RolesPanelStore.RolePanel> panels = listPanels(guild.getId());
+        RolesPanelStore.RolePanel panel = panels.stream()
+                .filter(p -> p.messageId().equals(messageId))
+                .findFirst()
+                .orElse(null);
+
+        if (panel == null || panel.useButtons()) return;
+
+        String emojiFormatted = emoji.getFormatted();
+        RolesPanelStore.RolePanelButton button = null;
+        
+        for (int i = 0; i < panel.buttons().size(); i++) {
+            RolesPanelStore.RolePanelButton b = panel.buttons().get(i);
+            String bEmoji = b.emoji() != null ? b.emoji() : getNumberEmoji(i + 1);
+            if (bEmoji.equals(emojiFormatted)) {
+                button = b;
+                break;
+            }
+        }
+
+        if (button == null) return;
+
+        Role role = guild.getRoleById(button.roleId());
+        if (role == null) return;
+
+        boolean hasRole = member.getRoles().contains(role);
+
+        if (!added) {
+            // Si la réaction est enlevée et que le membre a le rôle -> on l'enlève
+            if (hasRole) {
+                Member self = guild.getSelfMember();
+                if (self.hasPermission(Permission.MANAGE_ROLES) && self.canInteract(role)) {
+                    guild.removeRoleFromMember(member, role).queue();
+                }
+            }
             return;
         }
 
-        Member self = event.getGuild().getSelfMember();
-        Member member = event.getMember();
+        // Si la réaction est ajoutée et que le membre n'a pas le rôle -> on l'ajoute
+        if (!hasRole) {
+            performToggle(guild, member, panel, button, ok -> {}, err -> {});
+        }
+    }
+
+    private void performToggle(Guild guild, Member member, RolesPanelStore.RolePanel panel, RolesPanelStore.RolePanelButton button, 
+                               java.util.function.Consumer<String> onSuccess, java.util.function.Consumer<String> onError) {
+        String roleId = button.roleId();
+        Role role = guild.getRoleById(roleId);
+        if (role == null) {
+            onError.accept("❌ Le rôle associé n'existe plus.");
+            return;
+        }
+
+        Member self = guild.getSelfMember();
         if (!self.hasPermission(Permission.MANAGE_ROLES) || !self.canInteract(role) || !self.canInteract(member)) {
-            event.reply("❌ Je ne peux pas gérer ce rôle (permission/hierarchie).").setEphemeral(true).queue();
+            onError.accept("❌ Je ne peux pas gérer ce rôle (permission/hierarchie).");
             return;
         }
 
         if (member.getRoles().stream().anyMatch(r -> r.getId().equals(roleId))) {
-            event.getGuild().removeRoleFromMember(member, role).queue(
-                    ok -> event.reply("➖ Rôle retiré : " + role.getAsMention()).setEphemeral(true).queue(),
-                    err -> event.reply("❌ Impossible de retirer ce rôle.").setEphemeral(true).queue()
+            guild.removeRoleFromMember(member, role).queue(
+                    ok -> onSuccess.accept("➖ Rôle retiré : " + role.getAsMention()),
+                    err -> onError.accept("❌ Impossible de retirer ce rôle.")
             );
             return;
         }
 
-        event.getGuild().addRoleToMember(member, role).queue(
-                ok -> event.reply("➕ Rôle ajouté : " + role.getAsMention()).setEphemeral(true).queue(),
-                err -> event.reply("❌ Impossible d'ajouter ce rôle.").setEphemeral(true).queue()
+        if (panel.exclusive()) {
+            List<Role> rolesToRemove = new ArrayList<>();
+            for (RolesPanelStore.RolePanelButton b : panel.buttons()) {
+                if (b.roleId().equals(roleId)) continue;
+                Role r = guild.getRoleById(b.roleId());
+                if (r != null && member.getRoles().contains(r)) {
+                    rolesToRemove.add(r);
+                }
+            }
+            
+            for (Role r : rolesToRemove) {
+                guild.removeRoleFromMember(member, r).queue();
+            }
+        }
+
+        guild.addRoleToMember(member, role).queue(
+                ok -> onSuccess.accept("➕ Rôle ajouté : " + role.getAsMention()),
+                err -> onError.accept("❌ Impossible d'ajouter ce rôle.")
         );
     }
 

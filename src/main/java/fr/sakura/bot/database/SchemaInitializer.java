@@ -80,6 +80,19 @@ public class SchemaInitializer {
         applyMigration(conn, 5, "add levels_enabled toggle", () -> {
             addColumnIfMissing(conn, "settings", "levels_enabled", "INTEGER DEFAULT 1", isPostgres);
         });
+
+        applyMigration(conn, 6, "add exclusive column to role_panels", () -> {
+            addColumnIfMissing(conn, "role_panels", "is_exclusive", "INTEGER DEFAULT 0", isPostgres);
+        });
+
+        applyMigration(conn, 7, "add use_buttons column to role_panels", () -> {
+            addColumnIfMissing(conn, "role_panels", "use_buttons", "INTEGER DEFAULT 1", isPostgres);
+        });
+
+        applyMigration(conn, 8, "add title and header_emoji columns to role_panels", () -> {
+            addColumnIfMissing(conn, "role_panels", "title", "TEXT", isPostgres);
+            addColumnIfMissing(conn, "role_panels", "header_emoji", "TEXT", isPostgres);
+        });
     }
 
     private static void applyMigration(Connection conn, int version, String description, Migration migration) throws SQLException {

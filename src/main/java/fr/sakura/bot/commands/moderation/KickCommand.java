@@ -7,7 +7,9 @@ import fr.sakura.bot.commands.ICommand;
 import fr.sakura.bot.listeners.log.ModerationLogListener;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import net.dv8tion.jda.api.interactions.commands.Command;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
@@ -17,9 +19,21 @@ import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 public class KickCommand implements ICommand {
 
     private static final Logger logger = LoggerFactory.getLogger(KickCommand.class);
+    private static final String[] PREDEFINED_REASONS = {
+            "Spam / Flood",
+            "Publicité non autorisée (MP/Salons)",
+            "Contenu NSFW / Inapproprié",
+            "Non-respect des membres / Insultes",
+            "Troll / Comportement nuisible",
+            "Non-respect répété du règlement"
+    };
 
     private final ModerationLogListener moderationLogListener;
 
@@ -42,9 +56,20 @@ public class KickCommand implements ICommand {
         return Commands.slash(getName(), "Expulse un membre du serveur")
                 .addOptions(
                         new OptionData(OptionType.USER, "membre", "Le membre à expulser", true),
-                        new OptionData(OptionType.STRING, "raison", "La raison de l'expulsion", false)
+                        new OptionData(OptionType.STRING, "raison", "La raison de l'expulsion", false).setAutoComplete(true)
                 )
                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.KICK_MEMBERS));
+    }
+
+    @Override
+    public void onAutoComplete(CommandAutoCompleteInteractionEvent event) {
+        if (event.getFocusedOption().getName().equals("raison")) {
+            List<Command.Choice> options = Stream.of(PREDEFINED_REASONS)
+                    .filter(word -> word.toLowerCase().startsWith(event.getFocusedOption().getValue().toLowerCase()))
+                    .map(word -> new Command.Choice(word, word))
+                    .collect(Collectors.toList());
+            event.replyChoices(options).queue();
+        }
     }
 
     @Override

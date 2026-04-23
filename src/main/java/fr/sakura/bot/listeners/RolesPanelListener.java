@@ -3,12 +3,13 @@ package fr.sakura.bot.listeners;
 import fr.sakura.bot.core.service.RolesPanelService;
 import fr.sakura.bot.core.util.MdcContext;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
+import net.dv8tion.jda.api.events.message.react.MessageReactionAddEvent;
+import net.dv8tion.jda.api.events.message.react.MessageReactionRemoveEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.MDC;
 
 /**
- * Listener pour les interactions avec les boutons des panels de rôles.
+ * Listener pour les interactions avec les boutons et réactions des panels de rôles.
  */
 public class RolesPanelListener extends ListenerAdapter {
 
@@ -37,6 +38,28 @@ public class RolesPanelListener extends ListenerAdapter {
             rolesPanelService.handleToggle(event, panelId, roleId);
         } catch (NumberFormatException e) {
             event.reply("❌ Identifiant de panel invalide.").setEphemeral(true).queue();
+        }
+    }
+
+    @Override
+    public void onMessageReactionAdd(@NotNull MessageReactionAddEvent event) {
+        if (!event.isFromGuild() || event.getUser() == null || event.getUser().isBot()) {
+            return;
+        }
+
+        try (var ignored = MdcContext.of("guildId", event.getGuild().getId(), "userId", event.getUser().getId())) {
+            rolesPanelService.handleReaction(event.getGuild(), event.getMember(), event.getMessageId(), event.getEmoji(), true);
+        }
+    }
+
+    @Override
+    public void onMessageReactionRemove(@NotNull MessageReactionRemoveEvent event) {
+        if (!event.isFromGuild() || event.getUser() == null || event.getUser().isBot()) {
+            return;
+        }
+
+        try (var ignored = MdcContext.of("guildId", event.getGuild().getId(), "userId", event.getUser().getId())) {
+            rolesPanelService.handleReaction(event.getGuild(), event.getMember(), event.getMessageId(), event.getEmoji(), false);
         }
     }
 }

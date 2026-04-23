@@ -8,7 +8,9 @@ import fr.sakura.bot.listeners.log.ModerationLogListener;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import net.dv8tion.jda.api.interactions.commands.Command;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
@@ -18,11 +20,23 @@ import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class BanCommand implements ICommand {
 
     private static final Logger logger = LoggerFactory.getLogger(BanCommand.class);
+    private static final String[] PREDEFINED_REASONS = {
+            "Spam / Flood",
+            "Publicité non autorisée (MP/Salons)",
+            "Contenu NSFW / Inapproprié",
+            "Non-respect des membres / Insultes",
+            "Tentative de hack / Phishing",
+            "Troll / Comportement nuisible",
+            "Non-respect répété du règlement"
+    };
 
     private final ModerationLogListener moderationLogListener;
 
@@ -45,9 +59,20 @@ public class BanCommand implements ICommand {
         return Commands.slash(getName(), "Bannit un membre du serveur")
                 .addOptions(
                         new OptionData(OptionType.USER, "membre", "Le membre à bannir", true),
-                        new OptionData(OptionType.STRING, "raison", "La raison du bannissement", false)
+                        new OptionData(OptionType.STRING, "raison", "La raison du bannissement", false).setAutoComplete(true)
                 )
                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.BAN_MEMBERS));
+    }
+
+    @Override
+    public void onAutoComplete(CommandAutoCompleteInteractionEvent event) {
+        if (event.getFocusedOption().getName().equals("raison")) {
+            List<Command.Choice> options = Stream.of(PREDEFINED_REASONS)
+                    .filter(word -> word.toLowerCase().startsWith(event.getFocusedOption().getValue().toLowerCase()))
+                    .map(word -> new Command.Choice(word, word))
+                    .collect(Collectors.toList());
+            event.replyChoices(options).queue();
+        }
     }
 
     @Override
