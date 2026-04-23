@@ -201,6 +201,7 @@ public class RolesPanelService {
     }
 
     public void handleReaction(Guild guild, Member member, String messageId, Emoji emoji, boolean added) {
+        if (member == null) return;
         List<RolesPanelStore.RolePanel> panels = listPanels(guild.getId());
         RolesPanelStore.RolePanel panel = panels.stream()
                 .filter(p -> p.messageId().equals(messageId))
@@ -226,22 +227,34 @@ public class RolesPanelService {
         Role role = guild.getRoleById(button.roleId());
         if (role == null) return;
 
+        Member self = guild.getSelfMember();
+        if (!self.hasPermission(Permission.MANAGE_ROLES) || !self.canInteract(role) || !self.canInteract(member)) {
+            return;
+        }
+
         boolean hasRole = member.getRoles().contains(role);
 
         if (!added) {
-            // Si la réaction est enlevée et que le membre a le rôle -> on l'enlève
+            // RETRAIT : On enlève le rôle si le membre l'a
             if (hasRole) {
-                Member self = guild.getSelfMember();
-                if (self.hasPermission(Permission.MANAGE_ROLES) && self.canInteract(role)) {
-                    guild.removeRoleFromMember(member, role).queue();
-                }
+                guild.removeRoleFromMember(member, role).queue();
             }
             return;
         }
 
-        // Si la réaction est ajoutée et que le membre n'a pas le rôle -> on l'ajoute
+        // AJOUT : On ajoute le rôle si le membre ne l'a pas
         if (!hasRole) {
-            performToggle(guild, member, panel, button, ok -> {}, err -> {});
+            // Gestion de l'exclusivité avant d'ajouter le nouveau rôle
+            if (panel.exclusive()) {
+                for (RolesPanelStore.RolePanelButton b : panel.buttons()) {
+                    if (b.roleId().equals(button.roleId())) continue;
+                    Role otherRole = guild.getRoleById(b.roleId());
+                    if (otherRole != null && member.getRoles().contains(otherRole)) {
+                        guild.removeRoleFromMember(member, otherRole).queue();
+                    }
+                }
+            }
+            guild.addRoleToMember(member, role).queue();
         }
     }
 

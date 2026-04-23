@@ -2,6 +2,7 @@ package fr.sakura.bot.listeners;
 
 import fr.sakura.bot.core.service.RolesPanelService;
 import fr.sakura.bot.core.util.MdcContext;
+import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.message.react.MessageReactionAddEvent;
 import net.dv8tion.jda.api.events.message.react.MessageReactionRemoveEvent;
@@ -47,19 +48,29 @@ public class RolesPanelListener extends ListenerAdapter {
             return;
         }
 
-        try (var ignored = MdcContext.of("guildId", event.getGuild().getId(), "userId", event.getUser().getId())) {
-            rolesPanelService.handleReaction(event.getGuild(), event.getMember(), event.getMessageId(), event.getEmoji(), true);
+        Member member = event.getMember();
+        if (member == null) {
+            event.getGuild().retrieveMemberById(event.getUserId()).queue(m -> 
+                rolesPanelService.handleReaction(event.getGuild(), m, event.getMessageId(), event.getEmoji(), true)
+            );
+        } else {
+            rolesPanelService.handleReaction(event.getGuild(), member, event.getMessageId(), event.getEmoji(), true);
         }
     }
 
     @Override
     public void onMessageReactionRemove(@NotNull MessageReactionRemoveEvent event) {
-        if (!event.isFromGuild() || event.getUser() == null || event.getUser().isBot()) {
+        if (!event.isFromGuild()) {
             return;
         }
 
-        try (var ignored = MdcContext.of("guildId", event.getGuild().getId(), "userId", event.getUser().getId())) {
-            rolesPanelService.handleReaction(event.getGuild(), event.getMember(), event.getMessageId(), event.getEmoji(), false);
+        Member member = event.getMember();
+        if (member == null) {
+            event.getGuild().retrieveMemberById(event.getUserId()).queue(m -> 
+                rolesPanelService.handleReaction(event.getGuild(), m, event.getMessageId(), event.getEmoji(), false)
+            );
+        } else {
+            rolesPanelService.handleReaction(event.getGuild(), member, event.getMessageId(), event.getEmoji(), false);
         }
     }
 }
