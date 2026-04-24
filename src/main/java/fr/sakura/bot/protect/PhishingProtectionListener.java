@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class PhishingProtectionListener extends ListenerAdapter {
 
     private static final Logger logger = LoggerFactory.getLogger(PhishingProtectionListener.class);
+    private static final long WARNING_COOLDOWN_MS = 15_000L;
 
     private final ProtectSettingsManager protectSettingsManager;
     private final ModerationLogListener moderationLogListener;
@@ -55,7 +56,7 @@ public class PhishingProtectionListener extends ListenerAdapter {
         String key = guildId + ":" + member.getId();
         long now = System.currentTimeMillis();
         long last = warningCooldown.getOrDefault(key, 0L);
-        if (now - last >= 15_000) {
+        if (now - last >= WARNING_COOLDOWN_MS) {
             warningCooldown.put(key, now);
             event.getChannel().sendMessage("⚠️ " + member.getAsMention() + ", lien bloqué par Sakura Protect (risque phishing).")
                     .queue();

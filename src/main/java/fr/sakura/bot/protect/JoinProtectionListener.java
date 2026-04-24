@@ -22,6 +22,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class JoinProtectionListener extends ListenerAdapter {
 
     private static final Logger logger = LoggerFactory.getLogger(JoinProtectionListener.class);
+    private static final int CRITICAL_RISK_THRESHOLD = 85;
+    private static final int MODERATE_RISK_THRESHOLD = 60;
+    private static final int RAID_MODE_RISK_THRESHOLD = 40;
 
     private final ProtectSettingsManager protectSettingsManager;
     private final ModerationLogListener moderationLogListener;
@@ -64,14 +67,14 @@ public class JoinProtectionListener extends ListenerAdapter {
 
         logger.info("Protect join decision guildId={}, userId={}, {}", guildId, member.getId(), reason);
 
-        if (suspicionScore >= 85) {
+        if (suspicionScore >= CRITICAL_RISK_THRESHOLD) {
             if (!applyQuarantine(guild, member, "Risque critique: " + reason)) {
                 kickMember(guild, member, "Risque critique: " + reason);
             }
             return;
         }
 
-        if (suspicionScore >= 60 || (raidModeActive && suspicionScore >= 40)) {
+        if (suspicionScore >= MODERATE_RISK_THRESHOLD || (raidModeActive && suspicionScore >= RAID_MODE_RISK_THRESHOLD)) {
             applyQuarantine(guild, member, "Risque modéré: " + reason);
         }
     }

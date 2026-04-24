@@ -43,6 +43,8 @@ public class AntiVandalismListener extends ListenerAdapter {
             Permission.MANAGE_CHANNEL,
             Permission.MANAGE_WEBHOOKS
     );
+    private static final long STRIKE_RESET_MINUTES = 30;
+    private static final int SECOND_STRIKE_TIMEOUT_MINUTES = 10;
 
     private final ProtectSettingsManager protectSettingsManager;
     private final ModerationLogListener moderationLogListener;
@@ -167,7 +169,7 @@ public class AntiVandalismListener extends ListenerAdapter {
         String key = guild.getId() + ":" + actor.getId();
         long now = System.currentTimeMillis();
         long lastAt = lastStrikeAt.getOrDefault(key, 0L);
-        if (now - lastAt > TimeUnit.MINUTES.toMillis(30)) {
+        if (now - lastAt > TimeUnit.MINUTES.toMillis(STRIKE_RESET_MINUTES)) {
             strikeByActor.remove(key);
         }
 
@@ -184,10 +186,10 @@ public class AntiVandalismListener extends ListenerAdapter {
         }
 
         if (strikes == 2 && guild.getSelfMember().hasPermission(Permission.MODERATE_MEMBERS)) {
-            actor.timeoutFor(10, TimeUnit.MINUTES).reason("Sakura Protect: " + reason).queue(
+            actor.timeoutFor(SECOND_STRIKE_TIMEOUT_MINUTES, TimeUnit.MINUTES).reason("Sakura Protect: " + reason).queue(
                     ok -> moderationLogListener.logAction(guild, "TIMEOUT", null, actor,
                             "Sakura Protect: récidive anti-vandalisme",
-                            "> **Motif :** " + reason + "\n> **Action :** timeout 10 minutes"),
+                            "> **Motif :** " + reason + "\n> **Action :** timeout " + SECOND_STRIKE_TIMEOUT_MINUTES + " minutes"),
                     err -> logger.error("Impossible d'appliquer un timeout Protect à {}", actor.getId(), err)
             );
             return;

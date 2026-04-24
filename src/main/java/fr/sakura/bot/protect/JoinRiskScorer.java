@@ -2,6 +2,8 @@ package fr.sakura.bot.protect;
 
 public final class JoinRiskScorer {
 
+    private static final double MODERATE_BURST_MULTIPLIER = 0.7d;
+
     private JoinRiskScorer() {
     }
 
@@ -15,7 +17,7 @@ public final class JoinRiskScorer {
 
         if (burstCount >= raidThreshold) {
             score += 40;
-        } else if (burstCount >= Math.max(2, (int) Math.ceil(raidThreshold * 0.7))) {
+        } else if (burstCount >= Math.max(2, (int) Math.ceil(raidThreshold * MODERATE_BURST_MULTIPLIER))) {
             score += 20;
         }
 

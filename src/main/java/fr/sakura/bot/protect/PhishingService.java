@@ -29,6 +29,11 @@ public class PhishingService implements AutoCloseable {
 
     private static final String PHISHING_LIST_URL = "https://raw.githubusercontent.com/nikolaisun/discord-phishing-links/main/domain-list.txt";
     private static final Pattern URL_PATTERN = Pattern.compile("(?i)\\b((?:https?://|www\\.)[^\\s<>()]+)");
+    private static final int PHISHING_LIST_CONNECT_TIMEOUT_MS = 4000;
+    private static final int PHISHING_LIST_READ_TIMEOUT_MS = 4000;
+    private static final int REDIRECT_CONNECT_TIMEOUT_MS = 1500;
+    private static final int REDIRECT_READ_TIMEOUT_MS = 1500;
+    private static final int MAX_REDIRECT_DEPTH = 3;
 
     private static final Set<String> SHORTENER_DOMAINS = Set.of(
             "bit.ly", "tinyurl.com", "t.co", "rb.gy", "cutt.ly", "is.gd", "tiny.one", "goo.gl", "ow.ly"
@@ -59,8 +64,8 @@ public class PhishingService implements AutoCloseable {
             URL url = new URL(PHISHING_LIST_URL);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
-            conn.setConnectTimeout(4000);
-            conn.setReadTimeout(4000);
+            conn.setConnectTimeout(PHISHING_LIST_CONNECT_TIMEOUT_MS);
+            conn.setReadTimeout(PHISHING_LIST_READ_TIMEOUT_MS);
 
             Set<String> newList = ConcurrentHashMap.newKeySet();
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
@@ -125,7 +130,8 @@ public class PhishingService implements AutoCloseable {
 
         try {
             normalized = IDN.toASCII(normalized);
-        } catch (IllegalArgumentException ignored) {
+        } catch (IllegalArgumentException e) {
+            logger.debug("Domaine invalide ignoré pendant normalisation IDN: {}", domain, e);
             return "";
         }
         return normalized.toLowerCase(Locale.ROOT);
@@ -207,10 +213,10 @@ public class PhishingService implements AutoCloseable {
     private String resolveRedirectedHost(String url) {
         try {
             String current = url;
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < MAX_REDIRECT_DEPTH; i++) {
                 HttpURLConnection conn = (HttpURLConnection) new URL(current).openConnection();
-                conn.setConnectTimeout(1500);
-                conn.setReadTimeout(1500);
+                conn.setConnectTimeout(REDIRECT_CONNECT_TIMEOUT_MS);
+                conn.setReadTimeout(REDIRECT_READ_TIMEOUT_MS);
                 conn.setRequestMethod("HEAD");
                 conn.setInstanceFollowRedirects(false);
                 int status = conn.getResponseCode();
