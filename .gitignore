@@ -11,3 +11,10 @@ build/
 *.iml
 *.iws
 .vscode/
+
+# Runtime logs
+logs/
+
+# Database files
+data/
+

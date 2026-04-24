@@ -1,10 +1,12 @@
 package fr.sakura.bot.listeners;
 
-import fr.sakura.bot.utils.EmbedStyle;
-import fr.sakura.bot.utils.LevelService;
-import fr.sakura.bot.utils.LevelService.XpResult;
+import fr.sakura.bot.core.util.EmbedStyle;
+import fr.sakura.bot.core.service.LevelService;
+import fr.sakura.bot.core.util.MdcContext;
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
@@ -26,41 +28,63 @@ public class LevelListener extends ListenerAdapter {
             return;
         }
 
-        Member member = event.getMember();
-        if (member.hasPermission(net.dv8tion.jda.api.Permission.ADMINISTRATOR)) {
-            return;
-        }
+        try (var ignored = MdcContext.of("guildId", event.getGuild().getId(), "userId", event.getAuthor().getId())) {
+            Member member = event.getMember();
+            
+            String content = event.getMessage().getContentRaw();
+            LevelService.XpResult result = levelService.addMessageXp(event.getGuild().getId(), member.getId(), content);
+            if (!result.xpAwarded()) {
+                return;
+            }
 
-        String content = event.getMessage().getContentRaw();
-        XpResult result = levelService.addMessageXp(event.getGuild().getId(), member.getId(), content);
-        if (!result.xpAwarded()) {
-            return;
-        }
+            logger.debug("XP attribué");
 
-        logger.debug("XP attribue guildId={}, userId={}, xpGained={}, level={}",
-                event.getGuild().getId(), member.getId(), result.xpGained(), result.profile().level());
-
-        if (result.leveledUp()) {
-            announceLevelUp(event, member, result);
+            if (result.leveledUp()) {
+                announceLevelUp(event, member, result);
+                assignLevelRoleIfConfigured(event, member, result.profile().level());
+            }
         }
     }
 
-    private void announceLevelUp(MessageReceivedEvent event, Member member, XpResult result) {
+    private void announceLevelUp(MessageReceivedEvent event, Member member, LevelService.XpResult result) {
         int currentLevel = result.profile().level();
         int xpToNext = levelService.getXpForNextLevel(result.profile().xp());
 
-        EmbedBuilder embed = EmbedStyle.newInfoEmbed("🌸", "Niveau supérieur !");
-        embed.setDescription(member.getAsMention() + " passe au niveau **" + currentLevel + "** !");
-        embed.addField("✨ XP gagné", "+" + result.xpGained(), true);
-        embed.addField("📊 XP total", String.valueOf(result.profile().xp()), true);
-        embed.addField("🎯 XP restante", String.valueOf(xpToNext), true);
-        EmbedStyle.setFooter(embed, "Bravo à " + member.getUser().getName());
+        EmbedBuilder embed = EmbedStyle.newInfoEmbed("✨", "Niveau supérieur");
+        embed.setDescription(member.getAsMention() + " passe au niveau **" + currentLevel + "**. Continue comme ça !");
+        embed.setThumbnail(member.getEffectiveAvatarUrl());
+        embed.addField("XP gagné", "+" + result.xpGained(), true);
+        embed.addField("XP total", String.valueOf(result.profile().xp()), true);
+        embed.addField("XP restante", String.valueOf(xpToNext), true);
+        EmbedStyle.setFooter(embed, "Progression de " + member.getUser().getName());
 
         event.getChannel().sendMessageEmbeds(embed.build()).queue(
-                success -> logger.info("Annonce level up envoyee guildId={}, userId={}, level={}", event.getGuild().getId(), member.getId(), currentLevel),
-                error -> logger.warn("Echec annonce level up guildId={}, userId={}", event.getGuild().getId(), member.getId(), error)
+                success -> logger.info("Annonce level up envoyée"),
+                error -> logger.warn("Echec annonce level up", error)
+        );
+    }
+
+    private void assignLevelRoleIfConfigured(MessageReceivedEvent event, Member member, int level) {
+        String roleId = levelService.getRewardRoleId(event.getGuild().getId(), level);
+        if (roleId == null || roleId.isBlank()) {
+            return;
+        }
+
+        Role role = event.getGuild().getRoleById(roleId);
+        if (role == null) {
+            logger.warn("Role de niveau introuvable level={}, roleId={}", level, roleId);
+            return;
+        }
+
+        Member self = event.getGuild().getSelfMember();
+        if (!self.hasPermission(Permission.MANAGE_ROLES) || !self.canInteract(role) || !self.canInteract(member)) {
+            logger.warn("Impossible d'assigner le role de niveau (permissions/hiérarchie)");
+            return;
+        }
+
+        event.getGuild().addRoleToMember(member, role).queue(
+                ok -> logger.info("Role de niveau attribué roleId={}, level={}", roleId, level),
+                err -> logger.warn("Echec attribution role de niveau roleId={}", roleId, err)
         );
     }
 }
-
-

@@ -1,26 +1,27 @@
 package fr.sakura.bot.commands;
 
-import fr.sakura.bot.database.SettingsManager;
-import fr.sakura.bot.database.ProtectSettingsManager;
-import fr.sakura.bot.utils.TicketService;
-import fr.sakura.bot.utils.ModerationLogger;
-import fr.sakura.bot.utils.LevelService;
-import fr.sakura.bot.utils.WarningService;
+import fr.sakura.bot.commands.info.*;
+import fr.sakura.bot.commands.moderation.*;
+import fr.sakura.bot.commands.staff.*;
+import fr.sakura.bot.commands.ticket.*;
+import fr.sakura.bot.commands.xp.*;
+import fr.sakura.bot.core.util.MdcContext;
 import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
+import net.dv8tion.jda.api.events.interaction.command.MessageContextInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import net.dv8tion.jda.api.events.interaction.command.UserContextInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
-import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
+import net.dv8tion.jda.api.interactions.commands.build.CommandData;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
+/**
+ * Routeur central des commandes (Slash, Auto-complete, Context Menus).
+ */
 public class CommandManager extends ListenerAdapter {
 
     private static final Logger logger = LoggerFactory.getLogger(CommandManager.class);
@@ -28,92 +29,124 @@ public class CommandManager extends ListenerAdapter {
     private final String guildId;
     private final Map<String, ICommand> commands = new HashMap<>();
 
-    public CommandManager(String guildId, ModerationLogger moderationLogger, String warningsFilePath, SettingsManager settingsManager, LevelService levelService, TicketService ticketService, ProtectSettingsManager protectSettingsManager) {
-        this.guildId = guildId;
-        WarningService warningService = new WarningService(warningsFilePath);
+    public CommandManager(BotContext ctx) {
+        this.guildId = ctx.guildId();
+        logger.info("Initialisation CommandManager guildId={}", guildId);
 
-        logger.info("Initialisation CommandManager guildId={}, warningsFilePath={}",
-                guildId,
-                (warningsFilePath == null || warningsFilePath.isEmpty()) ? "data/warnings.json" : warningsFilePath);
+        // Liste des commandes à enregistrer
+        List<ICommand> commandList = List.of(
+            // ... (I'll keep the list as it is for now, just changing the types)
+            new PingCommand(),
+            new HelpCommand(Collections.unmodifiableMap(commands)),
+            new AvatarCommand(),
+            new UserInfoCommand(),
+            new ServerInfoCommand(),
+            
+            new ClearCommand(ctx.moderationLog()),
+            new KickCommand(ctx.moderationLog()),
+            new BanCommand(ctx.moderationLog()),
+            new TimeoutCommand(ctx.moderationLog()),
+            new UntimeoutCommand(ctx.moderationLog()),
+            new UnbanCommand(ctx.moderationLog()),
+            new WarnCommand(ctx.moderationLog(), ctx.warningService(), ctx.settings()),
+            new WarningsCommand(ctx.warningService()),
+            new ClearWarningsCommand(ctx.moderationLog(), ctx.warningService()),
+            new LockCommand(ctx.moderationLog()),
+            new UnlockCommand(ctx.moderationLog()),
+            new SlowmodeCommand(ctx.moderationLog()),
+            
+            new RankCommand(ctx.levelService()),
+            new LeaderboardCommand(ctx.levelService()),
+            new XpAdminCommand(ctx.levelService(), ctx.settings()),
+            
+            new TicketPanelCommand(ctx.ticketService()),
+            
+            new ConfigCommand(ctx.settings()),
+            new SayCommand(ctx.moderationLog()),
+            new EmbedCommand(ctx.moderationLog()),
+            new RolesPanelCommand(ctx.rolesPanelService()),
+            new ReglementsCommand(),
+            new PubCommand(ctx.moderationLog()),
+            new ConditionCommand(ctx.moderationLog()),
+            new ViewProfileContext(ctx.levelService(), ctx.warningService()),
+            new ReportMessageContext(ctx.moderationLog())
+        );
 
-        addCommand(new PingCommand());
-        addCommand(new HelpCommand());
-        addCommand(new AvatarCommand());
-        addCommand(new UserInfoCommand());
-        addCommand(new ServerInfoCommand());
-        addCommand(new ClearCommand(moderationLogger));
-        addCommand(new KickCommand(moderationLogger));
-        addCommand(new BanCommand(moderationLogger));
-        addCommand(new TimeoutCommand(moderationLogger));
-        addCommand(new UnbanCommand(moderationLogger));
-        addCommand(new WarnCommand(moderationLogger, warningService));
-        addCommand(new WarningsCommand(warningService));
-        addCommand(new ClearWarningsCommand(moderationLogger, warningService));
-        addCommand(new ConfigCommand(settingsManager));
-        addCommand(new RankCommand(levelService));
-        addCommand(new LeaderboardCommand(levelService));
-        addCommand(new TicketPanelCommand(ticketService));
-        addCommand(new ProtectCommand(protectSettingsManager));
-    }
-
-    private void addCommand(ICommand command) {
-        commands.put(command.getName(), command);
-        logger.debug("Commande enregistree dans le routeur: {}", command.getName());
+        for (ICommand command : commandList) {
+            commands.put(command.getName(), command);
+            logger.debug("Commande enregistrée : {}", command.getName());
+        }
     }
 
     public void registerCommands(Guild guild) {
-        List<SlashCommandData> commandDataList = new ArrayList<>();
-
+        List<CommandData> commandDataList = new ArrayList<>();
         for (ICommand command : commands.values()) {
             commandDataList.add(command.getCommandData());
         }
 
         guild.updateCommands().addCommands(commandDataList).queue(
-                success -> logger.info("{} commandes Slash enregistrees pour {} ({})",
+                success -> logger.info("{} commandes enregistrées pour {} ({})",
                         commands.size(), guild.getName(), guild.getId()),
-                error -> logger.error("Echec enregistrement commandes pour {} ({})",
+                error -> logger.error("Échec enregistrement commandes pour {} ({})",
                         guild.getName(), guild.getId(), error)
         );
     }
 
     @Override
     public void onSlashCommandInteraction(@NotNull SlashCommandInteractionEvent event) {
-        if (event.getGuild() == null) {
-            logger.warn("Interaction slash ignoree hors serveur: commande={}", event.getName());
-            return;
-        }
-
-        String cid = event.getId() + "-" + UUID.randomUUID().toString().substring(0, 8);
-        MDC.put("cid", cid);
-
-        try {
-            if (!event.getGuild().getId().equals(guildId)) {
-                logger.warn("Interaction rejetee (guild non autorisee): cmd={}, guildId={}, userId={}",
-                        event.getName(), event.getGuild().getId(), event.getUser().getId());
-                return;
-            }
-
+        handleInteraction(event.getName(), event.getGuild(), event.getUser(), event.getChannel().getId(), () -> {
             ICommand command = commands.get(event.getName());
-            logger.info("Commande recue: cmd={}, guildId={}, userId={}, channelId={}",
-                    event.getName(),
-                    event.getGuild().getId(),
-                    event.getUser().getId(),
-                    event.getChannel().getId());
+            if (command != null) command.execute(event);
+            else event.reply("❌ Commande inconnue.").setEphemeral(true).queue();
+        }, event.getId());
+    }
 
-            if (command != null) {
-                try {
-                    command.execute(event);
-                    logger.debug("Dispatch execute() termine pour cmd={}", event.getName());
-                } catch (Exception ex) {
-                    logger.error("Exception pendant execution de cmd={}", event.getName(), ex);
-                    event.reply("❌ Une erreur interne est survenue.").setEphemeral(true).queue();
-                }
-            } else {
-                logger.warn("Commande inconnue demandee: {}", event.getName());
-                event.reply("❌ Commande inconnue.").setEphemeral(true).queue();
+    @Override
+    public void onCommandAutoCompleteInteraction(@NotNull CommandAutoCompleteInteractionEvent event) {
+        ICommand command = commands.get(event.getName());
+        if (command != null) {
+            command.onAutoComplete(event);
+        }
+    }
+
+    @Override
+    public void onUserContextInteraction(@NotNull UserContextInteractionEvent event) {
+        handleInteraction(event.getName(), event.getGuild(), event.getUser(), event.getChannel().getId(), () -> {
+            ICommand command = commands.get(event.getName());
+            if (command != null) command.onUserContext(event);
+            else event.reply("❌ Action inconnue.").setEphemeral(true).queue();
+        }, event.getId());
+    }
+
+    @Override
+    public void onMessageContextInteraction(@NotNull MessageContextInteractionEvent event) {
+        handleInteraction(event.getName(), event.getGuild(), event.getUser(), event.getChannel().getId(), () -> {
+            ICommand command = commands.get(event.getName());
+            if (command != null) command.onMessageContext(event);
+            else event.reply("❌ Action inconnue.").setEphemeral(true).queue();
+        }, event.getId());
+    }
+
+    private void handleInteraction(String name, Guild guild, net.dv8tion.jda.api.entities.User user, String channelId, Runnable action, String interactionId) {
+        if (guild == null) return;
+
+        String cid = interactionId + "-" + UUID.randomUUID().toString().substring(0, 8);
+        
+        try (var ignored = MdcContext.of(
+                "cid", cid,
+                "guildId", guild.getId(),
+                "userId", user.getId()
+        )) {
+            if (!guild.getId().equals(guildId)) return;
+
+            logger.info("Interaction reçue: cmd={}, guildId={}, userId={}, channelId={}",
+                    name, guild.getId(), user.getId(), channelId);
+
+            try {
+                action.run();
+            } catch (Exception ex) {
+                logger.error("Exception pendant l'exécution de cmd={}", name, ex);
             }
-        } finally {
-            MDC.remove("cid");
         }
     }
 }

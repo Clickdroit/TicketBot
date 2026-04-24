@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id 'application'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
 group = 'fr.sakura'
@@ -12,7 +13,7 @@ repositories {
 
 dependencies {
     // JDA (Java Discord API) pour interagir avec Discord
-    implementation 'net.dv8tion:JDA:5.0.0-beta.21'
+    implementation 'net.dv8tion:JDA:6.4.1'
     
     // Logback pour la gestion des logs
     implementation 'ch.qos.logback:logback-classic:1.4.14'
@@ -20,20 +21,36 @@ dependencies {
     // Dotenv pour lire le fichier .env
     implementation 'io.github.cdimascio:dotenv-java:3.0.0'
 
-    // Gson pour la persistance JSON locale (conservation pour l'existant)
-    implementation 'com.google.code.gson:gson:2.10.1'
 
     // SQLite pour la nouvelle base de donnees
     implementation 'org.xerial:sqlite-jdbc:3.45.1.0'
 
     // PostgreSQL JDBC pour la base distante Supabase
     implementation 'org.postgresql:postgresql:42.7.7'
+
+    // HikariCP pour le pooling de connexions
+    implementation 'com.zaxxer:HikariCP:5.1.0'
+
+    // Caffeine pour le cache en mémoire avec TTL
+    implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testImplementation 'org.mockito:mockito-core:5.11.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.11.0'
 }
 
 application {
     mainClass = 'fr.sakura.bot.Main'
 }
 
+shadowJar {
+    archiveFileName = 'sakura-bot.jar'
+}
+
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
+}
+
+test {
+    useJUnitPlatform()
 }

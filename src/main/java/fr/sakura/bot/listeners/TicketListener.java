@@ -1,20 +1,29 @@
 package fr.sakura.bot.listeners;
 
-import fr.sakura.bot.utils.EmbedStyle;
-import fr.sakura.bot.utils.ModerationLogger;
-import fr.sakura.bot.utils.TicketEntry;
-import fr.sakura.bot.utils.TicketService;
+import fr.sakura.bot.core.util.EmbedStyle;
+import fr.sakura.bot.listeners.log.ModerationLogListener;
+import fr.sakura.bot.core.model.TicketEntry;
+import fr.sakura.bot.core.service.TicketService;
+import fr.sakura.bot.core.util.MdcContext;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.Category;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
+import net.dv8tion.jda.api.events.interaction.component.GenericComponentInteractionCreateEvent;
+import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
+import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
+import net.dv8tion.jda.api.components.textinput.TextInput;
+import net.dv8tion.jda.api.components.textinput.TextInputStyle;
+import net.dv8tion.jda.api.components.label.Label;
+import net.dv8tion.jda.api.modals.Modal;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -24,13 +33,74 @@ public class TicketListener extends ListenerAdapter {
     private static final String CREATE_ID = "ticket:create";
     private static final String CLAIM_ID = "ticket:claim";
     private static final String CLOSE_ID = "ticket:close";
+    private static final String CATEGORY_ID = "ticket:category";
 
     private final TicketService ticketService;
-    private final ModerationLogger moderationLogger;
+    private final ModerationLogListener moderationLogListener;
 
-    public TicketListener(TicketService ticketService, ModerationLogger moderationLogger) {
+    public TicketListener(TicketService ticketService, ModerationLogListener moderationLogListener) {
         this.ticketService = ticketService;
-        this.moderationLogger = moderationLogger;
+        this.moderationLogListener = moderationLogListener;
+    }
+
+    @Override
+    public void onStringSelectInteraction(@NotNull StringSelectInteractionEvent event) {
+        if (!event.isFromGuild() || event.getMember() == null || event.getGuild() == null) {
+            return;
+        }
+
+        try (var ignored = MdcContext.of("guildId", event.getGuild().getId(), "userId", event.getUser().getId())) {
+            if (CATEGORY_ID.equals(event.getComponentId())) {
+                if (event.getValues().isEmpty()) {
+                    return;
+                }
+                
+                String selected = event.getValues().get(0);
+                
+                // Vérification si un ticket est déjà ouvert
+                TicketEntry activeTicket = ticketService.findOpenTicket(event.getGuild().getId(), event.getUser().getId());
+                if (activeTicket != null) {
+                    event.reply("ℹ️ Vous avez déjà un ticket actif : <#" + activeTicket.channelId() + ">")
+                            .setEphemeral(true)
+                            .queue();
+                    return;
+                }
+
+                // Affichage du Modal avec deux questions (Components V2)
+                TextInput subjectInput = TextInput.create("subject", TextInputStyle.SHORT)
+                        .setPlaceholder("Ex: Problème d'XP, Question partenariat...")
+                        .setMinLength(5)
+                        .setMaxLength(50)
+                        .build();
+
+                TextInput descriptionInput = TextInput.create("description", TextInputStyle.PARAGRAPH)
+                        .setPlaceholder("Décrivez votre demande avec le plus de détails possible...")
+                        .setMinLength(20)
+                        .setMaxLength(1000)
+                        .build();
+
+                Modal modal = Modal.create("ticket:modal:" + selected, "Ouverture de Ticket")
+                        .addComponents(
+                                Label.of("Sujet de la demande", subjectInput),
+                                Label.of("Description détaillée", descriptionInput)
+                        )
+                        .build();
+
+                event.replyModal(modal).queue();
+            }
+        }
+    }
+
+    @Override
+    public void onModalInteraction(@NotNull ModalInteractionEvent event) {
+        if (event.getModalId().startsWith("ticket:modal:")) {
+            String categoryId = event.getModalId().substring("ticket:modal:".length());
+            String subject = event.getValue("subject").getAsString();
+            String description = event.getValue("description").getAsString();
+            String categoryLabel = getCategoryName(categoryId);
+            
+            handleCreate(event, categoryLabel, subject, description);
+        }
     }
 
     @Override
@@ -39,42 +109,53 @@ public class TicketListener extends ListenerAdapter {
             return;
         }
 
-        if (CREATE_ID.equals(event.getComponentId())) {
-            handleCreate(event);
-            return;
-        }
+        try (var ignored = MdcContext.of("guildId", event.getGuild().getId(), "userId", event.getUser().getId())) {
+            if (CLAIM_ID.equals(event.getComponentId())) {
+                handleClaim(event);
+                return;
+            }
 
-        if (CLAIM_ID.equals(event.getComponentId())) {
-            handleClaim(event);
-            return;
-        }
-
-        if (CLOSE_ID.equals(event.getComponentId())) {
-            handleClose(event);
+            if (CLOSE_ID.equals(event.getComponentId())) {
+                handleClose(event);
+            }
         }
     }
 
-    private void handleCreate(ButtonInteractionEvent event) {
+    private String getCategoryName(String id) {
+        return switch (id) {
+            case "ticket:partnership" -> "Partenariat";
+            case "ticket:report" -> "Signalement";
+            case "ticket:support" -> "Support";
+            case "ticket:suggestion" -> "Suggestion";
+            case "ticket:other" -> "Autre";
+            default -> "Support";
+        };
+    }
+
+    private void handleCreate(ModalInteractionEvent event, String categoryLabel, String subject, String description) {
         Member requester = event.getMember();
         var guild = event.getGuild();
+        if (guild == null || requester == null) return;
         String guildId = guild.getId();
-
-        TicketEntry openTicket = ticketService.findOpenTicket(guildId, requester.getId());
-        if (openTicket != null) {
-            event.reply("ℹ️ Vous avez déjà un ticket ouvert: <#" + openTicket.channelId() + ">")
-                    .setEphemeral(true)
-                    .queue();
-            return;
-        }
 
         event.deferReply(true).queue(ignored -> {
             String channelName = ticketService.ticketChannelName(requester);
             Category category = ticketService.resolveTicketCategory(guild);
             List<net.dv8tion.jda.api.entities.Role> supportRoles = ticketService.resolveSupportRoles(guild);
             String supportMention = ticketService.supportMention(guild);
+            Member selfMember = guild.getSelfMember();
+
+            if (category != null && !selfMember.hasPermission(category, Permission.MANAGE_CHANNEL)) {
+                event.getHook().sendMessage("❌ Je n'ai pas la permission **Gérer les salons** dans la catégorie " + category.getAsMention() + ".").queue();
+                return;
+            }
+            if (category == null && !selfMember.hasPermission(Permission.MANAGE_CHANNEL)) {
+                event.getHook().sendMessage("❌ Je n'ai pas la permission **Gérer les salons** pour créer un ticket.").queue();
+                return;
+            }
 
             var action = guild.createTextChannel(channelName)
-                    .setTopic("Ticket ouvert par " + requester.getUser().getName() + " (" + requester.getId() + ")")
+                    .setTopic("Ticket [" + categoryLabel + "] : " + subject)
                     .addPermissionOverride(guild.getPublicRole(), null, java.util.EnumSet.of(Permission.VIEW_CHANNEL))
                     .addPermissionOverride(requester, ticketService.ticketUserPermissions(), null)
                     .addPermissionOverride(guild.getSelfMember(), ticketService.ticketStaffPermissions(), null);
@@ -90,21 +171,37 @@ public class TicketListener extends ListenerAdapter {
             action.queue(channel -> {
                 ticketService.createTicketRecord(guildId, requester.getId(), channel.getId());
 
-                EmbedBuilder embed = EmbedStyle.newInfoEmbed("🎫", "Ticket ouvert");
-                embed.setDescription(requester.getAsMention() + " a ouvert un ticket. " + supportMention + " va prendre le relais.");
-                embed.addField("👤 Demandeur", requester.getUser().getName(), true);
-                embed.addField("📌 Salon", channel.getAsMention(), true);
-                EmbedStyle.setFooter(embed, "Ticket #" + channel.getId());
+                EmbedBuilder embed = EmbedStyle.newActionEmbed("📩", "Nouveau Ticket : " + categoryLabel);
+                embed.setAuthor("Support • " + guild.getName(), null, guild.getIconUrl());
+                
+                embed.setDescription(
+                    "Bonjour " + requester.getAsMention() + " !\n" +
+                    "L'équipe " + supportMention + " a été prévenue et vous répondra dès que possible.\n\n" +
+                    EmbedStyle.sectionHeader("📝", "Détails de la demande")
+                );
+                
+                embed.addField("👤 Utilisateur", requester.getAsMention(), true);
+                embed.addField("📌 Sujet", subject, true);
+                embed.addField("📂 Catégorie", categoryLabel, true);
+                
+                embed.addField("📖 Description", "```" + description + "```", false);
+                
+                embed.addField("\u200B", 
+                        "✅ **Prendre en charge** - Un modérateur s'occupe de vous\n" + 
+                        "🔒 **Fermer** - Clôturer le ticket", false);
 
-                channel.sendMessageEmbeds(embed.build())
-                        .setActionRow(ticketService.claimButton(), ticketService.closeButton())
+                embed.setThumbnail(requester.getEffectiveAvatarUrl());
+                EmbedStyle.setFooter(embed, "Ticket ID: " + channel.getName());
+
+                channel.sendMessage(requester.getAsMention() + " " + supportMention).setEmbeds(embed.build())
+                        .setComponents(ActionRow.of(ticketService.claimButton(), ticketService.closeButton()))
                         .queue();
 
-                event.getHook().sendMessage("✅ Ticket créé: " + channel.getAsMention()).queue();
-                moderationLogger.logInGuild(guild, "TICKET_CREATE", requester, requester, "Ticket ouvert", channel.getId());
-                logger.info("Ticket créé guildId={}, userId={}, channelId={}", guildId, requester.getId(), channel.getId());
+                event.getHook().sendMessage("✅ Ticket créé : " + channel.getAsMention()).queue();
+                moderationLogListener.logAction(guild, "TICKET_CREATE", requester, requester, "Ticket ouvert (" + categoryLabel + ")", "Sujet: " + subject);
+                logger.info("Ticket créé avec sujet et description");
             }, error -> {
-                logger.error("Echec creation ticket guildId={}, userId={}", guildId, requester.getId(), error);
+                logger.error("Echec creation ticket", error);
                 event.getHook().sendMessage("❌ Impossible de créer le ticket.").queue();
             });
         });
@@ -117,24 +214,40 @@ public class TicketListener extends ListenerAdapter {
         }
 
         var guild = event.getGuild();
+        if (guild == null) return;
         var channel = event.getChannel();
         TicketEntry ticket = ticketService.findByChannelId(guild.getId(), channel.getId());
-        if (ticket == null || ticket.status() == null || !"OPEN".equalsIgnoreCase(ticket.status())) {
+        if (ticket == null || ticket.status() == null || "CLOSED".equalsIgnoreCase(ticket.status())) {
             event.reply("❌ Ticket introuvable ou déjà fermé.").setEphemeral(true).queue();
             return;
         }
 
-        ticketService.claimTicket(guild.getId(), channel.getId(), event.getUser().getId());
+        if ("CLAIMED".equalsIgnoreCase(ticket.status())) {
+            event.reply("ℹ️ Ticket déjà pris en charge.").setEphemeral(true).queue();
+            return;
+        }
+
+        TicketEntry claimed = ticketService.claimTicket(guild.getId(), channel.getId(), event.getUser().getId());
         event.reply("✅ Ticket pris en charge par " + event.getUser().getAsMention()).setEphemeral(true).queue();
-        moderationLogger.logInGuild(guild, "TICKET_CLAIM", event.getMember(), guild.getMemberById(ticket.userId()), "Ticket pris en charge", channel.getId());
-        logger.info("Ticket claim guildId={}, channelId={}, staffId={}", guild.getId(), channel.getId(), event.getUser().getId());
+        
+        Member ownerMember = guild.getMemberById(ticket.userId());
+        if (ownerMember != null) {
+            moderationLogListener.logAction(guild, "TICKET_CLAIM", event.getMember(), ownerMember, "Ticket pris en charge", channel.getId());
+        }
+
+        if (claimed != null) {
+            channel.sendMessage("✅ " + event.getUser().getAsMention() + " prend en charge ce ticket.").queue();
+        }
+
+        logger.info("Ticket claim");
     }
 
     private void handleClose(ButtonInteractionEvent event) {
         var guild = event.getGuild();
+        if (guild == null) return;
         var channel = event.getChannel();
         TicketEntry ticket = ticketService.findByChannelId(guild.getId(), channel.getId());
-        if (ticket == null || ticket.status() == null || !"OPEN".equalsIgnoreCase(ticket.status())) {
+        if (ticket == null || ticket.status() == null || "CLOSED".equalsIgnoreCase(ticket.status())) {
             event.reply("❌ Ticket introuvable ou déjà fermé.").setEphemeral(true).queue();
             return;
         }
@@ -146,18 +259,24 @@ public class TicketListener extends ListenerAdapter {
             return;
         }
 
-        ticketService.closeTicket(guild.getId(), channel.getId(), event.getUser().getId(), isOwner ? "Fermé par le demandeur" : "Fermé par le support");
-        event.reply("🔒 Ticket fermé. Le salon sera supprimé dans 10 secondes.").setEphemeral(true).queue();
-        moderationLogger.logInGuild(guild, "TICKET_CLOSE", event.getMember(), guild.getMemberById(ticket.userId()), "Ticket fermé", channel.getId());
+        String closeReason = isOwner ? "Fermé par le demandeur" : "Fermé par le support";
+        TicketEntry closed = ticketService.closeTicket(guild.getId(), channel.getId(), event.getUser().getId(), closeReason);
 
-        channel.asTextChannel().sendMessage("🔒 Le ticket est en cours de fermeture...").queue();
-        channel.asTextChannel().delete().queueAfter(Duration.ofSeconds(10).toMillis(), TimeUnit.MILLISECONDS);
-        logger.info("Ticket close guildId={}, channelId={}, closedBy={}", guild.getId(), channel.getId(), event.getUser().getId());
+        event.reply("🔒 Ticket fermé. Le salon sera supprimé dans 10 secondes.").setEphemeral(true).queue();
+        
+        Member ownerMember = guild.getMemberById(ticket.userId());
+        if (ownerMember != null) {
+            moderationLogListener.logAction(guild, "TICKET_CLOSE", event.getMember(), ownerMember, "Ticket fermé", channel.getId());
+        }
+
+        String details = "🔒 Ticket clôturé par " + event.getUser().getAsMention();
+        if (closed != null && closed.claimedBy() != null) {
+            details += "\n👤 Pris en charge par <@" + closed.claimedBy() + ">";
+        }
+        channel.sendMessage(details).queue();
+        if (channel instanceof TextChannel textChannel) {
+            textChannel.delete().queueAfter(10, TimeUnit.SECONDS);
+        }
+        logger.info("Ticket close");
     }
 }
-
-
-
-
-
-
