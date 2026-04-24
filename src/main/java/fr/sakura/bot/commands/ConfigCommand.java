@@ -10,8 +10,11 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
+import net.dv8tion.jda.api.interactions.commands.build.SubcommandGroupData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.List;
 
 public class ConfigCommand implements ICommand {
 
@@ -54,6 +57,16 @@ public class ConfigCommand implements ICommand {
                                         .setMinValue(1)
                                         .setMaxValue(1440))
                 )
+                .addSubcommandGroups(
+                        new SubcommandGroupData("ignore", "Gère les salons ignorés par l'AutoMod")
+                                .addSubcommands(
+                                        new SubcommandData("add", "Ajoute un salon à la liste des salons ignorés")
+                                                .addOptions(new OptionData(OptionType.CHANNEL, "salon", "Le salon à ignorer", true)),
+                                        new SubcommandData("remove", "Retire un salon de la liste des salons ignorés")
+                                                .addOptions(new OptionData(OptionType.CHANNEL, "salon", "Le salon à ne plus ignorer", true)),
+                                        new SubcommandData("list", "Affiche la liste des salons ignorés")
+                                )
+                )
                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.ADMINISTRATOR));
     }
 
@@ -65,7 +78,13 @@ public class ConfigCommand implements ICommand {
         }
 
         String subcommand = event.getSubcommandName();
+        String group = event.getSubcommandGroup();
         String guildId = event.getGuild().getId();
+
+        if (group != null && group.equals("ignore")) {
+            handleIgnoreGroup(event, guildId, subcommand);
+            return;
+        }
 
         if (subcommand == null) {
             event.reply("❌ Sous-commande manquante.").setEphemeral(true).queue();
@@ -116,5 +135,35 @@ public class ConfigCommand implements ICommand {
         }
 
         logger.info("Config: subcommand={} par userId={} guildId={}", subcommand, event.getUser().getId(), guildId);
+    }
+
+    private void handleIgnoreGroup(SlashCommandInteractionEvent event, String guildId, String subcommand) {
+        switch (subcommand) {
+            case "add" -> {
+                var channel = event.getOption("salon", OptionMapping::getAsChannel);
+                if (channel == null) return;
+                settingsManager.addIgnoredChannel(guildId, channel.getId());
+                event.reply("✅ Le salon " + channel.getAsMention() + " est désormais ignoré par l'AutoMod.").setEphemeral(true).queue();
+            }
+            case "remove" -> {
+                var channel = event.getOption("salon", OptionMapping::getAsChannel);
+                if (channel == null) return;
+                settingsManager.removeIgnoredChannel(guildId, channel.getId());
+                event.reply("✅ Le salon " + channel.getAsMention() + " n'est plus ignoré par l'AutoMod.").setEphemeral(true).queue();
+            }
+            case "list" -> {
+                List<String> ignored = settingsManager.getIgnoredChannels(guildId);
+                if (ignored.isEmpty()) {
+                    event.reply("Aucun salon n'est ignoré par l'AutoMod.").setEphemeral(true).queue();
+                } else {
+                    StringBuilder sb = new StringBuilder("**Salons ignorés par l'AutoMod :**\n");
+                    for (String id : ignored) {
+                        sb.append("- <#").append(id).append(">\n");
+                    }
+                    event.reply(sb.toString()).setEphemeral(true).queue();
+                }
+            }
+            default -> event.reply("❌ Sous-commande inconnue.").setEphemeral(true).queue();
+        }
     }
 }

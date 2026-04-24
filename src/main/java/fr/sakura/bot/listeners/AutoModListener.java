@@ -24,6 +24,8 @@ public class AutoModListener extends ListenerAdapter {
     
     private final ModerationLogger moderationLogger;
     private final SettingsManager settingsManager;
+    private final fr.sakura.bot.database.ProtectSettingsManager protectSettingsManager;
+    private final fr.sakura.bot.protect.PhishingService phishingService;
 
     // Pattern URL simplifie
     private static final Pattern URL_PATTERN = Pattern.compile("https?://\\S+");
@@ -39,9 +41,11 @@ public class AutoModListener extends ListenerAdapter {
         private long lastUpdateMs;
     }
 
-    public AutoModListener(ModerationLogger moderationLogger, SettingsManager settingsManager) {
+    public AutoModListener(ModerationLogger moderationLogger, SettingsManager settingsManager, fr.sakura.bot.database.ProtectSettingsManager protectSettingsManager, fr.sakura.bot.protect.PhishingService phishingService) {
         this.moderationLogger = moderationLogger;
         this.settingsManager = settingsManager;
+        this.protectSettingsManager = protectSettingsManager;
+        this.phishingService = phishingService;
     }
 
     @Override
@@ -57,6 +61,24 @@ public class AutoModListener extends ListenerAdapter {
 
         // Ignorer les admins pour l'Automod
         if (member.hasPermission(net.dv8tion.jda.api.Permission.ADMINISTRATOR)) {
+            return;
+        }
+
+        // Ignorer les salons spécifiques (jeux, etc.)
+        if (settingsManager.getIgnoredChannels(guildId).contains(event.getChannel().getId())) {
+            return;
+        }
+
+        // 0) Anti-Phishing (Sakura Protect)
+        if (protectSettingsManager.isAntiPhishingEnabled(guildId) && phishingService.isPhishing(content)) {
+            event.getMessage().delete().queue(
+                    success -> {
+                        moderationLogger.logInGuild(event.getGuild(), "PROTECT", null, member, "Sakura Protect: Phishing detecté", "Contenu bloqué: " + truncate(content, 300));
+                        event.getChannel().sendMessage(member.getAsMention() + " ❌ Ce lien est considéré comme malveillant et a été supprimé.").queue();
+                        applyStrikeAndEscalate(event, member, memberKey, "Phishing détecté");
+                    },
+                    error -> logger.warn("AutoMod: Impossible de supprimer message phishing", error)
+            );
             return;
         }
 

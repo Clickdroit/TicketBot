@@ -1,6 +1,7 @@
 package fr.sakura.bot.commands;
 
 import fr.sakura.bot.database.SettingsManager;
+import fr.sakura.bot.database.ProtectSettingsManager;
 import fr.sakura.bot.utils.TicketService;
 import fr.sakura.bot.utils.ModerationLogger;
 import fr.sakura.bot.utils.LevelService;
@@ -27,7 +28,7 @@ public class CommandManager extends ListenerAdapter {
     private final String guildId;
     private final Map<String, ICommand> commands = new HashMap<>();
 
-    public CommandManager(String guildId, ModerationLogger moderationLogger, String warningsFilePath, SettingsManager settingsManager, LevelService levelService, TicketService ticketService) {
+    public CommandManager(String guildId, ModerationLogger moderationLogger, String warningsFilePath, SettingsManager settingsManager, LevelService levelService, TicketService ticketService, ProtectSettingsManager protectSettingsManager) {
         this.guildId = guildId;
         WarningService warningService = new WarningService(warningsFilePath);
 
@@ -52,6 +53,7 @@ public class CommandManager extends ListenerAdapter {
         addCommand(new RankCommand(levelService));
         addCommand(new LeaderboardCommand(levelService));
         addCommand(new TicketPanelCommand(ticketService));
+        addCommand(new ProtectCommand(protectSettingsManager));
     }
 
     private void addCommand(ICommand command) {

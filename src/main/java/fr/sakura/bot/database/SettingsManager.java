@@ -7,6 +7,9 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class SettingsManager {
 
@@ -148,6 +151,54 @@ public class SettingsManager {
 
     public void setAutomodTimeoutMinutes(String guildId, int value) {
         setIntSetting(guildId, "automod_timeout_minutes", clamp(value, 1, 1440));
+    }
+
+    public List<String> getIgnoredChannels(String guildId) {
+        ensureGuildExists(guildId);
+        String sql = "SELECT ignored_channels FROM settings WHERE guild_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, guildId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                String val = rs.getString("ignored_channels");
+                if (val == null || val.isBlank()) return new ArrayList<>();
+                return new ArrayList<>(Arrays.asList(val.split(",")));
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur lecture ignored_channels guildId={}", guildId, e);
+        }
+        return new ArrayList<>();
+    }
+
+    public void addIgnoredChannel(String guildId, String channelId) {
+        List<String> ignored = getIgnoredChannels(guildId);
+        if (!ignored.contains(channelId)) {
+            ignored.add(channelId);
+            updateIgnoredChannels(guildId, ignored);
+        }
+    }
+
+    public void removeIgnoredChannel(String guildId, String channelId) {
+        List<String> ignored = getIgnoredChannels(guildId);
+        if (ignored.remove(channelId)) {
+            updateIgnoredChannels(guildId, ignored);
+        }
+    }
+
+    private void updateIgnoredChannels(String guildId, List<String> ignored) {
+        String val = String.join(",", ignored);
+        ensureGuildExists(guildId);
+        String sql = "UPDATE settings SET ignored_channels = ? WHERE guild_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, val);
+            pstmt.setString(2, guildId);
+            pstmt.executeUpdate();
+            logger.info("Ignored channels mis a jour pour guildId={}", guildId);
+        } catch (SQLException e) {
+            logger.error("Erreur update ignored_channels guildId={}", guildId, e);
+        }
     }
 
     private int getIntSetting(String guildId, String field, int fallback, int min, int max) {

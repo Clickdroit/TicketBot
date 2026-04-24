@@ -88,6 +88,7 @@ public class DatabaseManager {
             addColumnIfMissing(stmt, "settings", "spam_window_ms", "INTEGER DEFAULT 5000");
             addColumnIfMissing(stmt, "settings", "automod_strikes_to_timeout", "INTEGER DEFAULT 3");
             addColumnIfMissing(stmt, "settings", "automod_timeout_minutes", "INTEGER DEFAULT 10");
+            addColumnIfMissing(stmt, "settings", "ignored_channels", "TEXT");
 
             // Table pour le systeme d'XP et niveaux (levels)
             stmt.execute(createLevelsTableSql());
@@ -100,6 +101,9 @@ public class DatabaseManager {
             addColumnIfMissing(stmt, "tickets", "closed_by", "TEXT");
             addColumnIfMissing(stmt, "tickets", "closed_at", "TEXT");
             addColumnIfMissing(stmt, "tickets", "close_reason", "TEXT");
+
+            // Table pour la protection (protect_settings)
+            stmt.execute(createProtectSettingsTableSql());
 
             logger.info("Base de donnees SQLite initialisee avec succes.");
 
@@ -246,6 +250,17 @@ public class DatabaseManager {
                 "closed_by TEXT," +
                 "closed_at TEXT," +
                 "close_reason TEXT" +
+                ");";
+    }
+
+    private static String createProtectSettingsTableSql() {
+        return "CREATE TABLE IF NOT EXISTS protect_settings (" +
+                "guild_id TEXT PRIMARY KEY," +
+                "whitelist TEXT," +
+                "anti_bot_enabled INTEGER DEFAULT 0," +
+                "anti_raid_enabled INTEGER DEFAULT 0," +
+                "anti_phishing_enabled INTEGER DEFAULT 0," +
+                "min_account_age_hours INTEGER DEFAULT 24" +
                 ");";
     }
 }

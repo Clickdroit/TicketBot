@@ -57,27 +57,44 @@ public class Main {
 
         // Initialisation des services
         SettingsManager settingsManager = new SettingsManager();
+        fr.sakura.bot.database.ProtectSettingsManager protectSettingsManager = new fr.sakura.bot.database.ProtectSettingsManager();
+        fr.sakura.bot.protect.PhishingService phishingService = new fr.sakura.bot.protect.PhishingService();
         ModerationLogger moderationLogger = new ModerationLogger(logChannelId);
         LevelService levelService = new LevelService();
         TicketService ticketService = new TicketService(settingsManager);
 
-        CommandManager commandManager = new CommandManager(guildId, moderationLogger, warningsFilePath, settingsManager, levelService, ticketService);
+        CommandManager commandManager = new CommandManager(guildId, moderationLogger, warningsFilePath, settingsManager, levelService, ticketService, protectSettingsManager);
         SecurityListener securityListener = new SecurityListener(guildId, commandManager);
         WelcomeListener welcomeListener = new WelcomeListener(welcomeChannelId, welcomeImageUrl);
         ModerationActivityListener moderationActivityListener = new ModerationActivityListener(moderationLogger);
-        AutoModListener autoModListener = new AutoModListener(moderationLogger, settingsManager);
+        AutoModListener autoModListener = new AutoModListener(moderationLogger, settingsManager, protectSettingsManager, phishingService);
         LevelListener levelListener = new LevelListener(levelService);
         TicketListener ticketListener = new TicketListener(ticketService, moderationLogger);
+        
+        // Listeners Sakura Protect
+        fr.sakura.bot.protect.AntiVandalismListener antiVandalismListener = new fr.sakura.bot.protect.AntiVandalismListener(protectSettingsManager, moderationLogger);
+        fr.sakura.bot.protect.JoinProtectionListener joinProtectionListener = new fr.sakura.bot.protect.JoinProtectionListener(protectSettingsManager, moderationLogger);
 
         JDABuilder.createLight(token)
                 .enableIntents(
                         GatewayIntent.GUILD_MESSAGES,
                         GatewayIntent.GUILD_MEMBERS,
                         GatewayIntent.GUILD_VOICE_STATES,
-                        GatewayIntent.MESSAGE_CONTENT
+                        GatewayIntent.MESSAGE_CONTENT,
+                        GatewayIntent.GUILD_MODERATION
                 )
                 .enableCache(CacheFlag.VOICE_STATE)
-                .addEventListeners(securityListener, commandManager, welcomeListener, moderationActivityListener, autoModListener, levelListener, ticketListener)
+                .addEventListeners(
+                        securityListener, 
+                        commandManager, 
+                        welcomeListener, 
+                        moderationActivityListener, 
+                        autoModListener, 
+                        levelListener, 
+                        ticketListener,
+                        antiVandalismListener,
+                        joinProtectionListener
+                )
                 .setActivity(Activity.playing("Sakura Bot (" + guildId + ")"))
                 .build();
 
