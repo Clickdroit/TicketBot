@@ -62,6 +62,7 @@ public class CommandManager extends ListenerAdapter {
             new TicketPanelCommand(ctx.ticketService()),
             
             new ConfigCommand(ctx.settings()),
+            new ProtectCommand(ctx.protectSettings()),
             new SayCommand(ctx.moderationLog()),
             new EmbedCommand(ctx.moderationLog()),
             new RolesPanelCommand(ctx.rolesPanelService()),

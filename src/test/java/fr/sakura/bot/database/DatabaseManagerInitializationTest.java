@@ -21,6 +21,7 @@ class DatabaseManagerInitializationTest {
             try (Connection conn = DatabaseManager.getConnection()) {
                 assertTrue(tableExists(conn, "schema_migrations"));
                 assertTrue(tableExists(conn, "level_roles"));
+                assertTrue(tableExists(conn, "protect_settings"));
                 assertTrue(indexExists(conn, "idx_warnings_guild_user_time"));
                 assertTrue(indexExists(conn, "idx_tickets_guild_status_created"));
                 assertTrue(indexExists(conn, "uq_tickets_single_active_per_user"));

@@ -7,11 +7,16 @@ import fr.sakura.bot.commands.CommandManager;
 import fr.sakura.bot.core.service.*;
 import fr.sakura.bot.core.store.*;
 import fr.sakura.bot.database.DatabaseManager;
+import fr.sakura.bot.database.ProtectSettingsManager;
 import fr.sakura.bot.database.SettingsManager;
 import fr.sakura.bot.listeners.*;
 import fr.sakura.bot.listeners.log.MessageLogListener;
 import fr.sakura.bot.listeners.log.ModerationLogListener;
 import fr.sakura.bot.listeners.log.VoiceLogListener;
+import fr.sakura.bot.protect.AntiVandalismListener;
+import fr.sakura.bot.protect.JoinProtectionListener;
+import fr.sakura.bot.protect.PhishingProtectionListener;
+import fr.sakura.bot.protect.PhishingService;
 import io.github.cdimascio.dotenv.Dotenv;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Activity;
@@ -52,6 +57,7 @@ public class Main {
         // 1. Infrastructure Data
         DatabaseManager.initialize(databaseUrl);
         SettingsManager settingsManager = new SettingsManager();
+        ProtectSettingsManager protectSettingsManager = new ProtectSettingsManager();
 
         // 2. Services Métier
         MessageCacheService messageCacheService = new MessageCacheService();
@@ -76,7 +82,7 @@ public class Main {
 
         // 4. Contexte et Commandes
         BotContext botContext = new BotContext(
-                guildId, settingsManager, levelService, ticketService, warningService, rolesPanelService, moderationLogListener
+                guildId, settingsManager, levelService, ticketService, warningService, rolesPanelService, moderationLogListener, protectSettingsManager
         );
         CommandManager commandManager = new CommandManager(botContext);
 
@@ -87,6 +93,10 @@ public class Main {
         LevelListener levelListener = new LevelListener(levelService);
         TicketListener ticketListener = new TicketListener(ticketService, moderationLogListener);
         RolesPanelListener rolesPanelListener = new RolesPanelListener(rolesPanelService);
+        PhishingService phishingService = new PhishingService();
+        JoinProtectionListener joinProtectionListener = new JoinProtectionListener(protectSettingsManager, moderationLogListener);
+        AntiVandalismListener antiVandalismListener = new AntiVandalismListener(protectSettingsManager, moderationLogListener);
+        PhishingProtectionListener phishingProtectionListener = new PhishingProtectionListener(protectSettingsManager, moderationLogListener, phishingService);
 
         // 6. Lancement JDA
         net.dv8tion.jda.api.JDA jda = JDABuilder.createLight(token)
@@ -108,7 +118,10 @@ public class Main {
                         autoModListener, 
                         levelListener, 
                         ticketListener, 
-                        rolesPanelListener
+                        rolesPanelListener,
+                        joinProtectionListener,
+                        antiVandalismListener,
+                        phishingProtectionListener
                 )
                 .setActivity(Activity.playing("Sakura Bot au service de Sena"))
                 .build();
@@ -116,6 +129,7 @@ public class Main {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             logger.info("🛑 Extinction du bot : libération des ressources...");
             messageCacheService.shutdown();
+            phishingService.close();
             DatabaseManager.shutdown();
             jda.shutdown();
         }));
