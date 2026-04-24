@@ -307,3 +307,76 @@ Or suppress this warning if this is intentional with Message.suppressContentInte
 2026-04-18 19:05:08.611 [ForkJoinPool.commonPool-worker-1] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Commandes globales purgees
 2026-04-18 19:05:08.612 [ForkJoinPool.commonPool-worker-1] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Serveur autorise confirme: 𝐒𝐚𝐤𝐮𝐫𝐚 🌸 • 𝐅𝐑 (1495010264125407262)
 2026-04-18 19:05:08.958 [ForkJoinPool.commonPool-worker-1] INFO  f.sakura.bot.commands.CommandManager [cid=n/a] - 14 commandes Slash enregistrees pour 𝐒𝐚𝐤𝐮𝐫𝐚 🌸 • 𝐅𝐑 (1495010264125407262)
+2026-04-18 20:35:54.717 [main] INFO  fr.sakura.bot.Main [cid=n/a] - Demarrage du bot Discord pour le serveur autorise 1495010264125407262
+2026-04-18 20:35:54.721 [main] INFO  fr.sakura.bot.Main [cid=n/a] - Configuration: welcomeChannelId=1495014815578718351, logChannelId=1495014805818572963, warningsFilePath=data/warnings.json, databaseUrl=postgresql://postgres:Novatek2007!@db.yuzcerlgnywfhpihxvun.supabase.co:5432/postgres
+2026-04-18 20:35:54.728 [main] INFO  f.s.bot.database.DatabaseManager [cid=n/a] - DATABASE_URL configuree en mode PostgreSQL (db.yuzcerlgnywfhpihxvun.supabase.co:5432//postgres)
+2026-04-18 20:35:56.527 [main] INFO  f.s.bot.database.DatabaseManager [cid=n/a] - Base de donnees SQLite initialisee avec succes.
+2026-04-18 20:35:56.613 [main] INFO  f.sakura.bot.utils.ModerationLogger [cid=n/a] - ModerationLogger initialise (enabled=true, channelId=1495014805818572963)
+2026-04-18 20:35:56.627 [main] INFO  fr.sakura.bot.utils.WarningStore [cid=n/a] - WarningStore utilise desormais SQLite via DatabaseManager
+2026-04-18 20:35:56.627 [main] INFO  fr.sakura.bot.utils.WarningService [cid=n/a] - WarningService pret (stockage SQLite)
+2026-04-18 20:35:56.627 [main] INFO  f.sakura.bot.commands.CommandManager [cid=n/a] - Initialisation CommandManager guildId=1495010264125407262, warningsFilePath=data/warnings.json
+2026-04-18 20:35:56.629 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: ping
+2026-04-18 20:35:56.629 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: help
+2026-04-18 20:35:56.633 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: avatar
+2026-04-18 20:35:56.633 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: userinfo
+2026-04-18 20:35:56.635 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: serverinfo
+2026-04-18 20:35:56.636 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: clear
+2026-04-18 20:35:56.640 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: kick
+2026-04-18 20:35:56.642 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: ban
+2026-04-18 20:35:56.645 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: timeout
+2026-04-18 20:35:56.645 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: unban
+2026-04-18 20:35:56.645 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: warn
+2026-04-18 20:35:56.645 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: warnings
+2026-04-18 20:35:56.645 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: clearwarnings
+2026-04-18 20:35:56.645 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: config
+2026-04-18 20:35:56.645 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: rank
+2026-04-18 20:35:56.653 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: leaderboard
+2026-04-18 20:35:56.653 [main] DEBUG f.sakura.bot.commands.CommandManager [cid=n/a] - Commande enregistree dans le routeur: ticketpanel
+2026-04-18 20:35:57.982 [main] INFO  net.dv8tion.jda.api.JDA [cid=n/a] - Login Successful!
+2026-04-18 20:35:58.055 [main] INFO  fr.sakura.bot.Main [cid=n/a] - Initialisation JDA lancee avec intents: GUILD_MESSAGES, GUILD_MEMBERS, GUILD_VOICE_STATES, MESSAGE_CONTENT
+2026-04-18 20:35:58.378 [JDA MainWS-ReadThread] INFO  n.d.j.i.requests.WebSocketClient [cid=n/a] - Connected to WebSocket
+2026-04-18 20:35:59.205 [JDA MainWS-ReadThread] INFO  net.dv8tion.jda.api.JDA [cid=n/a] - Finished Loading!
+2026-04-18 20:35:59.208 [JDA MainWS-ReadThread] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Bot connecte en tant que Sakura
+2026-04-18 20:35:59.208 [JDA MainWS-ReadThread] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Verification mono-serveur de 1 guild(s)
+2026-04-18 20:35:59.411 [ForkJoinPool.commonPool-worker-1] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Commandes globales purgees
+2026-04-18 20:35:59.412 [ForkJoinPool.commonPool-worker-1] INFO  f.s.bot.listeners.SecurityListener [cid=n/a] - Serveur autorise confirme: 𝐒𝐚𝐤𝐮𝐫𝐚 🌸 • 𝐅𝐑 (1495010264125407262)
+2026-04-18 20:35:59.775 [ForkJoinPool.commonPool-worker-1] INFO  f.sakura.bot.commands.CommandManager [cid=n/a] - 17 commandes Slash enregistrees pour 𝐒𝐚𝐤𝐮𝐫𝐚 🌸 • 𝐅𝐑 (1495010264125407262)
+2026-04-18 20:36:03.913 [JDA MainWS-ReadThread] INFO  f.s.b.l.ModerationActivityListener [cid=n/a] - Message modifie: guildId=1495010264125407262, channelId=1495014772452622416, messageId=1495102249519550605, authorId=838024514369617930
+2026-04-18 20:36:04.148 [ForkJoinPool.commonPool-worker-1] DEBUG f.sakura.bot.utils.ModerationLogger [cid=n/a] - Log moderation envoye: action=MESSAGE_EDIT, channelId=1495014805818572963
+2026-04-18 20:36:11.923 [JDA MainWS-ReadThread] INFO  f.s.b.l.ModerationActivityListener [cid=n/a] - Connexion vocale: guildId=1495010264125407262, memberId=838024514369617930, channelId=1495014804350439519
+2026-04-18 20:36:12.184 [ForkJoinPool.commonPool-worker-1] DEBUG f.sakura.bot.utils.ModerationLogger [cid=n/a] - Log moderation envoye: action=VOICE_CONNECT, channelId=1495014805818572963
+2026-04-18 20:36:14.795 [JDA MainWS-ReadThread] INFO  f.s.b.l.ModerationActivityListener [cid=n/a] - Self mute change: guildId=1495010264125407262, memberId=838024514369617930, selfMuted=true
+2026-04-18 20:36:14.799 [JDA MainWS-ReadThread] INFO  f.s.b.l.ModerationActivityListener [cid=n/a] - Connexion vocale: guildId=1495010264125407262, memberId=838024514369617930, channelId=1495014804350439519
+2026-04-18 20:36:14.997 [ForkJoinPool.commonPool-worker-1] DEBUG f.sakura.bot.utils.ModerationLogger [cid=n/a] - Log moderation envoye: action=VOICE_SELF_MUTE, channelId=1495014805818572963
+2026-04-18 20:36:15.346 [ForkJoinPool.commonPool-worker-1] DEBUG f.sakura.bot.utils.ModerationLogger [cid=n/a] - Log moderation envoye: action=VOICE_CONNECT, channelId=1495014805818572963
+2026-04-18 20:36:21.459 [JDA MainWS-ReadThread] INFO  f.s.b.l.ModerationActivityListener [cid=n/a] - Self mute change: guildId=1495010264125407262, memberId=838024514369617930, selfMuted=true
+2026-04-18 20:36:21.464 [JDA MainWS-ReadThread] INFO  f.s.b.l.ModerationActivityListener [cid=n/a] - Guild mute change: guildId=1495010264125407262, memberId=838024514369617930, guildMuted=true
+2026-04-18 20:36:21.467 [JDA MainWS-ReadThread] INFO  f.s.b.l.ModerationActivityListener [cid=n/a] - Connexion vocale: guildId=1495010264125407262, memberId=838024514369617930, channelId=1495014804350439519
+2026-04-18 20:36:21.673 [ForkJoinPool.commonPool-worker-1] DEBUG f.sakura.bot.utils.ModerationLogger [cid=n/a] - Log moderation envoye: action=VOICE_SELF_MUTE, channelId=1495014805818572963
+2026-04-18 20:36:21.953 [ForkJoinPool.commonPool-worker-1] DEBUG f.sakura.bot.utils.ModerationLogger [cid=n/a] - Log moderation envoye: action=VOICE_GUILD_MUTE, channelId=1495014805818572963
+2026-04-18 20:36:22.183 [ForkJoinPool.commonPool-worker-1] DEBUG f.sakura.bot.utils.ModerationLogger [cid=n/a] - Log moderation envoye: action=VOICE_CONNECT, channelId=1495014805818572963
+2026-04-18 20:36:29.489 [JDA MainWS-ReadThread] INFO  f.s.b.l.ModerationActivityListener [cid=n/a] - Self mute change: guildId=1495010264125407262, memberId=838024514369617930, selfMuted=true
+2026-04-18 20:36:29.492 [JDA MainWS-ReadThread] INFO  f.s.b.l.ModerationActivityListener [cid=n/a] - Connexion vocale: guildId=1495010264125407262, memberId=838024514369617930, channelId=1495014804350439519
+2026-04-18 20:36:29.951 [ForkJoinPool.commonPool-worker-1] DEBUG f.sakura.bot.utils.ModerationLogger [cid=n/a] - Log moderation envoye: action=VOICE_SELF_MUTE, channelId=1495014805818572963
+2026-04-18 20:36:30.187 [ForkJoinPool.commonPool-worker-1] DEBUG f.sakura.bot.utils.ModerationLogger [cid=n/a] - Log moderation envoye: action=VOICE_CONNECT, channelId=1495014805818572963
+2026-04-18 20:36:32.359 [JDA MainWS-ReadThread] INFO  f.s.b.l.ModerationActivityListener [cid=n/a] - Self mute change: guildId=1495010264125407262, memberId=838024514369617930, selfMuted=true
+2026-04-18 20:36:32.368 [JDA MainWS-ReadThread] INFO  f.s.b.l.ModerationActivityListener [cid=n/a] - Self deaf change: guildId=1495010264125407262, memberId=838024514369617930, selfDeafened=true
+2026-04-18 20:36:32.369 [JDA MainWS-ReadThread] INFO  f.s.b.l.ModerationActivityListener [cid=n/a] - Connexion vocale: guildId=1495010264125407262, memberId=838024514369617930, channelId=1495014804350439519
+2026-04-18 20:36:32.605 [ForkJoinPool.commonPool-worker-1] DEBUG f.sakura.bot.utils.ModerationLogger [cid=n/a] - Log moderation envoye: action=VOICE_SELF_MUTE, channelId=1495014805818572963
+2026-04-18 20:36:32.987 [ForkJoinPool.commonPool-worker-1] DEBUG f.sakura.bot.utils.ModerationLogger [cid=n/a] - Log moderation envoye: action=VOICE_SELF_DEAFEN, channelId=1495014805818572963
+2026-04-18 20:36:33.460 [ForkJoinPool.commonPool-worker-1] DEBUG f.sakura.bot.utils.ModerationLogger [cid=n/a] - Log moderation envoye: action=VOICE_CONNECT, channelId=1495014805818572963
+2026-04-18 20:36:34.362 [JDA MainWS-ReadThread] INFO  f.s.b.l.ModerationActivityListener [cid=n/a] - Self mute change: guildId=1495010264125407262, memberId=838024514369617930, selfMuted=true
+2026-04-18 20:36:34.364 [JDA MainWS-ReadThread] INFO  f.s.b.l.ModerationActivityListener [cid=n/a] - Connexion vocale: guildId=1495010264125407262, memberId=838024514369617930, channelId=1495014804350439519
+2026-04-18 20:36:34.613 [ForkJoinPool.commonPool-worker-1] DEBUG f.sakura.bot.utils.ModerationLogger [cid=n/a] - Log moderation envoye: action=VOICE_SELF_MUTE, channelId=1495014805818572963
+2026-04-18 20:36:35.029 [ForkJoinPool.commonPool-worker-1] DEBUG f.sakura.bot.utils.ModerationLogger [cid=n/a] - Log moderation envoye: action=VOICE_CONNECT, channelId=1495014805818572963
+2026-04-18 20:36:35.576 [JDA MainWS-ReadThread] INFO  f.s.b.l.ModerationActivityListener [cid=n/a] - Connexion vocale: guildId=1495010264125407262, memberId=838024514369617930, channelId=1495014804350439519
+2026-04-18 20:36:35.903 [ForkJoinPool.commonPool-worker-1] DEBUG f.sakura.bot.utils.ModerationLogger [cid=n/a] - Log moderation envoye: action=VOICE_CONNECT, channelId=1495014805818572963
+2026-04-18 20:37:10.913 [JDA MainWS-ReadThread] INFO  f.sakura.bot.commands.CommandManager [cid=1495131092913488093-2a3b7b0b] - Commande recue: cmd=ticketpanel, guildId=1495010264125407262, userId=838024514369617930, channelId=1495014772452622416
+2026-04-18 20:37:10.925 [JDA MainWS-ReadThread] DEBUG f.sakura.bot.commands.CommandManager [cid=1495131092913488093-2a3b7b0b] - Dispatch execute() termine pour cmd=ticketpanel
+2026-04-18 20:37:11.278 [ForkJoinPool.commonPool-worker-1] INFO  f.s.bot.commands.TicketPanelCommand [cid=n/a] - /ticketpanel envoye guildId=1495010264125407262 userId=838024514369617930
+2026-04-18 20:37:21.961 [ForkJoinPool.commonPool-worker-1] INFO  f.s.bot.listeners.TicketListener [cid=n/a] - Ticket créé guildId=1495010264125407262, userId=838024514369617930, channelId=1495131135443861535
+2026-04-18 20:37:22.213 [ForkJoinPool.commonPool-worker-1] DEBUG f.sakura.bot.utils.ModerationLogger [cid=n/a] - Log moderation envoye: action=TICKET_CREATE, channelId=1495014805818572963
+2026-04-18 20:37:29.615 [JDA MainWS-ReadThread] INFO  f.s.bot.listeners.TicketListener [cid=n/a] - Ticket claim guildId=1495010264125407262, channelId=1495131135443861535, staffId=838024514369617930
+2026-04-18 20:37:30.006 [ForkJoinPool.commonPool-worker-1] DEBUG f.sakura.bot.utils.ModerationLogger [cid=n/a] - Log moderation envoye: action=TICKET_CLAIM, channelId=1495014805818572963
+2026-04-18 20:37:41.981 [JDA MainWS-ReadThread] INFO  f.s.bot.listeners.TicketListener [cid=n/a] - Ticket close guildId=1495010264125407262, channelId=1495131135443861535, closedBy=838024514369617930
+2026-04-18 20:37:42.321 [ForkJoinPool.commonPool-worker-1] DEBUG f.sakura.bot.utils.ModerationLogger [cid=n/a] - Log moderation envoye: action=TICKET_CLOSE, channelId=1495014805818572963
