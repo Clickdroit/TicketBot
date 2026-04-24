@@ -89,6 +89,20 @@ Le système de tickets permet d'ouvrir un salon privé via un panel Discord.
 
 Le bot essaie de détecter automatiquement un salon de support ou une catégorie adaptée si aucun réglage spécifique n'est fourni.
 
+## 🛡️ Module Protect
+
+Le module Protect est actif au runtime et couvre :
+
+- anti-bot / anti-raid join (scoring de risque + raid mode temporaire),
+- anti-vandalisme (corrélation audit log stricte + sanctions progressives),
+- anti-phishing (analyse URL/hostname + allowlist).
+
+Documentation complète :
+
+- `docs/protect.md`
+
+Ce guide contient la configuration recommandée, les commandes `/protect` disponibles et les bonnes pratiques pour limiter les faux positifs.
+
 ## 🛡️ Fonctionnalité d'exclusivité (Mono-Serveur)
 
 Le bot vérifie l'ID des serveurs sur lesquels il se trouve à deux moments :
