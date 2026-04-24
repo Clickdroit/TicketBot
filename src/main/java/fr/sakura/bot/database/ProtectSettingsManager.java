@@ -8,7 +8,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -17,7 +17,10 @@ public class ProtectSettingsManager {
     private static final Logger logger = LoggerFactory.getLogger(ProtectSettingsManager.class);
 
     private void ensureGuildExists(String guildId) {
-        String sql = "INSERT OR IGNORE INTO protect_settings (guild_id) VALUES (?)";
+        String sql = DatabaseManager.isPostgres()
+                ? "INSERT INTO protect_settings (guild_id) VALUES (?) ON CONFLICT (guild_id) DO NOTHING"
+                : "INSERT OR IGNORE INTO protect_settings (guild_id) VALUES (?)";
+
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, guildId);
@@ -28,53 +31,43 @@ public class ProtectSettingsManager {
     }
 
     public List<String> getWhitelist(String guildId) {
-        ensureGuildExists(guildId);
-        String sql = "SELECT whitelist FROM protect_settings WHERE guild_id = ?";
-        try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, guildId);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                String val = rs.getString("whitelist");
-                if (val == null || val.isBlank()) return new ArrayList<>();
-                return new ArrayList<>(Arrays.asList(val.split(",")));
-            }
-        } catch (SQLException e) {
-            logger.error("Erreur lecture whitelist guildId={}", guildId, e);
-        }
-        return new ArrayList<>();
+        return getCsvSetting(guildId, "whitelist");
     }
 
     public void addToWhitelist(String guildId, String userId) {
-        List<String> whitelist = getWhitelist(guildId);
-        if (!whitelist.contains(userId)) {
-            whitelist.add(userId);
-            updateWhitelist(guildId, whitelist);
-        }
+        addCsvValue(guildId, "whitelist", userId);
     }
 
     public void removeFromWhitelist(String guildId, String userId) {
-        List<String> whitelist = getWhitelist(guildId);
-        if (whitelist.remove(userId)) {
-            updateWhitelist(guildId, whitelist);
-        }
+        removeCsvValue(guildId, "whitelist", userId);
     }
 
-    private void updateWhitelist(String guildId, List<String> whitelist) {
-        String val = String.join(",", whitelist);
-        String sql = "UPDATE protect_settings SET whitelist = ? WHERE guild_id = ?";
-        try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, val);
-            pstmt.setString(2, guildId);
-            pstmt.executeUpdate();
-        } catch (SQLException e) {
-            logger.error("Erreur update whitelist guildId={}", guildId, e);
-        }
+    public List<String> getTrustedRoleIds(String guildId) {
+        return getCsvSetting(guildId, "trusted_role_ids");
+    }
+
+    public void addTrustedRoleId(String guildId, String roleId) {
+        addCsvValue(guildId, "trusted_role_ids", roleId);
+    }
+
+    public void removeTrustedRoleId(String guildId, String roleId) {
+        removeCsvValue(guildId, "trusted_role_ids", roleId);
+    }
+
+    public List<String> getPhishingAllowlist(String guildId) {
+        return getCsvSetting(guildId, "phishing_allowlist");
+    }
+
+    public void addPhishingAllowDomain(String guildId, String domain) {
+        addCsvValue(guildId, "phishing_allowlist", normalizeDomain(domain));
+    }
+
+    public void removePhishingAllowDomain(String guildId, String domain) {
+        removeCsvValue(guildId, "phishing_allowlist", normalizeDomain(domain));
     }
 
     public boolean isAntiBotEnabled(String guildId) {
-        return getBooleanSetting(guildId, "anti_bot_enabled");
+        return getBooleanSetting(guildId, "anti_bot_enabled", true);
     }
 
     public void setAntiBotEnabled(String guildId, boolean enabled) {
@@ -82,7 +75,7 @@ public class ProtectSettingsManager {
     }
 
     public boolean isAntiRaidEnabled(String guildId) {
-        return getBooleanSetting(guildId, "anti_raid_enabled");
+        return getBooleanSetting(guildId, "anti_raid_enabled", true);
     }
 
     public void setAntiRaidEnabled(String guildId, boolean enabled) {
@@ -90,7 +83,7 @@ public class ProtectSettingsManager {
     }
 
     public boolean isAntiPhishingEnabled(String guildId) {
-        return getBooleanSetting(guildId, "anti_phishing_enabled");
+        return getBooleanSetting(guildId, "anti_phishing_enabled", true);
     }
 
     public void setAntiPhishingEnabled(String guildId, boolean enabled) {
@@ -102,10 +95,68 @@ public class ProtectSettingsManager {
     }
 
     public void setMinAccountAgeHours(String guildId, int hours) {
-        setIntSetting(guildId, "min_account_age_hours", hours);
+        setIntSetting(guildId, "min_account_age_hours", Math.max(0, hours));
     }
 
-    private boolean getBooleanSetting(String guildId, String column) {
+    public int getRaidJoinThreshold(String guildId) {
+        return getIntSetting(guildId, "raid_join_threshold", 10);
+    }
+
+    public void setRaidJoinThreshold(String guildId, int threshold) {
+        setIntSetting(guildId, "raid_join_threshold", Math.max(3, threshold));
+    }
+
+    public int getRaidWindowSeconds(String guildId) {
+        return getIntSetting(guildId, "raid_window_seconds", 60);
+    }
+
+    public void setRaidWindowSeconds(String guildId, int seconds) {
+        setIntSetting(guildId, "raid_window_seconds", Math.max(10, seconds));
+    }
+
+    public int getRaidModeDurationSeconds(String guildId) {
+        return getIntSetting(guildId, "raid_mode_duration_seconds", 300);
+    }
+
+    public void setRaidModeDurationSeconds(String guildId, int seconds) {
+        setIntSetting(guildId, "raid_mode_duration_seconds", Math.max(30, seconds));
+    }
+
+    public String getQuarantineRoleId(String guildId) {
+        ensureGuildExists(guildId);
+        String sql = "SELECT quarantine_role_id FROM protect_settings WHERE guild_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, guildId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                String roleId = rs.getString("quarantine_role_id");
+                return (roleId == null || roleId.isBlank()) ? null : roleId;
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur lecture quarantine_role_id guildId={}", guildId, e);
+        }
+        return null;
+    }
+
+    public void setQuarantineRoleId(String guildId, String roleId) {
+        ensureGuildExists(guildId);
+        String sql = "UPDATE protect_settings SET quarantine_role_id = ? WHERE guild_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            if (roleId == null || roleId.isBlank()) {
+                pstmt.setNull(1, java.sql.Types.VARCHAR);
+            } else {
+                pstmt.setString(1, roleId);
+            }
+            pstmt.setString(2, guildId);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("Erreur update quarantine_role_id guildId={}", guildId, e);
+        }
+    }
+
+    private boolean getBooleanSetting(String guildId, String column, boolean defaultValue) {
         ensureGuildExists(guildId);
         String sql = "SELECT " + column + " FROM protect_settings WHERE guild_id = ?";
         try (Connection conn = DatabaseManager.getConnection();
@@ -118,7 +169,7 @@ public class ProtectSettingsManager {
         } catch (SQLException e) {
             logger.error("Erreur lecture {} guildId={}", column, guildId, e);
         }
-        return false;
+        return defaultValue;
     }
 
     private void setBooleanSetting(String guildId, String column, boolean value) {
@@ -161,5 +212,81 @@ public class ProtectSettingsManager {
         } catch (SQLException e) {
             logger.error("Erreur update {} guildId={}", column, guildId, e);
         }
+    }
+
+    private List<String> getCsvSetting(String guildId, String column) {
+        ensureGuildExists(guildId);
+        String sql = "SELECT " + column + " FROM protect_settings WHERE guild_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, guildId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return parseCsv(rs.getString(column));
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur lecture {} guildId={}", column, guildId, e);
+        }
+        return new ArrayList<>();
+    }
+
+    private void addCsvValue(String guildId, String column, String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) return;
+        List<String> values = getCsvSetting(guildId, column);
+        if (!values.contains(rawValue)) {
+            values.add(rawValue);
+            setCsvSetting(guildId, column, values);
+        }
+    }
+
+    private void removeCsvValue(String guildId, String column, String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) return;
+        List<String> values = getCsvSetting(guildId, column);
+        if (values.remove(rawValue)) {
+            setCsvSetting(guildId, column, values);
+        }
+    }
+
+    private void setCsvSetting(String guildId, String column, List<String> values) {
+        ensureGuildExists(guildId);
+        String sql = "UPDATE protect_settings SET " + column + " = ? WHERE guild_id = ?";
+        String serialized = values.stream()
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.joining(","));
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, serialized);
+            pstmt.setString(2, guildId);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("Erreur update {} guildId={}", column, guildId, e);
+        }
+    }
+
+    private List<String> parseCsv(String csv) {
+        if (csv == null || csv.isBlank()) {
+            return new ArrayList<>();
+        }
+        LinkedHashSet<String> unique = new LinkedHashSet<>();
+        for (String token : csv.split(",")) {
+            String value = token.trim();
+            if (!value.isEmpty()) {
+                unique.add(value);
+            }
+        }
+        return new ArrayList<>(unique);
+    }
+
+    private String normalizeDomain(String domain) {
+        if (domain == null) return "";
+        String normalized = domain.trim().toLowerCase();
+        if (normalized.startsWith("http://")) normalized = normalized.substring(7);
+        if (normalized.startsWith("https://")) normalized = normalized.substring(8);
+        int slashIdx = normalized.indexOf('/');
+        if (slashIdx >= 0) normalized = normalized.substring(0, slashIdx);
+        if (normalized.startsWith("www.")) normalized = normalized.substring(4);
+        if (normalized.endsWith(".")) normalized = normalized.substring(0, normalized.length() - 1);
+        return normalized;
     }
 }

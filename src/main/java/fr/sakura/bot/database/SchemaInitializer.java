@@ -93,6 +93,23 @@ public class SchemaInitializer {
             addColumnIfMissing(conn, "role_panels", "title", "TEXT", isPostgres);
             addColumnIfMissing(conn, "role_panels", "header_emoji", "TEXT", isPostgres);
         });
+
+        applyMigration(conn, 9, "create and harden protect_settings", () -> {
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute(createProtectSettingsTableSql());
+            }
+            addColumnIfMissing(conn, "protect_settings", "anti_bot_enabled", "INTEGER DEFAULT 1", isPostgres);
+            addColumnIfMissing(conn, "protect_settings", "anti_raid_enabled", "INTEGER DEFAULT 1", isPostgres);
+            addColumnIfMissing(conn, "protect_settings", "anti_phishing_enabled", "INTEGER DEFAULT 1", isPostgres);
+            addColumnIfMissing(conn, "protect_settings", "min_account_age_hours", "INTEGER DEFAULT 24", isPostgres);
+            addColumnIfMissing(conn, "protect_settings", "raid_join_threshold", "INTEGER DEFAULT 10", isPostgres);
+            addColumnIfMissing(conn, "protect_settings", "raid_window_seconds", "INTEGER DEFAULT 60", isPostgres);
+            addColumnIfMissing(conn, "protect_settings", "raid_mode_duration_seconds", "INTEGER DEFAULT 300", isPostgres);
+            addColumnIfMissing(conn, "protect_settings", "quarantine_role_id", "TEXT", isPostgres);
+            addColumnIfMissing(conn, "protect_settings", "trusted_role_ids", "TEXT", isPostgres);
+            addColumnIfMissing(conn, "protect_settings", "phishing_allowlist", "TEXT", isPostgres);
+            addColumnIfMissing(conn, "protect_settings", "whitelist", "TEXT", isPostgres);
+        });
     }
 
     private static void applyMigration(Connection conn, int version, String description, Migration migration) throws SQLException {
@@ -296,6 +313,23 @@ public class SchemaInitializer {
                 "role_id TEXT NOT NULL," +
                 "label TEXT NOT NULL," +
                 "emoji TEXT" +
+                ");";
+    }
+
+    private static String createProtectSettingsTableSql() {
+        return "CREATE TABLE IF NOT EXISTS protect_settings (" +
+                "guild_id TEXT PRIMARY KEY," +
+                "anti_bot_enabled INTEGER DEFAULT 1," +
+                "anti_raid_enabled INTEGER DEFAULT 1," +
+                "anti_phishing_enabled INTEGER DEFAULT 1," +
+                "min_account_age_hours INTEGER DEFAULT 24," +
+                "raid_join_threshold INTEGER DEFAULT 10," +
+                "raid_window_seconds INTEGER DEFAULT 60," +
+                "raid_mode_duration_seconds INTEGER DEFAULT 300," +
+                "quarantine_role_id TEXT," +
+                "trusted_role_ids TEXT," +
+                "phishing_allowlist TEXT," +
+                "whitelist TEXT" +
                 ");";
     }
 
