@@ -61,7 +61,7 @@ public class AntiVandalismListener extends ListenerAdapter {
         Instant eventTime = Instant.now();
         withMatchingActor(event.getGuild(), ActionType.CHANNEL_CREATE, event.getChannel().getId(), eventTime, actor -> {
             if (isTrustedActor(event.getGuild(), actor)) return;
-            event.getChannel().delete().reason("Sakura Protect: création de salon non autorisée").queue();
+            event.getChannel().delete().queue();
             applyProgressiveSanction(event.getGuild(), actor, "Création de salon non autorisée");
         });
     }
