@@ -29,7 +29,7 @@ class RolesPanelServiceTest {
     @Test
     void addButton_LimitReached() {
         // Simuler un panel existant
-        RolesPanelStore.RolePanel panel = new RolesPanelStore.RolePanel(1L, "guild-1", "chan-1", "msg-1", "", null);
+        RolesPanelStore.RolePanel panel = new RolesPanelStore.RolePanel(1L, "guild-1", "chan-1", "msg-1", "", false, true, "Title", "🌸", null);
         when(store.findPanel(anyString(), anyLong())).thenReturn(panel);
         
         // Simuler que la limite est atteinte (25 boutons maintenant)
@@ -44,7 +44,7 @@ class RolesPanelServiceTest {
 
     @Test
     void addButton_Success() {
-        RolesPanelStore.RolePanel panel = new RolesPanelStore.RolePanel(1L, "guild-1", "chan-1", "msg-1", "", null);
+        RolesPanelStore.RolePanel panel = new RolesPanelStore.RolePanel(1L, "guild-1", "chan-1", "msg-1", "", false, true, "Title", "🌸", null);
         when(store.findPanel("guild-1", 1L)).thenReturn(panel);
         when(store.countButtons(1L)).thenReturn(10);
 
@@ -56,7 +56,7 @@ class RolesPanelServiceTest {
 
     @Test
     void deletePanel_Success() {
-        RolesPanelStore.RolePanel panel = new RolesPanelStore.RolePanel(1L, "guild-1", "chan-1", "msg-1", "", null);
+        RolesPanelStore.RolePanel panel = new RolesPanelStore.RolePanel(1L, "guild-1", "chan-1", "msg-1", "", false, true, "Title", "🌸", null);
         when(store.findPanel("guild-1", 1L)).thenReturn(panel);
         when(store.deletePanel("guild-1", 1L)).thenReturn(true);
         

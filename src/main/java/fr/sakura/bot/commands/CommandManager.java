@@ -41,6 +41,7 @@ public class CommandManager extends ListenerAdapter {
             new AvatarCommand(),
             new UserInfoCommand(),
             new ServerInfoCommand(),
+            new SoulmateCommand(),
             
             new ClearCommand(ctx.moderationLog()),
             new KickCommand(ctx.moderationLog()),
