@@ -18,7 +18,10 @@ public enum SettingKey {
     XP_MIN_MESSAGE_LENGTH("xp_min_message_length", 5, 1, 300),
     XP_MIN_ALNUM_COUNT("xp_min_alnum_count", 3, 1, 100),
     XP_MIN_GAIN("xp_min_gain", 15, 1, 1000),
-    XP_MAX_GAIN("xp_max_gain", 25, 1, 1000);
+    XP_MAX_GAIN("xp_max_gain", 25, 1, 1000),
+    AUTO_SLOWMODE_ENABLED("auto_slowmode_enabled", 1, 0, 1),
+    AUTO_SLOWMODE_THRESHOLD("auto_slowmode_threshold", 10, 5, 50),
+    AUTO_SLOWMODE_DURATION("auto_slowmode_duration", 15, 5, 300);
 
     private final String sqlColumn;
     private final int defaultValue;

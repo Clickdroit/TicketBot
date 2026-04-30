@@ -75,6 +75,14 @@ public class Main {
         RolesPanelStore rolesPanelStore = new RolesPanelStore();
         RolesPanelService rolesPanelService = new RolesPanelService(rolesPanelStore);
 
+        TempBanStore tempBanStore = new TempBanStore();
+        TempBanService tempBanService = new TempBanService(tempBanStore);
+
+        StaffNoteStore staffNoteStore = new StaffNoteStore();
+        StaffNoteService staffNoteService = new StaffNoteService(staffNoteStore);
+
+        ModerationReportService moderationReportService = new ModerationReportService(warningStore, settingsManager);
+
         // 3. Listeners de Logs
         ModerationLogListener moderationLogListener = new ModerationLogListener(settingsManager, messageCacheService);
         MessageLogListener messageLogListener = new MessageLogListener(settingsManager, messageCacheService);
@@ -82,16 +90,16 @@ public class Main {
 
         // 4. Contexte et Commandes
         BotContext botContext = new BotContext(
-                guildId, settingsManager, levelService, ticketService, warningService, rolesPanelService, moderationLogListener, protectSettingsManager
+                guildId, settingsManager, levelService, ticketService, warningService, rolesPanelService, moderationLogListener, protectSettingsManager, tempBanService, staffNoteService
         );
         CommandManager commandManager = new CommandManager(botContext);
 
         // 5. Autres Listeners
         SecurityListener securityListener = new SecurityListener(guildId, commandManager, rolesPanelService);
         WelcomeListener welcomeListener = new WelcomeListener(settingsManager, welcomeChannelId, welcomeImageUrl);
-        AutoModListener autoModListener = new AutoModListener(moderationLogListener, settingsManager, spamDetector);
+        AutoModListener autoModListener = new AutoModListener(moderationLogListener, settingsManager, spamDetector, tempBanService);
         LevelListener levelListener = new LevelListener(levelService);
-        TicketListener ticketListener = new TicketListener(ticketService, moderationLogListener);
+        TicketListener ticketListener = new TicketListener(ticketService, moderationLogListener, settingsManager);
         RolesPanelListener rolesPanelListener = new RolesPanelListener(rolesPanelService);
         PhishingService phishingService = new PhishingService();
         JoinProtectionListener joinProtectionListener = new JoinProtectionListener(protectSettingsManager, moderationLogListener);
@@ -126,8 +134,14 @@ public class Main {
                 .setActivity(Activity.playing("Sakura Bot au service de Sena"))
                 .build();
 
+        tempBanService.start(jda);
+        moderationReportService.start(jda);
+
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             logger.info("🛑 Extinction du bot : libération des ressources...");
+            moderationReportService.shutdown();
+            spamDetector.shutdown();
+            tempBanService.shutdown();
             messageCacheService.shutdown();
             phishingService.close();
             DatabaseManager.shutdown();

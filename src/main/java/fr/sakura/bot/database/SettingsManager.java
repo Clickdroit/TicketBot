@@ -191,6 +191,13 @@ public class SettingsManager {
     public Optional<String> getWelcomeImageUrl(String guildId) { return getStringSetting(guildId, "welcome_image_url"); }
     public void setWelcomeImageUrl(String guildId, String imageUrl) { setStringSetting(guildId, "welcome_image_url", imageUrl); }
 
+    public Optional<String> getTranscriptChannelId(String guildId) { return getStringSetting(guildId, "transcript_channel_id"); }
+    public void setTranscriptChannelId(String guildId, String channelId) { setStringSetting(guildId, "transcript_channel_id", channelId); }
+
+    public boolean isAutoSlowmodeEnabled(String guildId) { return getIntSetting(guildId, SettingKey.AUTO_SLOWMODE_ENABLED) == 1; }
+    public int getAutoSlowmodeThreshold(String guildId) { return getIntSetting(guildId, SettingKey.AUTO_SLOWMODE_THRESHOLD); }
+    public int getAutoSlowmodeDuration(String guildId) { return getIntSetting(guildId, SettingKey.AUTO_SLOWMODE_DURATION); }
+
     // --- Gestion des Rôles de Niveau ---
 
     public Map<Integer, String> getLevelRoleMappings(String guildId) {

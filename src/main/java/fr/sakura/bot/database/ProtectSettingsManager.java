@@ -1,5 +1,7 @@
 package fr.sakura.bot.database;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -10,11 +12,21 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class ProtectSettingsManager {
 
     private static final Logger logger = LoggerFactory.getLogger(ProtectSettingsManager.class);
+
+    private final Cache<String, Object> cache = Caffeine.newBuilder()
+            .expireAfterWrite(30, TimeUnit.SECONDS)
+            .maximumSize(1000)
+            .build();
+
+    private String cacheKey(String guildId, String column) {
+        return guildId + ":" + column;
+    }
 
     private void ensureGuildExists(String guildId) {
         String sql = DatabaseManager.isPostgres()
@@ -123,6 +135,10 @@ public class ProtectSettingsManager {
     }
 
     public String getQuarantineRoleId(String guildId) {
+        String key = cacheKey(guildId, "quarantine_role_id");
+        String cached = (String) cache.getIfPresent(key);
+        if (cached != null) return cached.equals("__NULL__") ? null : cached;
+
         ensureGuildExists(guildId);
         String sql = "SELECT quarantine_role_id FROM protect_settings WHERE guild_id = ?";
         try (Connection conn = DatabaseManager.getConnection();
@@ -131,7 +147,9 @@ public class ProtectSettingsManager {
             ResultSet rs = pstmt.executeQuery();
             if (rs.next()) {
                 String roleId = rs.getString("quarantine_role_id");
-                return (roleId == null || roleId.isBlank()) ? null : roleId;
+                String value = (roleId == null || roleId.isBlank()) ? null : roleId;
+                cache.put(key, value == null ? "__NULL__" : value);
+                return value;
             }
         } catch (SQLException e) {
             logger.error("Erreur lecture quarantine_role_id guildId={}", guildId, e);
@@ -151,21 +169,29 @@ public class ProtectSettingsManager {
             }
             pstmt.setString(2, guildId);
             pstmt.executeUpdate();
+            cache.invalidate(cacheKey(guildId, "quarantine_role_id"));
         } catch (SQLException e) {
             logger.error("Erreur update quarantine_role_id guildId={}", guildId, e);
         }
     }
 
     private boolean getBooleanSetting(String guildId, String column, boolean defaultValue) {
+        String key = cacheKey(guildId, column);
+        Boolean cached = (Boolean) cache.getIfPresent(key);
+        if (cached != null) return cached;
+
         ensureGuildExists(guildId);
         String sql = "SELECT " + column + " FROM protect_settings WHERE guild_id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, guildId);
             ResultSet rs = pstmt.executeQuery();
+            boolean value = defaultValue;
             if (rs.next()) {
-                return rs.getInt(column) == 1;
+                value = rs.getInt(column) == 1;
             }
+            cache.put(key, value);
+            return value;
         } catch (SQLException e) {
             logger.error("Erreur lecture {} guildId={}", column, guildId, e);
         }
@@ -180,21 +206,29 @@ public class ProtectSettingsManager {
             pstmt.setInt(1, value ? 1 : 0);
             pstmt.setString(2, guildId);
             pstmt.executeUpdate();
+            cache.invalidate(cacheKey(guildId, column));
         } catch (SQLException e) {
             logger.error("Erreur update {} guildId={}", column, guildId, e);
         }
     }
 
     private int getIntSetting(String guildId, String column, int defaultValue) {
+        String key = cacheKey(guildId, column);
+        Integer cached = (Integer) cache.getIfPresent(key);
+        if (cached != null) return cached;
+
         ensureGuildExists(guildId);
         String sql = "SELECT " + column + " FROM protect_settings WHERE guild_id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, guildId);
             ResultSet rs = pstmt.executeQuery();
+            int value = defaultValue;
             if (rs.next()) {
-                return rs.getInt(column);
+                value = rs.getInt(column);
             }
+            cache.put(key, value);
+            return value;
         } catch (SQLException e) {
             logger.error("Erreur lecture {} guildId={}", column, guildId, e);
         }
@@ -209,21 +243,30 @@ public class ProtectSettingsManager {
             pstmt.setInt(1, value);
             pstmt.setString(2, guildId);
             pstmt.executeUpdate();
+            cache.invalidate(cacheKey(guildId, column));
         } catch (SQLException e) {
             logger.error("Erreur update {} guildId={}", column, guildId, e);
         }
     }
 
+    @SuppressWarnings("unchecked")
     private List<String> getCsvSetting(String guildId, String column) {
+        String key = cacheKey(guildId, column);
+        List<String> cached = (List<String>) cache.getIfPresent(key);
+        if (cached != null) return cached;
+
         ensureGuildExists(guildId);
         String sql = "SELECT " + column + " FROM protect_settings WHERE guild_id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, guildId);
             ResultSet rs = pstmt.executeQuery();
+            List<String> value = new ArrayList<>();
             if (rs.next()) {
-                return parseCsv(rs.getString(column));
+                value = parseCsv(rs.getString(column));
             }
+            cache.put(key, value);
+            return value;
         } catch (SQLException e) {
             logger.error("Erreur lecture {} guildId={}", column, guildId, e);
         }
@@ -259,6 +302,7 @@ public class ProtectSettingsManager {
             pstmt.setString(1, serialized);
             pstmt.setString(2, guildId);
             pstmt.executeUpdate();
+            cache.invalidate(cacheKey(guildId, column));
         } catch (SQLException e) {
             logger.error("Erreur update {} guildId={}", column, guildId, e);
         }

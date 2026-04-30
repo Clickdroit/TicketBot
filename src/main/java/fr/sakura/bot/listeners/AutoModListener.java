@@ -26,16 +26,18 @@ public class AutoModListener extends ListenerAdapter {
     private final ModerationLogListener moderationLogListener;
     private final SettingsManager settingsManager;
     private final SpamDetector spamDetector;
+    private final fr.sakura.bot.core.service.TempBanService tempBanService;
 
     private final Map<String, Long> lastWarnTime = new ConcurrentHashMap<>();
     
     private static final Pattern LINK_PATTERN = Pattern.compile("https?://\\S+|discord\\.gg/\\S+", Pattern.CASE_INSENSITIVE);
     private static final Pattern GIF_PATTERN = Pattern.compile("tenor\\.com|giphy\\.com", Pattern.CASE_INSENSITIVE);
 
-    public AutoModListener(ModerationLogListener moderationLogListener, SettingsManager settingsManager, SpamDetector spamDetector) {
+    public AutoModListener(ModerationLogListener moderationLogListener, SettingsManager settingsManager, SpamDetector spamDetector, fr.sakura.bot.core.service.TempBanService tempBanService) {
         this.moderationLogListener = moderationLogListener;
         this.settingsManager = settingsManager;
         this.spamDetector = spamDetector;
+        this.tempBanService = tempBanService;
     }
 
     @Override
@@ -52,7 +54,7 @@ public class AutoModListener extends ListenerAdapter {
 
             // ── Anti-Spam ─────────────────────────────────────────────────────────────
             if (settingsManager.isAntiSpamEnabled(guildId)) {
-                if (spamDetector.check(guildId, member.getId(), settingsManager)) {
+                if (spamDetector.check(event, settingsManager)) {
                     handleSpamReaction(event, member, guildId);
                 }
             }
@@ -94,22 +96,33 @@ public class AutoModListener extends ListenerAdapter {
         long noticeCooldown = (long) settingsManager.getAutomodNoticeCooldownSeconds(guildId) * 1000L;
 
         int currentStrikes = spamDetector.getStrikes(guildId, userId);
-        int strikesToTimeout = settingsManager.getAutomodStrikesToTimeout(guildId);
         
-        if (strikesToTimeout > 0 && currentStrikes >= strikesToTimeout) {
-            int timeoutMinutes = settingsManager.getAutomodTimeoutMinutes(guildId);
-            member.timeoutFor(timeoutMinutes, TimeUnit.MINUTES).reason("Anti-spam (AutoMod)").queue(
-                    success -> {
-                        event.getChannel().sendMessage("⏳ " + member.getAsMention() + " a été mis en sourdine pendant " + timeoutMinutes + " minutes pour spam répétitif.").queue();
-                        moderationLogListener.logAction(event.getGuild(), "TIMEOUT", null, member, "Spam répétitif (AutoMod)", "> **Strikes :** " + strikesToTimeout);
-                    },
-                    error -> logger.error("Echec timeout AutoMod", error)
-            );
+        // Escalade progressive :
+        // Strike 1-2 : Warn
+        // Strike 3 : Timeout 10 min
+        // Strike 4 : Timeout 1h
+        // Strike 5+ : TempBan 24h
+        
+        if (currentStrikes >= 5) {
+            tempBanService.addTempBan(event.getGuild(), member.getUser(), TimeUnit.DAYS.toMillis(1), "Spam intensif (AutoMod Escalation)");
+            event.getChannel().sendMessage("🚫 " + member.getAsMention() + " a été banni temporairement (24h) pour spam intensif.").queue();
             spamDetector.resetStrikes(guildId, userId);
+        } else if (currentStrikes == 4) {
+            member.timeoutFor(1, TimeUnit.HOURS).reason("Spam répété (AutoMod Escalation)").queue(
+                    success -> event.getChannel().sendMessage("⏳ " + member.getAsMention() + " a été mis en sourdine pendant 1 heure.").queue(),
+                    error -> logger.error("Echec timeout (1h) AutoMod", error)
+            );
+            moderationLogListener.logAction(event.getGuild(), "TIMEOUT", null, member, "Spam répété (AutoMod)", "> **Action :** Timeout 1h");
+        } else if (currentStrikes == 3) {
+            member.timeoutFor(10, TimeUnit.MINUTES).reason("Spam détecté (AutoMod Escalation)").queue(
+                    success -> event.getChannel().sendMessage("⏳ " + member.getAsMention() + " a été mis en sourdine pendant 10 minutes.").queue(),
+                    error -> logger.error("Echec timeout (10m) AutoMod", error)
+            );
+            moderationLogListener.logAction(event.getGuild(), "TIMEOUT", null, member, "Spam détecté (AutoMod)", "> **Action :** Timeout 10m");
         } else if (now - lastNotice > noticeCooldown) {
             event.getChannel().sendMessage("⚠️ " + member.getAsMention() + ", merci de ralentir l'envoi de messages.").queue();
             lastWarnTime.put(memberKey, now);
-            moderationLogListener.logAction(event.getGuild(), "AUTOMOD_WARN", null, member, "Spam détecté", "> **Strike :** " + currentStrikes + "/" + strikesToTimeout);
+            moderationLogListener.logAction(event.getGuild(), "AUTOMOD_WARN", null, member, "Spam détecté", "> **Strike :** " + currentStrikes);
         }
     }
 }

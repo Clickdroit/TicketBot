@@ -110,6 +110,30 @@ public class SchemaInitializer {
             addColumnIfMissing(conn, "protect_settings", "phishing_allowlist", "TEXT", isPostgres);
             addColumnIfMissing(conn, "protect_settings", "whitelist", "TEXT", isPostgres);
         });
+
+        applyMigration(conn, 10, "create temp_bans table", () -> {
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute(createTempBansTableSql(isPostgres));
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_temp_bans_unban_time ON temp_bans(unban_time)");
+            }
+        });
+
+        applyMigration(conn, 11, "create staff_notes table", () -> {
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute(createStaffNotesTableSql(isPostgres));
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_staff_notes_guild_user ON staff_notes(guild_id, user_id)");
+            }
+        });
+
+        applyMigration(conn, 12, "add transcript_channel_id to settings", () -> {
+            addColumnIfMissing(conn, "settings", "transcript_channel_id", "TEXT", isPostgres);
+        });
+
+        applyMigration(conn, 13, "add auto_slowmode columns to settings", () -> {
+            addColumnIfMissing(conn, "settings", "auto_slowmode_enabled", "INTEGER DEFAULT 1", isPostgres);
+            addColumnIfMissing(conn, "settings", "auto_slowmode_threshold", "INTEGER DEFAULT 10", isPostgres);
+            addColumnIfMissing(conn, "settings", "auto_slowmode_duration", "INTEGER DEFAULT 15", isPostgres);
+        });
     }
 
     private static void applyMigration(Connection conn, int version, String description, Migration migration) throws SQLException {
@@ -330,6 +354,46 @@ public class SchemaInitializer {
                 "trusted_role_ids TEXT," +
                 "phishing_allowlist TEXT," +
                 "whitelist TEXT" +
+                ");";
+    }
+
+    private static String createTempBansTableSql(boolean isPostgres) {
+        if (isPostgres) {
+            return "CREATE TABLE IF NOT EXISTS temp_bans (" +
+                    "id BIGSERIAL PRIMARY KEY," +
+                    "guild_id TEXT NOT NULL," +
+                    "user_id TEXT NOT NULL," +
+                    "unban_time BIGINT NOT NULL," +
+                    "reason TEXT" +
+                    ");";
+        }
+        return "CREATE TABLE IF NOT EXISTS temp_bans (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "guild_id TEXT NOT NULL," +
+                "user_id TEXT NOT NULL," +
+                "unban_time INTEGER NOT NULL," +
+                "reason TEXT" +
+                ");";
+    }
+
+    private static String createStaffNotesTableSql(boolean isPostgres) {
+        if (isPostgres) {
+            return "CREATE TABLE IF NOT EXISTS staff_notes (" +
+                    "id BIGSERIAL PRIMARY KEY," +
+                    "guild_id TEXT NOT NULL," +
+                    "user_id TEXT NOT NULL," +
+                    "author_id TEXT NOT NULL," +
+                    "content TEXT NOT NULL," +
+                    "created_at TEXT NOT NULL" +
+                    ");";
+        }
+        return "CREATE TABLE IF NOT EXISTS staff_notes (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "guild_id TEXT NOT NULL," +
+                "user_id TEXT NOT NULL," +
+                "author_id TEXT NOT NULL," +
+                "content TEXT NOT NULL," +
+                "created_at TEXT NOT NULL" +
                 ");";
     }
 

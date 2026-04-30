@@ -37,10 +37,12 @@ public class TicketListener extends ListenerAdapter {
 
     private final TicketService ticketService;
     private final ModerationLogListener moderationLogListener;
+    private final fr.sakura.bot.database.SettingsManager settingsManager;
 
-    public TicketListener(TicketService ticketService, ModerationLogListener moderationLogListener) {
+    public TicketListener(TicketService ticketService, ModerationLogListener moderationLogListener, fr.sakura.bot.database.SettingsManager settingsManager) {
         this.ticketService = ticketService;
         this.moderationLogListener = moderationLogListener;
+        this.settingsManager = settingsManager;
     }
 
     @Override
@@ -274,9 +276,48 @@ public class TicketListener extends ListenerAdapter {
             details += "\n👤 Pris en charge par <@" + closed.claimedBy() + ">";
         }
         channel.sendMessage(details).queue();
+
+        // Transcription
+        generateAndSendTranscript(guild, (TextChannel) channel, ticket, closed);
+
         if (channel instanceof TextChannel textChannel) {
             textChannel.delete().queueAfter(10, TimeUnit.SECONDS);
         }
         logger.info("Ticket close");
+    }
+
+    private void generateAndSendTranscript(net.dv8tion.jda.api.entities.Guild guild, TextChannel channel, TicketEntry ticket, TicketEntry closed) {
+        String transcriptChannelId = settingsManager.getTranscriptChannelId(guild.getId()).orElse(null);
+        if (transcriptChannelId == null) return;
+
+        TextChannel transcriptChannel = guild.getTextChannelById(transcriptChannelId);
+        if (transcriptChannel == null) return;
+
+        channel.getHistoryFromBeginning(100).queue(history -> {
+            StringBuilder sb = new StringBuilder();
+            sb.append("--- Transcription du Ticket #").append(channel.getName()).append(" ---\n");
+            sb.append("Propriétaire : <@").append(ticket.userId()).append(">\n");
+            if (closed != null && closed.claimedBy() != null) {
+                sb.append("Support : <@").append(closed.claimedBy()).append(">\n");
+            }
+            sb.append("Raison fermeture : ").append(closed != null ? closed.closeReason() : "N/A").append("\n");
+            sb.append("--------------------------------------------------\n\n");
+
+            history.getRetrievedHistory().forEach(msg -> {
+                String timestamp = msg.getTimeCreated().toString().substring(11, 19);
+                sb.append("[").append(timestamp).append("] ")
+                  .append(msg.getAuthor().getName()).append(": ")
+                  .append(msg.getContentDisplay()).append("\n");
+            });
+
+            byte[] data = sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            transcriptChannel.sendFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(data, "transcript-" + channel.getName() + ".txt"))
+                    .setEmbeds(new EmbedBuilder()
+                            .setTitle("Transcription de ticket")
+                            .setDescription("Ticket: #" + channel.getName() + "\nPropriétaire: <@" + ticket.userId() + ">")
+                            .setColor(java.awt.Color.GRAY)
+                            .build())
+                    .queue();
+        });
     }
 }

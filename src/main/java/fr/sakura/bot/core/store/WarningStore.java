@@ -20,7 +20,7 @@ public class WarningStore {
                 DatabaseManager.isPostgres() ? "PostgreSQL" : "SQLite");
     }
 
-    public synchronized List<WarningEntry> getWarnings(String guildId, String userId) {
+    public List<WarningEntry> getWarnings(String guildId, String userId) {
         String sql = "SELECT moderator_id, reason, timestamp FROM warnings WHERE guild_id = ? AND user_id = ?";
         return DbHelper.queryList(sql,
                 pstmt -> {
@@ -35,7 +35,7 @@ public class WarningStore {
         );
     }
 
-    public synchronized int getWarningsCount(String guildId, String userId) {
+    public int getWarningsCount(String guildId, String userId) {
         String sql = "SELECT COUNT(*) FROM warnings WHERE guild_id = ? AND user_id = ?";
         return DbHelper.queryOne(sql,
                 pstmt -> {
@@ -46,33 +46,58 @@ public class WarningStore {
         ).orElse(0);
     }
 
-    public synchronized int addWarning(String guildId, String userId, WarningEntry warningEntry) {
+    public int addWarning(String guildId, String userId, WarningEntry warningEntry) {
         String insertSql = "INSERT INTO warnings (guild_id, user_id, reason, timestamp, moderator_id) VALUES (?, ?, ?, ?, ?)";
-        try {
-            DbHelper.update(insertSql, pstmt -> {
-                pstmt.setString(1, guildId);
-                pstmt.setString(2, userId);
-                pstmt.setString(3, warningEntry.reason());
-                pstmt.setString(4, warningEntry.timestamp());
-                pstmt.setString(5, warningEntry.moderatorId());
-            });
-            return getWarningsCount(guildId, userId);
-        } catch (Exception e) {
-            logger.error("Erreur lors de l'ajout d'un warning pour guildId={}, userId={}", guildId, userId, e);
-            return 0;
-        }
+        DbHelper.update(insertSql, pstmt -> {
+            pstmt.setString(1, guildId);
+            pstmt.setString(2, userId);
+            pstmt.setString(3, warningEntry.reason());
+            pstmt.setString(4, warningEntry.timestamp());
+            pstmt.setString(5, warningEntry.moderatorId());
+        });
+        return getWarningsCount(guildId, userId);
     }
 
-    public synchronized int clearWarnings(String guildId, String userId) {
+    public int clearWarnings(String guildId, String userId) {
         String deleteSql = "DELETE FROM warnings WHERE guild_id = ? AND user_id = ?";
-        try {
-            return DbHelper.update(deleteSql, pstmt -> {
-                pstmt.setString(1, guildId);
-                pstmt.setString(2, userId);
-            });
-        } catch (Exception e) {
-            logger.error("Erreur lors de la suppression des warnings pour guildId={}, userId={}", guildId, userId, e);
-            return 0;
-        }
+        return DbHelper.update(deleteSql, pstmt -> {
+            pstmt.setString(1, guildId);
+            pstmt.setString(2, userId);
+        });
+    }
+
+    public record WeeklyStats(java.util.Map<String, Integer> topUsers, java.util.Map<String, Integer> topReasons, int total) {}
+
+    public WeeklyStats getWeeklyStats(String guildId, String sinceIso) {
+        String sqlUsers = "SELECT user_id, COUNT(*) as cnt FROM warnings WHERE guild_id = ? AND timestamp >= ? GROUP BY user_id ORDER BY cnt DESC LIMIT 5";
+        String sqlReasons = "SELECT reason, COUNT(*) as cnt FROM warnings WHERE guild_id = ? AND timestamp >= ? GROUP BY reason ORDER BY cnt DESC LIMIT 5";
+        
+        java.util.Map<String, Integer> users = new java.util.LinkedHashMap<>();
+        DbHelper.queryList(sqlUsers, pstmt -> {
+            pstmt.setString(1, guildId);
+            pstmt.setString(2, sinceIso);
+        }, rs -> {
+            users.put(rs.getString("user_id"), rs.getInt("cnt"));
+            return null;
+        });
+
+        java.util.Map<String, Integer> reasons = new java.util.LinkedHashMap<>();
+        DbHelper.queryList(sqlReasons, pstmt -> {
+            pstmt.setString(1, guildId);
+            pstmt.setString(2, sinceIso);
+        }, rs -> {
+            reasons.put(rs.getString("reason"), rs.getInt("cnt"));
+            return null;
+        });
+
+        int total = DbHelper.queryOne("SELECT COUNT(*) FROM warnings WHERE guild_id = ? AND timestamp >= ?",
+                pstmt -> {
+                    pstmt.setString(1, guildId);
+                    pstmt.setString(2, sinceIso);
+                },
+                rs -> rs.getInt(1)
+        ).orElse(0);
+
+        return new WeeklyStats(users, reasons, total);
     }
 }

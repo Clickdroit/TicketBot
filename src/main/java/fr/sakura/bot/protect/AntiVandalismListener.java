@@ -8,24 +8,28 @@ import net.dv8tion.jda.api.audit.AuditLogEntry;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
+import net.dv8tion.jda.api.entities.channel.ChannelType;
+import net.dv8tion.jda.api.entities.channel.attribute.ICategorizableChannel;
+import net.dv8tion.jda.api.entities.channel.attribute.IPositionableChannel;
+import net.dv8tion.jda.api.entities.channel.concrete.Category;
+import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import net.dv8tion.jda.api.events.channel.ChannelCreateEvent;
 import net.dv8tion.jda.api.events.channel.ChannelDeleteEvent;
+import net.dv8tion.jda.api.events.channel.update.GenericChannelUpdateEvent;
 import net.dv8tion.jda.api.events.guild.GuildBanEvent;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberRemoveEvent;
 import net.dv8tion.jda.api.events.role.RoleCreateEvent;
 import net.dv8tion.jda.api.events.role.RoleDeleteEvent;
+import net.dv8tion.jda.api.events.role.update.GenericRoleUpdateEvent;
 import net.dv8tion.jda.api.events.role.update.RoleUpdatePermissionsEvent;
+import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -52,9 +56,89 @@ public class AntiVandalismListener extends ListenerAdapter {
     private final Map<String, Integer> strikeByActor = new ConcurrentHashMap<>();
     private final Map<String, Long> lastStrikeAt = new ConcurrentHashMap<>();
 
+    // Snapshots pour restauration enrichie
+    private final Map<String, ChannelSnapshot> channelSnapshots = new ConcurrentHashMap<>();
+    private final Map<String, RoleSnapshot> roleSnapshots = new ConcurrentHashMap<>();
+
+    private record ChannelSnapshot(
+            String name,
+            ChannelType type,
+            String categoryId,
+            int position,
+            List<PermissionOverrideSnapshot> overrides
+    ) {}
+
+    private record PermissionOverrideSnapshot(
+            String targetId,
+            long allowed,
+            long denied,
+            boolean isRole
+    ) {}
+
+    private record RoleSnapshot(
+            String name,
+            int position,
+            long permissions,
+            Integer color,
+            boolean hoisted,
+            boolean mentionable
+    ) {}
+
     public AntiVandalismListener(ProtectSettingsManager protectSettingsManager, ModerationLogListener moderationLogListener) {
         this.protectSettingsManager = protectSettingsManager;
         this.moderationLogListener = moderationLogListener;
+    }
+
+    @Override
+    public void onReady(@NotNull ReadyEvent event) {
+        logger.info("AntiVandalism: Initialisation des snapshots pour {} serveur(s)", event.getJDA().getGuilds().size());
+        for (Guild guild : event.getJDA().getGuilds()) {
+            takeGuildSnapshot(guild);
+        }
+    }
+
+    private void takeGuildSnapshot(Guild guild) {
+        guild.getChannels().forEach(this::updateChannelSnapshot);
+        guild.getRoles().forEach(this::updateRoleSnapshot);
+        logger.debug("Snapshot terminé pour {} : {} salons, {} rôles", 
+                guild.getName(), guild.getChannels().size(), guild.getRoles().size());
+    }
+
+    private void updateChannelSnapshot(net.dv8tion.jda.api.entities.channel.Channel channel) {
+        if (!(channel instanceof GuildChannel gc)) return;
+
+        List<PermissionOverrideSnapshot> overrides = gc.getPermissionContainer().getPermissionOverrides().stream()
+                .map(o -> new PermissionOverrideSnapshot(
+                        o.getId(),
+                        o.getAllowedRaw(),
+                        o.getDeniedRaw(),
+                        o.isRoleOverride()
+                )).toList();
+
+        String categoryId = (gc instanceof ICategorizableChannel c && c.getParentCategory() != null)
+                ? c.getParentCategory().getId()
+                : null;
+
+        int position = (gc instanceof IPositionableChannel pc) ? pc.getPosition() : 0;
+
+        channelSnapshots.put(gc.getId(), new ChannelSnapshot(
+                gc.getName(),
+                gc.getType(),
+                categoryId,
+                position,
+                overrides
+        ));
+    }
+
+    private void updateRoleSnapshot(Role role) {
+        roleSnapshots.put(role.getId(), new RoleSnapshot(
+                role.getName(),
+                role.getPosition(),
+                role.getPermissionsRaw(),
+                role.getColor() != null ? role.getColor().getRGB() : null,
+                role.isHoisted(),
+                role.isMentionable()
+        ));
     }
 
     @Override
@@ -62,7 +146,10 @@ public class AntiVandalismListener extends ListenerAdapter {
         if (!protectSettingsManager.isAntiRaidEnabled(event.getGuild().getId())) return;
         Instant eventTime = Instant.now();
         withMatchingActor(event.getGuild(), ActionType.CHANNEL_CREATE, event.getChannel().getId(), eventTime, actor -> {
-            if (isTrustedActor(event.getGuild(), actor)) return;
+            if (isTrustedActor(event.getGuild(), actor)) {
+                updateChannelSnapshot(event.getChannel());
+                return;
+            }
             event.getChannel().delete().queue();
             applyProgressiveSanction(event.getGuild(), actor, "Création de salon non autorisée");
         });
@@ -72,11 +159,59 @@ public class AntiVandalismListener extends ListenerAdapter {
     public void onChannelDelete(@NotNull ChannelDeleteEvent event) {
         if (!protectSettingsManager.isAntiRaidEnabled(event.getGuild().getId())) return;
         Instant eventTime = Instant.now();
-        withMatchingActor(event.getGuild(), ActionType.CHANNEL_DELETE, event.getChannel().getId(), eventTime, actor -> {
-            if (isTrustedActor(event.getGuild(), actor)) return;
-            event.getGuild().createTextChannel(event.getChannel().getName()).reason("Sakura Protect: restauration après suppression illicite").queue();
+        String channelId = event.getChannel().getId();
+        withMatchingActor(event.getGuild(), ActionType.CHANNEL_DELETE, channelId, eventTime, actor -> {
+            if (isTrustedActor(event.getGuild(), actor)) {
+                channelSnapshots.remove(channelId);
+                return;
+            }
+            restoreChannel(event.getGuild(), channelId);
             applyProgressiveSanction(event.getGuild(), actor, "Suppression de salon non autorisée");
         });
+    }
+
+    private void restoreChannel(Guild guild, String channelId) {
+        ChannelSnapshot snapshot = channelSnapshots.get(channelId);
+        if (snapshot == null) {
+            logger.warn("Impossible de restaurer le salon {}: snapshot manquant", channelId);
+            return;
+        }
+
+        Consumer<GuildChannel> setupChannel = gc -> {
+            if (snapshot.categoryId() != null) {
+                Category category = guild.getCategoryById(snapshot.categoryId());
+                if (category != null && gc instanceof ICategorizableChannel c) {
+                    c.getManager().setParent(category).queue();
+                }
+            }
+            
+            // Overrides
+            for (PermissionOverrideSnapshot os : snapshot.overrides()) {
+                if (os.isRole()) {
+                    Role role = guild.getRoleById(os.targetId());
+                    if (role != null) gc.getPermissionContainer().getManager().putRolePermissionOverride(role.getIdLong(), os.allowed(), os.denied()).queue();
+                } else {
+                    Member member = guild.getMemberById(os.targetId());
+                    if (member != null) gc.getPermissionContainer().getManager().putMemberPermissionOverride(member.getIdLong(), os.allowed(), os.denied()).queue();
+                }
+            }
+            
+            if (gc instanceof IPositionableChannel pc) {
+                guild.modifyTextChannelPositions().selectPosition(pc).moveTo(snapshot.position()).queue(null, err -> {});
+                // Note: simplification, on ne gère pas tous les types de listes de positions ici
+            }
+        };
+
+        String reason = "Sakura Protect: restauration après suppression illicite";
+        if (snapshot.type() == ChannelType.VOICE) {
+            guild.createVoiceChannel(snapshot.name()).reason(reason).queue(setupChannel);
+        } else if (snapshot.type() == ChannelType.TEXT) {
+            guild.createTextChannel(snapshot.name()).reason(reason).queue(setupChannel);
+        } else if (snapshot.type() == ChannelType.CATEGORY) {
+            guild.createCategory(snapshot.name()).reason(reason).queue(setupChannel);
+        } else if (snapshot.type() == ChannelType.STAGE) {
+            guild.createStageChannel(snapshot.name()).reason(reason).queue(setupChannel);
+        }
     }
 
     @Override
@@ -84,7 +219,10 @@ public class AntiVandalismListener extends ListenerAdapter {
         if (!protectSettingsManager.isAntiRaidEnabled(event.getGuild().getId())) return;
         Instant eventTime = Instant.now();
         withMatchingActor(event.getGuild(), ActionType.ROLE_CREATE, event.getRole().getId(), eventTime, actor -> {
-            if (isTrustedActor(event.getGuild(), actor)) return;
+            if (isTrustedActor(event.getGuild(), actor)) {
+                updateRoleSnapshot(event.getRole());
+                return;
+            }
             event.getRole().delete().reason("Sakura Protect: rôle créé sans autorisation").queue();
             applyProgressiveSanction(event.getGuild(), actor, "Création de rôle non autorisée");
         });
@@ -94,32 +232,65 @@ public class AntiVandalismListener extends ListenerAdapter {
     public void onRoleDelete(@NotNull RoleDeleteEvent event) {
         if (!protectSettingsManager.isAntiRaidEnabled(event.getGuild().getId())) return;
         Instant eventTime = Instant.now();
-        withMatchingActor(event.getGuild(), ActionType.ROLE_DELETE, event.getRole().getId(), eventTime, actor -> {
-            if (isTrustedActor(event.getGuild(), actor)) return;
-            event.getGuild().createRole().setName(event.getRole().getName()).reason("Sakura Protect: restauration après suppression illicite").queue();
+        String roleId = event.getRole().getId();
+        withMatchingActor(event.getGuild(), ActionType.ROLE_DELETE, roleId, eventTime, actor -> {
+            if (isTrustedActor(event.getGuild(), actor)) {
+                roleSnapshots.remove(roleId);
+                return;
+            }
+            restoreRole(event.getGuild(), roleId);
             applyProgressiveSanction(event.getGuild(), actor, "Suppression de rôle non autorisée");
         });
+    }
+
+    private void restoreRole(Guild guild, String roleId) {
+        RoleSnapshot snapshot = roleSnapshots.get(roleId);
+        if (snapshot == null) {
+            logger.warn("Impossible de restaurer le rôle {}: snapshot manquant", roleId);
+            return;
+        }
+
+        guild.createRole()
+                .setName(snapshot.name())
+                .setPermissions(snapshot.permissions())
+                .setColor(snapshot.color())
+                .setHoisted(snapshot.hoisted())
+                .setMentionable(snapshot.mentionable())
+                .reason("Sakura Protect: restauration après suppression illicite")
+                .queue(role -> guild.modifyRolePositions().selectPosition(role).moveTo(snapshot.position()).queue());
     }
 
     @Override
     public void onRoleUpdatePermissions(@NotNull RoleUpdatePermissionsEvent event) {
         if (!protectSettingsManager.isAntiRaidEnabled(event.getGuild().getId())) return;
 
-        boolean hasDangerousAddition = false;
-        for (Permission permission : DANGEROUS_PERMISSIONS) {
-            if (event.getNewPermissions().contains(permission) && !event.getOldPermissions().contains(permission)) {
-                hasDangerousAddition = true;
-                break;
-            }
-        }
-        if (!hasDangerousAddition) return;
-
+        final boolean hasDangerousAddition = event.getNewPermissions().stream()
+                .anyMatch(p -> DANGEROUS_PERMISSIONS.contains(p) && !event.getOldPermissions().contains(p));
+        
         Instant eventTime = Instant.now();
         withMatchingActor(event.getGuild(), ActionType.ROLE_UPDATE, event.getRole().getId(), eventTime, actor -> {
-            if (isTrustedActor(event.getGuild(), actor)) return;
-            event.getRole().getManager().setPermissions(event.getOldPermissions()).reason("Sakura Protect: permissions dangereuses révoquées").queue();
-            applyProgressiveSanction(event.getGuild(), actor, "Attribution de permissions dangereuses non autorisée");
+            if (isTrustedActor(event.getGuild(), actor)) {
+                updateRoleSnapshot(event.getRole());
+                return;
+            }
+            
+            if (hasDangerousAddition) {
+                event.getRole().getManager().setPermissions(event.getOldPermissions()).reason("Sakura Protect: permissions dangereuses révoquées").queue();
+                applyProgressiveSanction(event.getGuild(), actor, "Attribution de permissions dangereuses non autorisée");
+            }
         });
+    }
+
+    @Override
+    public void onGenericChannelUpdate(@NotNull GenericChannelUpdateEvent<?> event) {
+        if (event.getChannel() instanceof GuildChannel gc) {
+            updateChannelSnapshot(gc);
+        }
+    }
+
+    @Override
+    public void onGenericRoleUpdate(@NotNull GenericRoleUpdateEvent<?> event) {
+        updateRoleSnapshot(event.getRole());
     }
 
     @Override

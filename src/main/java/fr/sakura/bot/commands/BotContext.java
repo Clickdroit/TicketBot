@@ -20,5 +20,7 @@ public record BotContext(
     WarningService warningService,
     RolesPanelService rolesPanelService,
     ModerationLogListener moderationLog,
-    ProtectSettingsManager protectSettings
+    ProtectSettingsManager protectSettings,
+    TempBanService tempBanService,
+    StaffNoteService staffNoteService
 ) {}
