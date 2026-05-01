@@ -27,4 +27,8 @@ public class StaffNoteService {
     public boolean deleteNote(String guildId, long noteId) {
         return store.deleteNote(guildId, noteId);
     }
+
+    public StaffNoteStore getStaffNoteStore() {
+        return store;
+    }
 }
