@@ -22,5 +22,7 @@ public record BotContext(
     ModerationLogListener moderationLog,
     ProtectSettingsManager protectSettings,
     TempBanService tempBanService,
-    StaffNoteService staffNoteService
+    StaffNoteService staffNoteService,
+    TempRoleService tempRoleService,
+    fr.sakura.bot.core.store.AutoModRuleStore autoModRuleStore
 ) {}

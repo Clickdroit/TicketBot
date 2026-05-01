@@ -95,6 +95,30 @@ public class LevelStore {
         DbHelper.update(sql, pstmt -> pstmt.setString(1, guildId));
     }
 
+    public void logXpGain(String guildId, String userId, int amount) {
+        String sql = "INSERT INTO xp_history (guild_id, user_id, amount, timestamp) VALUES (?, ?, ?, ?)";
+        DbHelper.update(sql, pstmt -> {
+            pstmt.setString(1, guildId);
+            pstmt.setString(2, userId);
+            pstmt.setInt(3, amount);
+            pstmt.setString(4, java.time.OffsetDateTime.now().toString());
+        });
+    }
+
+    public List<XpHistoryEntry> getXpHistory(String guildId, String userId, int limit) {
+        String sql = "SELECT amount, timestamp FROM xp_history WHERE guild_id = ? AND user_id = ? ORDER BY timestamp DESC LIMIT ?";
+        return DbHelper.queryList(sql,
+                pstmt -> {
+                    pstmt.setString(1, guildId);
+                    pstmt.setString(2, userId);
+                    pstmt.setInt(3, limit);
+                },
+                rs -> new XpHistoryEntry(rs.getInt("amount"), rs.getString("timestamp"))
+        );
+    }
+
+    public record XpHistoryEntry(int amount, String timestamp) {}
+
     private LevelProfile upsertProfile(String guildId, String userId, long xp, int level) {
         String sql = DatabaseManager.isPostgres()
                 ? "INSERT INTO levels (guild_id, user_id, xp, level) VALUES (?, ?, ?, ?) " +

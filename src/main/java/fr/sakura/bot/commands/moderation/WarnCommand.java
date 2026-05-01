@@ -13,6 +13,7 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
+import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,23 +48,40 @@ public class WarnCommand implements ICommand {
 
     @Override
     public SlashCommandData getCommandData() {
-        return Commands.slash(getName(), "Ajoute un avertissement à un membre")
-                .addOptions(
-                        new OptionData(OptionType.USER, "membre", "Le membre à avertir", true),
-                        new OptionData(OptionType.STRING, "raison", "La raison de l'avertissement", true).setMaxLength(500)
+        return Commands.slash(getName(), "Gère les avertissements")
+                .addSubcommands(
+                        new SubcommandData("add", "Ajoute un avertissement à un membre")
+                                .addOptions(
+                                        new OptionData(OptionType.USER, "membre", "Le membre à avertir", true),
+                                        new OptionData(OptionType.STRING, "raison", "La raison de l'avertissement", true).setMaxLength(500)
+                                ),
+                        new SubcommandData("remove", "Supprime un avertissement précis par son ID")
+                                .addOptions(
+                                        new OptionData(OptionType.INTEGER, "id", "L'ID de l'avertissement à supprimer", true)
+                                )
                 )
                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MODERATE_MEMBERS));
     }
 
     @Override
     public void execute(SlashCommandInteractionEvent event) {
-        Member target = event.getOption("membre", OptionMapping::getAsMember);
-        String reason = event.getOption("raison", OptionMapping::getAsString);
+        String subcommand = event.getSubcommandName();
+        if (subcommand == null) return;
 
         if (event.getGuild() == null || event.getMember() == null) {
             event.reply("❌ Cette commande doit être utilisée dans un serveur.").setEphemeral(true).queue();
             return;
         }
+
+        switch (subcommand) {
+            case "add" -> handleAdd(event);
+            case "remove" -> handleRemove(event);
+        }
+    }
+
+    private void handleAdd(SlashCommandInteractionEvent event) {
+        Member target = event.getOption("membre", OptionMapping::getAsMember);
+        String reason = event.getOption("raison", OptionMapping::getAsString);
 
         if (target == null || reason == null || reason.isBlank()) {
             event.reply("❌ Paramètres invalides.").setEphemeral(true).queue();
@@ -100,6 +118,25 @@ public class WarnCommand implements ICommand {
 
         // Escalade AutoMod
         checkEscalation(event, target, totalWarnings);
+    }
+
+    private void handleRemove(SlashCommandInteractionEvent event) {
+        long warningId = event.getOption("id", 0L, OptionMapping::getAsLong);
+
+        boolean removed = warningService.removeWarning(event.getGuild().getId(), warningId);
+
+        if (removed) {
+            event.reply("✅ L'avertissement n°" + warningId + " a été supprimé.").queue();
+            moderationLogListener.logAction(
+                    event.getGuild(),
+                    "UNWARN",
+                    event.getMember(),
+                    "Suppression de l'avertissement n°" + warningId,
+                    null
+            );
+        } else {
+            event.reply("❌ Aucun avertissement trouvé avec l'ID n°" + warningId + " sur ce serveur.").setEphemeral(true).queue();
+        }
     }
 
     private void checkEscalation(SlashCommandInteractionEvent event, Member target, int totalWarnings) {

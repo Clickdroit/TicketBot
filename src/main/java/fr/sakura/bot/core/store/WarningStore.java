@@ -21,13 +21,14 @@ public class WarningStore {
     }
 
     public List<WarningEntry> getWarnings(String guildId, String userId) {
-        String sql = "SELECT moderator_id, reason, timestamp FROM warnings WHERE guild_id = ? AND user_id = ?";
+        String sql = "SELECT id, moderator_id, reason, timestamp FROM warnings WHERE guild_id = ? AND user_id = ?";
         return DbHelper.queryList(sql,
                 pstmt -> {
                     pstmt.setString(1, guildId);
                     pstmt.setString(2, userId);
                 },
                 rs -> new WarningEntry(
+                        rs.getLong("id"),
                         rs.getString("moderator_id"),
                         rs.getString("reason"),
                         rs.getString("timestamp")
@@ -64,6 +65,15 @@ public class WarningStore {
             pstmt.setString(1, guildId);
             pstmt.setString(2, userId);
         });
+    }
+
+    public boolean removeWarning(String guildId, long warningId) {
+        String deleteSql = "DELETE FROM warnings WHERE guild_id = ? AND id = ?";
+        int affected = DbHelper.update(deleteSql, pstmt -> {
+            pstmt.setString(1, guildId);
+            pstmt.setLong(2, warningId);
+        });
+        return affected > 0;
     }
 
     public record WeeklyStats(java.util.Map<String, Integer> topUsers, java.util.Map<String, Integer> topReasons, int total) {}

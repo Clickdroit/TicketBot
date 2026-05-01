@@ -78,6 +78,11 @@ public class Main {
         TempBanStore tempBanStore = new TempBanStore();
         TempBanService tempBanService = new TempBanService(tempBanStore);
 
+        TempRoleStore tempRoleStore = new TempRoleStore();
+        TempRoleService tempRoleService = new TempRoleService(tempRoleStore);
+
+        AutoModRuleStore autoModRuleStore = new AutoModRuleStore();
+
         StaffNoteStore staffNoteStore = new StaffNoteStore();
         StaffNoteService staffNoteService = new StaffNoteService(staffNoteStore);
 
@@ -90,14 +95,14 @@ public class Main {
 
         // 4. Contexte et Commandes
         BotContext botContext = new BotContext(
-                guildId, settingsManager, levelService, ticketService, warningService, rolesPanelService, moderationLogListener, protectSettingsManager, tempBanService, staffNoteService
+                guildId, settingsManager, levelService, ticketService, warningService, rolesPanelService, moderationLogListener, protectSettingsManager, tempBanService, staffNoteService, tempRoleService, autoModRuleStore
         );
         CommandManager commandManager = new CommandManager(botContext);
 
         // 5. Autres Listeners
         SecurityListener securityListener = new SecurityListener(guildId, commandManager, rolesPanelService);
         WelcomeListener welcomeListener = new WelcomeListener(settingsManager, welcomeChannelId, welcomeImageUrl);
-        AutoModListener autoModListener = new AutoModListener(moderationLogListener, settingsManager, spamDetector, tempBanService);
+        AutoModListener autoModListener = new AutoModListener(moderationLogListener, settingsManager, spamDetector, tempBanService, autoModRuleStore);
         LevelListener levelListener = new LevelListener(levelService);
         TicketListener ticketListener = new TicketListener(ticketService, moderationLogListener, settingsManager);
         RolesPanelListener rolesPanelListener = new RolesPanelListener(rolesPanelService);
@@ -135,6 +140,7 @@ public class Main {
                 .build();
 
         tempBanService.start(jda);
+        tempRoleService.start(jda);
         moderationReportService.start(jda);
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -142,6 +148,7 @@ public class Main {
             moderationReportService.shutdown();
             spamDetector.shutdown();
             tempBanService.shutdown();
+            tempRoleService.shutdown();
             messageCacheService.shutdown();
             phishingService.close();
             DatabaseManager.shutdown();

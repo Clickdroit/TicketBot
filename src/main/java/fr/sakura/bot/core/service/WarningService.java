@@ -35,9 +35,23 @@ public class WarningService {
         return warnings;
     }
 
+    public int getWarningsCount(String guildId, String userId) {
+        return getWarnings(guildId, userId).size();
+    }
+
     public int clearWarnings(String guildId, String userId) {
         int removed = warningStore.clearWarnings(guildId, userId);
         logger.info("clearWarnings: guildId={}, userId={}, removed={}", guildId, userId, removed);
         return removed;
+    }
+
+    public boolean removeWarning(String guildId, long warningId) {
+        boolean removed = warningStore.removeWarning(guildId, warningId);
+        logger.info("removeWarning: guildId={}, warningId={}, removed={}", guildId, warningId, removed);
+        return removed;
+    }
+
+    public WarningStore getWarningStore() {
+        return warningStore;
     }
 }

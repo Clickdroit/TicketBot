@@ -1,6 +1,8 @@
 package fr.sakura.bot.listeners;
 
 import fr.sakura.bot.core.service.SpamDetector;
+import fr.sakura.bot.core.service.TempBanService;
+import fr.sakura.bot.core.store.AutoModRuleStore;
 import fr.sakura.bot.database.SettingsManager;
 import fr.sakura.bot.listeners.log.ModerationLogListener;
 import net.dv8tion.jda.api.Permission;
@@ -22,6 +24,8 @@ class AutoModListenerTest {
     private ModerationLogListener logListener;
     private SettingsManager settings;
     private SpamDetector spamDetector;
+    private TempBanService tempBanService;
+    private AutoModRuleStore ruleStore;
     private AutoModListener listener;
 
     @BeforeEach
@@ -29,7 +33,9 @@ class AutoModListenerTest {
         logListener = mock(ModerationLogListener.class);
         settings = mock(SettingsManager.class);
         spamDetector = mock(SpamDetector.class);
-        listener = new AutoModListener(logListener, settings, spamDetector);
+        tempBanService = mock(TempBanService.class);
+        ruleStore = mock(AutoModRuleStore.class);
+        listener = new AutoModListener(logListener, settings, spamDetector, tempBanService, ruleStore);
     }
 
     @Test
@@ -54,10 +60,9 @@ class AutoModListenerTest {
         when(message.getContentRaw()).thenReturn("spam spam spam");
 
         when(settings.isAntiSpamEnabled("guild-1")).thenReturn(true);
-        when(spamDetector.check("guild-1", "user-1", settings)).thenReturn(true);
+        when(spamDetector.check(event, settings)).thenReturn(true);
         when(message.delete()).thenReturn(mock(AuditableRestAction.class));
         when(settings.getAutomodNoticeCooldownSeconds("guild-1")).thenReturn(10);
-        when(settings.getAutomodStrikesToTimeout("guild-1")).thenReturn(3);
         when(spamDetector.getStrikes("guild-1", "user-1")).thenReturn(1);
         
         MessageCreateAction msgAction = mock(MessageCreateAction.class);

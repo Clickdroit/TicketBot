@@ -134,6 +134,13 @@ public class SchemaInitializer {
             addColumnIfMissing(conn, "settings", "auto_slowmode_threshold", "INTEGER DEFAULT 10", isPostgres);
             addColumnIfMissing(conn, "settings", "auto_slowmode_duration", "INTEGER DEFAULT 15", isPostgres);
         });
+
+        applyMigration(conn, 14, "create temp_roles table", () -> {
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute(createTempRolesTableSql(isPostgres));
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_temp_roles_expiry ON temp_roles(expiry_time)");
+            }
+        });
     }
 
     private static void applyMigration(Connection conn, int version, String description, Migration migration) throws SQLException {
@@ -393,6 +400,67 @@ public class SchemaInitializer {
                 "user_id TEXT NOT NULL," +
                 "author_id TEXT NOT NULL," +
                 "content TEXT NOT NULL," +
+                "created_at TEXT NOT NULL" +
+                ");";
+    }
+
+    private static String createXpHistoryTableSql(boolean isPostgres) {
+        if (isPostgres) {
+            return "CREATE TABLE IF NOT EXISTS xp_history (" +
+                    "id BIGSERIAL PRIMARY KEY," +
+                    "guild_id TEXT NOT NULL," +
+                    "user_id TEXT NOT NULL," +
+                    "amount INTEGER NOT NULL," +
+                    "timestamp TEXT NOT NULL" +
+                    ");";
+        }
+        return "CREATE TABLE IF NOT EXISTS xp_history (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "guild_id TEXT NOT NULL," +
+                "user_id TEXT NOT NULL," +
+                "amount INTEGER NOT NULL," +
+                "timestamp TEXT NOT NULL" +
+                ");";
+    }
+
+    private static String createAutoModRulesTableSql(boolean isPostgres) {
+        if (isPostgres) {
+            return "CREATE TABLE IF NOT EXISTS automod_rules (" +
+                    "id BIGSERIAL PRIMARY KEY," +
+                    "guild_id TEXT NOT NULL," +
+                    "type TEXT NOT NULL," + // 'WORD', 'REGEX'
+                    "pattern TEXT NOT NULL," +
+                    "action TEXT NOT NULL DEFAULT 'DELETE'," + // 'DELETE', 'WARN', 'TIMEOUT'
+                    "created_at TEXT NOT NULL" +
+                    ");";
+        }
+        return "CREATE TABLE IF NOT EXISTS automod_rules (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "guild_id TEXT NOT NULL," +
+                "type TEXT NOT NULL," +
+                "pattern TEXT NOT NULL," +
+                "action TEXT NOT NULL DEFAULT 'DELETE'," +
+                "created_at TEXT NOT NULL" +
+                ");";
+    }
+
+    private static String createTempRolesTableSql(boolean isPostgres) {
+        if (isPostgres) {
+            return "CREATE TABLE IF NOT EXISTS temp_roles (" +
+                    "id BIGSERIAL PRIMARY KEY," +
+                    "guild_id TEXT NOT NULL," +
+                    "user_id TEXT NOT NULL," +
+                    "role_id TEXT NOT NULL," +
+                    "expiry_time BIGINT NOT NULL," +
+                    "created_at TEXT NOT NULL" +
+                    ");";
+        }
+        return "CREATE TABLE IF NOT EXISTS temp_roles (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "guild_id TEXT NOT NULL," +
+                "user_id TEXT NOT NULL," +
+                "role_id TEXT NOT NULL," +
+                "expiry_time INTEGER NOT NULL," +
                 "created_at TEXT NOT NULL" +
                 ");";
     }

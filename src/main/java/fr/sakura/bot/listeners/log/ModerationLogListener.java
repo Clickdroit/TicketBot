@@ -104,4 +104,50 @@ public class ModerationLogListener extends BaseLogListener {
             EmbedStyle.setFooter(embed, footerText);
         });
     }
+
+    /**
+     * Log une action de modération sans cible (pour les actions générales).
+     */
+    public void logAction(@NotNull Guild guild, @NotNull String actionKey, @Nullable Member moderator, @Nullable String reason, @Nullable String extra) {
+        ActionStyle style = ACTION_STYLES.get(actionKey.toUpperCase());
+        if (style == null) {
+            logger.warn("ACTION_STYLES: clé inconnue '{}'", actionKey);
+            style = DEFAULT_STYLE;
+        }
+
+        final ActionStyle finalStyle = style;
+
+        sendLogToChannel(guild, embed -> {
+            embed.setColor(finalStyle.color());
+            embed.setTitle(finalStyle.emoji() + "  ✦  " + finalStyle.label());
+
+            StringBuilder desc = new StringBuilder();
+            desc.append(EmbedStyle.SEPARATOR).append("\n");
+            desc.append(finalStyle.emoji()).append(" **").append(finalStyle.label().toUpperCase()).append("**\n");
+            desc.append(EmbedStyle.SEPARATOR).append("\n\n");
+
+            if (moderator != null) {
+                desc.append(EmbedStyle.detailLine("Modérateur", moderator.getAsMention() + " (`" + moderator.getUser().getName() + "`)")).append("\n");
+            } else {
+                desc.append(EmbedStyle.detailLine("Modérateur", "🤖 *Système Automatique*")).append("\n");
+            }
+
+            if (reason != null && !reason.isBlank()) {
+                desc.append("\n").append(EmbedStyle.SEP_LIGHT).append("\n");
+                desc.append(EmbedStyle.detailLine("Raison", reason)).append("\n");
+            }
+
+            if (extra != null && !extra.isBlank()) {
+                desc.append("\n").append(extra);
+            }
+
+            embed.setDescription(desc.toString());
+            embed.setTimestamp(Instant.now());
+
+            // Footer dynamique Sakura
+            String footerText = "";
+            if (moderator != null) footerText += "Mod : " + moderator.getId();
+            if (!footerText.isEmpty()) EmbedStyle.setFooter(embed, footerText);
+        });
+    }
 }

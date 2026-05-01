@@ -110,6 +110,7 @@ public class LevelService {
         LevelComputation after = computeLevel(current.xp() + xpGain);
 
         LevelProfile updated = levelStore.addXp(guildId, userId, xpGain, after.level());
+        levelStore.logXpGain(guildId, userId, xpGain);
         boolean leveledUp = after.level() > before.level();
 
         if (leveledUp) {
@@ -137,6 +138,10 @@ public class LevelService {
 
     public void resetUser(String guildId, String userId) {
         levelStore.resetUser(guildId, userId);
+    }
+
+    public List<LevelStore.XpHistoryEntry> getXpHistory(String guildId, String userId, int limit) {
+        return levelStore.getXpHistory(guildId, userId, limit);
     }
 
     public void setUserXp(String guildId, String userId, long xp) {

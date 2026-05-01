@@ -27,7 +27,7 @@ public class PhishingService implements AutoCloseable {
 
     private static final Logger logger = LoggerFactory.getLogger(PhishingService.class);
 
-    private static final String PHISHING_LIST_URL = "https://raw.githubusercontent.com/nikolaisun/discord-phishing-links/main/domain-list.txt";
+    private static final String PHISHING_LIST_URL = "https://raw.githubusercontent.com/Discord-AntiScam/scam-links/main/list.txt";
     private static final Pattern URL_PATTERN = Pattern.compile("(?i)\\b((?:https?://|www\\.)[^\\s<>()]+)");
     private static final int PHISHING_LIST_CONNECT_TIMEOUT_MS = 4000;
     private static final int PHISHING_LIST_READ_TIMEOUT_MS = 4000;
@@ -71,9 +71,13 @@ public class PhishingService implements AutoCloseable {
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    line = normalizeDomain(line);
-                    if (!line.isEmpty() && !line.startsWith("#")) {
-                        newList.add(line);
+                    line = line.trim();
+                    if (line.isEmpty() || line.startsWith("#")) {
+                        continue;
+                    }
+                    String normalized = normalizeDomain(line);
+                    if (!normalized.isEmpty()) {
+                        newList.add(normalized);
                     }
                 }
             }
