@@ -141,6 +141,26 @@ public class SchemaInitializer {
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_temp_roles_expiry ON temp_roles(expiry_time)");
             }
         });
+
+        applyMigration(conn, 15, "harden protect module persistence", () -> {
+            addColumnIfMissing(conn, "protect_settings", "raid_mode_active", "INTEGER DEFAULT 0", isPostgres);
+            addColumnIfMissing(conn, "protect_settings", "raid_mode_until", "BIGINT DEFAULT 0", isPostgres);
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute(createProtectSnapshotsTableSql(isPostgres));
+                stmt.execute("CREATE INDEX IF NOT EXISTS idx_protect_snapshots_guild_type ON protect_snapshots(guild_id, type)");
+            }
+        });
+    }
+
+    private static String createProtectSnapshotsTableSql(boolean isPostgres) {
+        return "CREATE TABLE IF NOT EXISTS protect_snapshots (" +
+                "guild_id TEXT NOT NULL," +
+                "target_id TEXT NOT NULL," +
+                "type TEXT NOT NULL," + // 'CHANNEL' or 'ROLE'
+                "data TEXT NOT NULL," + // JSON snapshot
+                "updated_at TEXT NOT NULL," +
+                "PRIMARY KEY (guild_id, target_id)" +
+                ");";
     }
 
     private static void applyMigration(Connection conn, int version, String description, Migration migration) throws SQLException {

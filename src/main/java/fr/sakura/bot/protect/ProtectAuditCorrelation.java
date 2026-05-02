@@ -8,7 +8,7 @@ public final class ProtectAuditCorrelation {
     private ProtectAuditCorrelation() {
     }
 
-    private static final long AUDIT_CORRELATION_WINDOW_SECONDS = 15;
+    private static final long AUDIT_CORRELATION_WINDOW_SECONDS = 30;
 
     public record AuditEntrySnapshot(String actorId, String targetId, Instant createdAt) {
     }

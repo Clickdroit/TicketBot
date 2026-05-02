@@ -30,7 +30,6 @@ public class JoinProtectionListener extends ListenerAdapter {
     private final ModerationLogListener moderationLogListener;
 
     private final Map<String, Deque<Instant>> joinWindows = new ConcurrentHashMap<>();
-    private final Map<String, Long> raidModeUntil = new ConcurrentHashMap<>();
 
     public JoinProtectionListener(ProtectSettingsManager protectSettingsManager, ModerationLogListener moderationLogListener) {
         this.protectSettingsManager = protectSettingsManager;
@@ -54,16 +53,21 @@ public class JoinProtectionListener extends ListenerAdapter {
         int burstCount = registerJoinAndGetBurstCount(guildId, raidWindowSeconds);
 
         if (burstCount >= raidThreshold) {
-            raidModeUntil.put(guildId, System.currentTimeMillis() + (raidDurationSeconds * 1000L));
+            activateRaidMode(guild, raidDurationSeconds);
         }
 
-        boolean raidModeActive = isRaidModeActive(guildId);
-        int suspicionScore = JoinRiskScorer.computeScore(hoursOld, minAccountAge, burstCount, raidThreshold, raidModeActive);
+        boolean raidModeActive = isRaidModeActive(guild);
+        boolean noAvatar = member.getUser().getAvatarId() == null;
+        String username = member.getUser().getName();
+
+        int suspicionScore = JoinRiskScorer.computeScore(hoursOld, minAccountAge, burstCount, raidThreshold, raidModeActive, noAvatar, username);
 
         String reason = "score=" + suspicionScore
                 + " | ageHours=" + hoursOld + "/" + minAccountAge
                 + " | burst=" + burstCount + "/" + raidThreshold
-                + " | raidMode=" + raidModeActive;
+                + " | raidMode=" + raidModeActive
+                + " | noAvatar=" + noAvatar
+                + " | pattern=" + (username != null && username.matches(".*\\d{4,}+$"));
 
         logger.info("Protect join decision guildId={}, userId={}, {}", guildId, member.getId(), reason);
 
@@ -91,9 +95,30 @@ public class JoinProtectionListener extends ListenerAdapter {
         }
     }
 
-    private boolean isRaidModeActive(String guildId) {
-        long until = raidModeUntil.getOrDefault(guildId, 0L);
-        return until > System.currentTimeMillis();
+    private boolean isRaidModeActive(Guild guild) {
+        String guildId = guild.getId();
+        if (protectSettingsManager.isRaidModeActive(guildId)) {
+            long until = protectSettingsManager.getRaidModeUntil(guildId);
+            if (until > System.currentTimeMillis()) {
+                return true;
+            } else {
+                protectSettingsManager.setRaidModeActive(guildId, false);
+                moderationLogListener.logAction(guild, "AUTOMOD_WARN", (Member) null, "Sakura Protect: mode raid désactivé automatiquement (fin de durée)", null);
+            }
+        }
+        return false;
+    }
+
+    private void activateRaidMode(Guild guild, int durationSeconds) {
+        String guildId = guild.getId();
+        if (!protectSettingsManager.isRaidModeActive(guildId)) {
+            protectSettingsManager.setRaidModeActive(guildId, true);
+            protectSettingsManager.setRaidModeUntil(guildId, System.currentTimeMillis() + (durationSeconds * 1000L));
+            
+            moderationLogListener.logAction(guild, "AUTOMOD_WARN", (Member) null,
+                    "Sakura Protect: MODE RAID ACTIVÉ",
+                    "> **Cause :** Détection d'un burst de joins (" + durationSeconds + "s)\n> **Action :** Surveillance accrue activée");
+        }
     }
 
     private boolean applyQuarantine(Guild guild, Member member, String reason) {

@@ -73,6 +73,8 @@ public class ProtectCommand implements ICommand {
                                         new OptionData(OptionType.INTEGER, "fenetre", "Fenêtre en secondes", true).setMinValue(10),
                                         new OptionData(OptionType.INTEGER, "duree", "Durée du raid mode en secondes", true).setMinValue(30)
                                 ),
+                        new SubcommandData("raidstatus", "Affiche l'état du mode raid"),
+                        new SubcommandData("dashboard", "Dashboard récapitulatif Protect"),
                         new SubcommandData("quarantine", "Définit ou retire le rôle de quarantaine")
                                 .addOptions(new OptionData(OptionType.ROLE, "role", "Rôle de quarantaine (optionnel)", false)),
                         new SubcommandData("status", "Affiche la configuration Protect active")
@@ -151,6 +153,26 @@ public class ProtectCommand implements ICommand {
                 event.reply("✅ Anti-raid configuré : seuil=" + threshold + ", fenêtre=" + windowSec + "s, raid mode=" + durationSec + "s.")
                         .setEphemeral(true)
                         .queue();
+            }
+            case "raidstatus" -> {
+                boolean active = protectSettingsManager.isRaidModeActive(guildId);
+                long until = protectSettingsManager.getRaidModeUntil(guildId);
+                StringBuilder sb = new StringBuilder("**État du Mode Raid**\n");
+                sb.append("- Statut : ").append(active ? "🔴 ACTIF" : "🟢 INACTIF").append("\n");
+                if (active) {
+                    long remaining = (until - System.currentTimeMillis()) / 1000;
+                    sb.append("- Fin dans : ").append(remaining > 0 ? remaining + "s" : "En cours d'extinction...");
+                }
+                event.reply(sb.toString()).setEphemeral(true).queue();
+            }
+            case "dashboard" -> {
+                // Placeholder pour un dashboard plus complexe
+                StringBuilder sb = new StringBuilder("**Protect Dashboard (24h)**\n")
+                        .append("- État actuel : ").append(protectSettingsManager.isRaidModeActive(guildId) ? "⚠️ RAID MODE" : "✅ NORMAL").append("\n")
+                        .append("- Actions anti-vandalisme : _(non implémenté)_ \n")
+                        .append("- Liens phishing bloqués : _(non implémenté)_ \n")
+                        .append("- Joins suspects isolés : _(non implémenté)_");
+                event.reply(sb.toString()).setEphemeral(true).queue();
             }
             case "quarantine" -> {
                 Role role = event.getOption("role", OptionMapping::getAsRole);

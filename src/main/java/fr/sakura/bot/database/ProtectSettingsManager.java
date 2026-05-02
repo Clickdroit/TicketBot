@@ -134,6 +134,51 @@ public class ProtectSettingsManager {
         setIntSetting(guildId, "raid_mode_duration_seconds", Math.max(30, seconds));
     }
 
+    public boolean isRaidModeActive(String guildId) {
+        return getBooleanSetting(guildId, "raid_mode_active", false);
+    }
+
+    public void setRaidModeActive(String guildId, boolean active) {
+        setBooleanSetting(guildId, "raid_mode_active", active);
+    }
+
+    public long getRaidModeUntil(String guildId) {
+        String key = cacheKey(guildId, "raid_mode_until");
+        Long cached = (Long) cache.getIfPresent(key);
+        if (cached != null) return cached;
+
+        ensureGuildExists(guildId);
+        String sql = "SELECT raid_mode_until FROM protect_settings WHERE guild_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, guildId);
+            ResultSet rs = pstmt.executeQuery();
+            long value = 0;
+            if (rs.next()) {
+                value = rs.getLong("raid_mode_until");
+            }
+            cache.put(key, value);
+            return value;
+        } catch (SQLException e) {
+            logger.error("Erreur lecture raid_mode_until guildId={}", guildId, e);
+        }
+        return 0;
+    }
+
+    public void setRaidModeUntil(String guildId, long until) {
+        ensureGuildExists(guildId);
+        String sql = "UPDATE protect_settings SET raid_mode_until = ? WHERE guild_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, until);
+            pstmt.setString(2, guildId);
+            pstmt.executeUpdate();
+            cache.invalidate(cacheKey(guildId, "raid_mode_until"));
+        } catch (SQLException e) {
+            logger.error("Erreur update raid_mode_until guildId={}", guildId, e);
+        }
+    }
+
     public String getQuarantineRoleId(String guildId) {
         String key = cacheKey(guildId, "quarantine_role_id");
         String cached = (String) cache.getIfPresent(key);

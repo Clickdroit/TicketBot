@@ -41,4 +41,16 @@ class PhishingServiceTest {
         assertFalse(result.phishingFound());
         service.close();
     }
+
+    @Test
+    void shouldDetectTyposquatting() {
+        PhishingService service = new PhishingService(false);
+        
+        // "d1scord.gg" is 1 distance from "discord.gg" and not in fallback
+        PhishingService.DetectionResult result = service.detect("https://d1scord.gg/free-nitro", Set.of());
+        
+        assertTrue(result.phishingFound());
+        assertTrue("typosquatting".equals(result.reason()));
+        service.close();
+    }
 }

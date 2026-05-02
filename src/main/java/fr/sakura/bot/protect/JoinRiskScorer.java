@@ -3,11 +3,12 @@ package fr.sakura.bot.protect;
 public final class JoinRiskScorer {
 
     private static final double MODERATE_BURST_MULTIPLIER = 0.7d;
+    private static final java.util.regex.Pattern NUMERIC_SUFFIX_PATTERN = java.util.regex.Pattern.compile(".*\\d{4,}+$");
 
     private JoinRiskScorer() {
     }
 
-    public static int computeScore(long hoursOld, int minAccountAgeHours, int burstCount, int raidThreshold, boolean raidModeActive) {
+    public static int computeScore(long hoursOld, int minAccountAgeHours, int burstCount, int raidThreshold, boolean raidModeActive, boolean noAvatar, String username) {
         int score = 0;
 
         if (hoursOld < minAccountAgeHours) {
@@ -23,6 +24,14 @@ public final class JoinRiskScorer {
 
         if (raidModeActive) {
             score += 20;
+        }
+
+        if (noAvatar) {
+            score += 15;
+        }
+
+        if (username != null && NUMERIC_SUFFIX_PATTERN.matcher(username).matches()) {
+            score += 10;
         }
 
         return Math.min(score, 100);

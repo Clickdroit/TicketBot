@@ -28,7 +28,7 @@ class ProtectAuditCorrelationTest {
     void shouldReturnNullWhenEntriesAreTooOldOrWrongTarget() {
         Instant now = Instant.now();
         List<ProtectAuditCorrelation.AuditEntrySnapshot> entries = List.of(
-                new ProtectAuditCorrelation.AuditEntrySnapshot("user-42", "target-1", now.minusSeconds(20)),
+                new ProtectAuditCorrelation.AuditEntrySnapshot("user-42", "target-1", now.minusSeconds(40)),
                 new ProtectAuditCorrelation.AuditEntrySnapshot("user-99", "other", now.minusSeconds(1))
         );
 

@@ -9,6 +9,7 @@ import fr.sakura.bot.core.store.*;
 import fr.sakura.bot.database.DatabaseManager;
 import fr.sakura.bot.database.ProtectSettingsManager;
 import fr.sakura.bot.database.SettingsManager;
+import fr.sakura.bot.database.SnapshotStore;
 import fr.sakura.bot.listeners.*;
 import fr.sakura.bot.listeners.log.MessageLogListener;
 import fr.sakura.bot.listeners.log.ModerationLogListener;
@@ -58,6 +59,7 @@ public class Main {
         DatabaseManager.initialize(databaseUrl);
         SettingsManager settingsManager = new SettingsManager();
         ProtectSettingsManager protectSettingsManager = new ProtectSettingsManager();
+        SnapshotStore snapshotStore = new SnapshotStore();
 
         // 2. Services Métier
         MessageCacheService messageCacheService = new MessageCacheService();
@@ -108,7 +110,7 @@ public class Main {
         RolesPanelListener rolesPanelListener = new RolesPanelListener(rolesPanelService);
         PhishingService phishingService = new PhishingService();
         JoinProtectionListener joinProtectionListener = new JoinProtectionListener(protectSettingsManager, moderationLogListener);
-        AntiVandalismListener antiVandalismListener = new AntiVandalismListener(protectSettingsManager, moderationLogListener);
+        AntiVandalismListener antiVandalismListener = new AntiVandalismListener(protectSettingsManager, moderationLogListener, snapshotStore);
         PhishingProtectionListener phishingProtectionListener = new PhishingProtectionListener(protectSettingsManager, moderationLogListener, phishingService);
 
         // 6. Lancement JDA
