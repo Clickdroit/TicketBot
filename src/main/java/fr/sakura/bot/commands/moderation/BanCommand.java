@@ -1,13 +1,12 @@
 package fr.sakura.bot.commands.moderation;
 
-
-
 import fr.sakura.bot.commands.ICommand;
-
+import fr.sakura.bot.core.service.TempBanService;
 import fr.sakura.bot.listeners.log.ModerationLogListener;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.entities.UserSnowflake;
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.Command;
@@ -23,12 +22,15 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class BanCommand implements ICommand {
 
     private static final Logger logger = LoggerFactory.getLogger(BanCommand.class);
+    private static final Pattern DURATION_PATTERN = Pattern.compile("^(\\d+)([smhd])$");
     private static final String[] PREDEFINED_REASONS = {
             "Spam / Flood",
             "Publicité non autorisée (MP/Salons)",
@@ -40,9 +42,11 @@ public class BanCommand implements ICommand {
     };
 
     private final ModerationLogListener moderationLogListener;
+    private final TempBanService tempBanService;
 
-    public BanCommand(ModerationLogListener moderationLogListener) {
+    public BanCommand(ModerationLogListener moderationLogListener, TempBanService tempBanService) {
         this.moderationLogListener = moderationLogListener;
+        this.tempBanService = tempBanService;
     }
 
     @Override
@@ -64,6 +68,17 @@ public class BanCommand implements ICommand {
                                         new OptionData(OptionType.USER, "membre", "Le membre à bannir", true),
                                         new OptionData(OptionType.STRING, "raison", "La raison du bannissement", false).setAutoComplete(true)
                                 ),
+                        new SubcommandData("temp", "Bannit temporairement un membre")
+                                .addOptions(
+                                        new OptionData(OptionType.USER, "membre", "Le membre à bannir", true),
+                                        new OptionData(OptionType.STRING, "duree", "Durée (ex: 1h, 1d, 30m)", true),
+                                        new OptionData(OptionType.STRING, "raison", "La raison du bannissement", false).setAutoComplete(true)
+                                ),
+                        new SubcommandData("mass", "Bannit plusieurs utilisateurs via leurs IDs")
+                                .addOptions(
+                                        new OptionData(OptionType.STRING, "ids", "Les IDs séparés par des espaces", true),
+                                        new OptionData(OptionType.STRING, "raison", "La raison du bannissement collectif", false)
+                                ),
                         new SubcommandData("list", "Affiche les membres actuellement bannis du serveur")
                 )
                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.BAN_MEMBERS));
@@ -71,7 +86,10 @@ public class BanCommand implements ICommand {
 
     @Override
     public void onAutoComplete(CommandAutoCompleteInteractionEvent event) {
-        if (event.getSubcommandName() != null && event.getSubcommandName().equals("add") && event.getFocusedOption().getName().equals("raison")) {
+        String sub = event.getSubcommandName();
+        if (sub == null) return;
+        
+        if ((sub.equals("add") || sub.equals("temp")) && event.getFocusedOption().getName().equals("raison")) {
             List<Command.Choice> options = Stream.of(PREDEFINED_REASONS)
                     .filter(word -> word.toLowerCase().startsWith(event.getFocusedOption().getValue().toLowerCase()))
                     .map(word -> new Command.Choice(word, word))
@@ -92,6 +110,8 @@ public class BanCommand implements ICommand {
 
         switch (subcommand) {
             case "add" -> handleAdd(event);
+            case "temp" -> handleTemp(event);
+            case "mass" -> handleMass(event);
             case "list" -> handleList(event);
         }
     }
@@ -112,45 +132,80 @@ public class BanCommand implements ICommand {
         User targetUser = memberOption.getAsUser();
         Member target = guild.getMember(targetUser);
 
-        // L'utilisateur a peut-être quitté le serveur : fallback sur User pour quand même bannir
         if (target == null) {
-            logger.warn("/ban add cible non membre du serveur, tentative ban par userId={} demandeurId={}",
-                    targetUser.getId(), event.getUser().getId());
-
             guild.ban(targetUser, 0, TimeUnit.SECONDS).reason(reason).queue(
                     success -> {
                         event.reply("✅ **" + targetUser.getName() + "** a été banni (hors serveur). Raison : " + reason).queue();
-                        logger.info("/ban add reussi (hors serveur): modId={}, targetId={}", event.getUser().getId(), targetUser.getId());
                         moderationLogListener.logAction(event.getGuild(), "BAN", event.getMember(), targetUser, reason, "(hors serveur)");
                     },
-                    error -> {
-                        logger.error("/ban add echec API (hors serveur): modId={}, targetId={}", event.getUser().getId(), targetUser.getId(), error);
-                        event.reply("❌ Impossible de bannir cet utilisateur.").setEphemeral(true).queue();
-                    }
+                    error -> event.reply("❌ Impossible de bannir cet utilisateur.").setEphemeral(true).queue()
             );
             return;
         }
 
         if (event.getMember() == null || !event.getMember().canInteract(target)) {
-            logger.warn("/ban add refuse hierarchie: modId={}, targetId={}", event.getUser().getId(), target.getId());
             event.reply("❌ Vous ne pouvez pas bannir cet utilisateur (rôle supérieur).").setEphemeral(true).queue();
             return;
         }
 
-        logger.info("/ban add demande: modId={}, targetId={}, reason={}", event.getUser().getId(), target.getId(), reason);
-
         guild.ban(target, 0, TimeUnit.SECONDS).reason(reason).queue(
                 success -> {
                     event.reply("✅ **" + target.getUser().getName() + "** a été banni. Raison : " + reason).queue();
-                    logger.info("/ban add reussi: modId={}, targetId={}", event.getUser().getId(), target.getId());
-
                     moderationLogListener.logAction(event.getGuild(), "BAN", event.getMember(), target, reason, null);
                 },
-                error -> {
-                    logger.error("/ban add echec API: modId={}, targetId={}", event.getUser().getId(), target.getId(), error);
-                    event.reply("❌ Une erreur est survenue (Ai-je les bonnes permissions ?).").setEphemeral(true).queue();
-                }
+                error -> event.reply("❌ Une erreur est survenue (Ai-je les bonnes permissions ?).").setEphemeral(true).queue()
         );
+    }
+
+    private void handleTemp(SlashCommandInteractionEvent event) {
+        User targetUser = event.getOption("membre").getAsUser();
+        String dureeStr = event.getOption("duree").getAsString();
+        String reason = event.getOption("raison") != null ? event.getOption("raison").getAsString() : "Aucune raison spécifiée";
+
+        long durationMs = parseDuration(dureeStr);
+        if (durationMs <= 0) {
+            event.reply("❌ Format de durée invalide (ex: 1h, 1d).").setEphemeral(true).queue();
+            return;
+        }
+
+        Member target = event.getGuild().getMember(targetUser);
+        if (target != null && !event.getMember().canInteract(target)) {
+            event.reply("❌ Vous ne pouvez pas bannir cet utilisateur (hiérarchie).").setEphemeral(true).queue();
+            return;
+        }
+
+        tempBanService.addTempBan(event.getGuild(), targetUser, durationMs, reason);
+        event.reply("✅ **" + targetUser.getName() + "** a été banni temporairement pour **" + dureeStr + "**. Raison : " + reason).queue();
+        moderationLogListener.logAction(event.getGuild(), "BAN", event.getMember(), targetUser, reason, "(Temporaire: " + dureeStr + ")");
+    }
+
+    private void handleMass(SlashCommandInteractionEvent event) {
+        String idsString = event.getOption("ids", OptionMapping::getAsString);
+        String reason = event.getOption("raison", "Massban (Raid/Abus)", OptionMapping::getAsString);
+
+        if (idsString == null || idsString.isBlank()) {
+            event.reply("❌ Aucun ID fourni.").setEphemeral(true).queue();
+            return;
+        }
+
+        String[] ids = idsString.split("\\s+");
+        event.deferReply().queue();
+
+        int successCount = 0;
+        int failCount = 0;
+
+        for (String id : ids) {
+            try {
+                event.getGuild().ban(UserSnowflake.fromId(id), 0, TimeUnit.DAYS).reason(reason).complete();
+                successCount++;
+            } catch (Exception e) {
+                logger.error("Erreur lors du massban pour l'ID {}", id, e);
+                failCount++;
+            }
+        }
+
+        event.getHook().sendMessage("✅ Massban terminé.\n• **Succès :** " + successCount + "\n• **Échecs :** " + failCount).queue();
+        moderationLogListener.logAction(event.getGuild(), "MASSBAN", event.getMember(), reason, "Utilisateurs bannis : " + successCount);
     }
 
     private void handleList(SlashCommandInteractionEvent event) {
@@ -163,8 +218,6 @@ public class BanCommand implements ICommand {
 
             net.dv8tion.jda.api.EmbedBuilder embed = fr.sakura.bot.core.util.EmbedStyle.newInfoEmbed("🔨", "Liste des bannissements (" + bans.size() + ")");
             StringBuilder sb = new StringBuilder();
-            
-            // On limite à 10 pour l'affichage initial pour éviter de dépasser les limites d'embed
             int count = 0;
             for (net.dv8tion.jda.api.entities.Guild.Ban ban : bans) {
                 if (count >= 15) {
@@ -175,12 +228,23 @@ public class BanCommand implements ICommand {
                   .append("  └ Raison : ").append(ban.getReason() != null ? ban.getReason() : "Aucune").append("\n");
                 count++;
             }
-            
             embed.setDescription(sb.toString());
             event.getHook().sendMessageEmbeds(embed.build()).queue();
-        }, error -> {
-            logger.error("Erreur lors de la récupération de la liste des bans", error);
-            event.getHook().sendMessage("❌ Impossible de récupérer la liste des bannissements.").queue();
-        });
+        }, error -> event.getHook().sendMessage("❌ Impossible de récupérer la liste des bannissements.").queue());
+    }
+
+    private long parseDuration(String input) {
+        Matcher matcher = DURATION_PATTERN.matcher(input.toLowerCase());
+        if (!matcher.matches()) return -1;
+        long value = Long.parseLong(matcher.group(1));
+        String unit = matcher.group(2);
+        return switch (unit) {
+            case "s" -> value * 1000;
+            case "m" -> value * 60000;
+            case "h" -> value * 3600000;
+            case "d" -> value * 86400000;
+            default -> -1;
+        };
     }
 }
+

@@ -1,7 +1,12 @@
 package fr.sakura.bot.commands;
 
+import fr.sakura.bot.core.util.EmbedStyle;
 import fr.sakura.bot.database.ProtectSettingsManager;
+import fr.sakura.bot.protect.JoinRiskScorer;
+import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -13,6 +18,13 @@ import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandGroupData;
+
+import java.awt.*;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Set;
 
 public class ProtectCommand implements ICommand {
 
@@ -77,6 +89,8 @@ public class ProtectCommand implements ICommand {
                         new SubcommandData("dashboard", "Dashboard récapitulatif Protect"),
                         new SubcommandData("quarantine", "Définit ou retire le rôle de quarantaine")
                                 .addOptions(new OptionData(OptionType.ROLE, "role", "Rôle de quarantaine (optionnel)", false)),
+                        new SubcommandData("check", "Vérifie le niveau de risque d'un utilisateur")
+                                .addOptions(new OptionData(OptionType.USER, "utilisateur", "Utilisateur à vérifier", true)),
                         new SubcommandData("status", "Affiche la configuration Protect active")
                 )
                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.ADMINISTRATOR));
@@ -184,6 +198,14 @@ public class ProtectCommand implements ICommand {
                     event.reply("✅ Rôle de quarantaine défini : " + role.getAsMention()).setEphemeral(true).queue();
                 }
             }
+            case "check" -> {
+                User user = event.getOption("utilisateur", OptionMapping::getAsUser);
+                if (user == null) {
+                    event.reply("❌ Utilisateur introuvable.").setEphemeral(true).queue();
+                    return;
+                }
+                handleCheck(event, guildId, user);
+            }
             case "status" -> {
                 StringBuilder sb = new StringBuilder("**Configuration Sakura Protect**\n")
                         .append("- Anti-Bot: ").append(onOff(protectSettingsManager.isAntiBotEnabled(guildId))).append('\n')
@@ -201,6 +223,84 @@ public class ProtectCommand implements ICommand {
             }
             default -> event.reply("❌ Sous-commande inconnue.").setEphemeral(true).queue();
         }
+    }
+
+    private void handleCheck(SlashCommandInteractionEvent event, String guildId, User user) {
+        long hoursOld = Duration.between(user.getTimeCreated(), OffsetDateTime.now()).toHours();
+        int minAccountAge = protectSettingsManager.getMinAccountAgeHours(guildId);
+        int raidThreshold = protectSettingsManager.getRaidJoinThreshold(guildId);
+        boolean raidModeActive = protectSettingsManager.isRaidModeActive(guildId);
+        boolean noAvatar = user.getAvatarId() == null;
+        String username = user.getName();
+
+        // Calcul du score (burst count = 0 car vérification manuelle a posteriori)
+        int score = JoinRiskScorer.computeScore(
+                hoursOld, minAccountAge, 0, raidThreshold, raidModeActive, noAvatar, username
+        );
+
+        String level;
+        Color color;
+        String emoji;
+
+        if (score >= 85) {
+            level = "Niveau 4 - Critique";
+            color = Color.RED;
+            emoji = "🔴";
+        } else if (score >= 60) {
+            level = "Niveau 3 - Élevé";
+            color = Color.ORANGE;
+            emoji = "🟠";
+        } else if (score >= 40) {
+            level = "Niveau 2 - Modéré";
+            color = Color.YELLOW;
+            emoji = "🟡";
+        } else {
+            level = "Niveau 1 - Faible";
+            color = Color.GREEN;
+            emoji = "🟢";
+        }
+
+        boolean isTrusted = isTrustedUser(event.getGuild(), user.getId());
+
+        EmbedBuilder eb = EmbedStyle.newEmbed(color, emoji, "Analyse de Risque Protect");
+        eb.setDescription("Analyse du membre " + user.getAsMention() + " (`" + user.getId() + "`)");
+
+        eb.addField("Points de suspicion", "**" + score + "** / 100", true);
+        eb.addField("Niveau de danger", "**" + level + "**", true);
+        eb.addField("Statut confiance", isTrusted ? "✅ Approuvé (Ignoré)" : "⚠️ Sous surveillance", true);
+
+        StringBuilder details = new StringBuilder();
+        details.append(EmbedStyle.detailLine("Âge du compte", hoursOld + "h (Requis: " + minAccountAge + "h)")).append("\n");
+        details.append(EmbedStyle.detailLine("Pas d'avatar", noAvatar ? "Oui (+15)" : "Non")).append("\n");
+        details.append(EmbedStyle.detailLine("Pseudo suspect", username.matches(".*\\d{4,}+$") ? "Oui (+10)" : "Non")).append("\n");
+        if (raidModeActive) {
+            details.append(EmbedStyle.detailLine("Mode Raid Actif", "Oui (+20)")).append("\n");
+        }
+
+        eb.addField("Détails du calcul", details.toString(), false);
+
+        EmbedStyle.setInfoFooterWithId(eb, user.getId());
+
+        event.replyEmbeds(eb.build()).setEphemeral(true).queue();
+    }
+
+    private boolean isTrustedUser(Guild guild, String userId) {
+        if (userId.equals(guild.getOwnerId())) return true;
+
+        Member member = guild.getMemberById(userId);
+        if (member != null) {
+            if (member.getUser().isBot()) return true;
+            if (member.hasPermission(Permission.ADMINISTRATOR) || member.hasPermission(Permission.MANAGE_SERVER)) return true;
+
+            Set<String> trustedRoleIds = Set.copyOf(protectSettingsManager.getTrustedRoleIds(guild.getId()));
+            for (Role role : member.getRoles()) {
+                if (trustedRoleIds.contains(role.getId())) {
+                    return true;
+                }
+            }
+        }
+
+        return protectSettingsManager.getWhitelist(guild.getId()).contains(userId);
     }
 
     private void handleWhitelist(SlashCommandInteractionEvent event, String guildId, String subcommand) {
