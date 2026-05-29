@@ -27,6 +27,10 @@ Toutes les commandes sont accessibles via `/`. Certaines nécessitent des permis
 | Commande | Description |
 | :--- | :--- |
 | `/ticketpanel` | Envoie le panneau interactif de support (nécessite la permission *Gérer les salons*). |
+| `/ticketconfig logs <salon>` | Définit le salon de logs de tickets (Administrateurs uniquement). |
+| `/ticketconfig transcripts <salon>` | Définit le salon de transcription des tickets clos (Administrateurs uniquement). |
+| `/ticketconfig support-role <role>` | Définit le rôle de support à ping et à autoriser sur les tickets (Administrateurs uniquement). |
+| `/ticketconfig view` | Affiche la configuration actuelle de TicketBot sur le serveur. |
 | `/ticket add <membre>` | Ajoute un membre au ticket en cours. |
 | `/ticket remove <membre>` | Retire un membre du ticket en cours (impossible de retirer l'auteur). |
 | `/ticket rename <nom>` | Renomme le salon du ticket. |

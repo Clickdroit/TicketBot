@@ -89,4 +89,12 @@ public class SettingsManager {
     public void setTranscriptChannelId(String guildId, String channelId) { 
         setStringSetting(guildId, "transcript_channel_id", channelId); 
     }
+
+    public Optional<String> getSupportRoleId(String guildId) { 
+        return getStringSetting(guildId, "support_role_id"); 
+    }
+    
+    public void setSupportRoleId(String guildId, String roleId) { 
+        setStringSetting(guildId, "support_role_id", roleId); 
+    }
 }

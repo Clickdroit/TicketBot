@@ -25,9 +25,11 @@ public class TicketService {
 
     private static final Logger logger = LoggerFactory.getLogger(TicketService.class);
     private final TicketStore ticketStore;
+    private final fr.sakura.bot.database.SettingsManager settingsManager;
 
-    public TicketService(TicketStore ticketStore) {
+    public TicketService(TicketStore ticketStore, fr.sakura.bot.database.SettingsManager settingsManager) {
         this.ticketStore = ticketStore;
+        this.settingsManager = settingsManager;
     }
 
     public TicketStore getTicketStore() {
@@ -67,11 +69,22 @@ public class TicketService {
 
     public List<Role> resolveSupportRoles(Guild guild) {
         if (guild == null) return List.of();
+        
+        // 1. Essayer de récupérer le rôle configuré explicitement en base de données
+        String configuredRoleId = settingsManager.getSupportRoleId(guild.getId()).orElse(null);
+        if (configuredRoleId != null) {
+            Role role = guild.getRoleById(configuredRoleId);
+            if (role != null) {
+                return List.of(role);
+            }
+        }
+
+        // 2. Fallback intelligent (uniquement les rôles contenant support, staff ou mod)
+        // Exclusion de la permission MANAGE_CHANNEL générique qui pingait tous les bots.
         List<Role> roles = new ArrayList<>();
         for (Role role : guild.getRoles()) {
             String lower = role.getName().toLowerCase(Locale.ROOT);
-            if (role.hasPermission(Permission.MANAGE_CHANNEL)
-                    || lower.contains("support")
+            if (lower.contains("support")
                     || lower.contains("staff")
                     || lower.contains("mod")) {
                 roles.add(role);

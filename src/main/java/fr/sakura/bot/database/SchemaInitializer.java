@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -11,6 +12,7 @@ import java.sql.Statement;
 
 /**
  * Gère l'initialisation du schéma de BDD pour TicketBot.
+ * Intègre des migrations robustes pour les bases SQLite et PostgreSQL (Supabase) existantes.
  */
 public class SchemaInitializer {
     private static final Logger logger = LoggerFactory.getLogger(SchemaInitializer.class);
@@ -34,6 +36,10 @@ public class SchemaInitializer {
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_tickets_channel ON tickets(guild_id, channel_id)");
                 stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_tickets_single_active_per_user ON tickets(guild_id, user_id) WHERE status IN ('OPEN', 'CLAIMED')");
             }
+        });
+
+        applyMigration(conn, 3, "add support_role_id column to settings", () -> {
+            addColumnIfMissing(conn, "settings", "support_role_id", "TEXT", isPostgres);
         });
     }
 
@@ -76,11 +82,44 @@ public class SchemaInitializer {
         }
     }
 
+    private static void addColumnIfMissing(Connection conn, String tableName, String columnName, String columnDefinition, boolean isPostgres) throws SQLException {
+        if (hasColumn(conn, tableName, columnName, isPostgres)) {
+            return;
+        }
+
+        String sql = "ALTER TABLE " + tableName + " ADD COLUMN " + columnName + " " + columnDefinition;
+        try (Statement stmt = conn.createStatement()) {
+            stmt.execute(sql);
+        }
+        logger.info("Migration: colonne ajoutée {}.{}", tableName, columnName);
+    }
+
+    private static boolean hasColumn(Connection conn, String tableName, String columnName, boolean isPostgres) throws SQLException {
+        DatabaseMetaData metaData = conn.getMetaData();
+
+        if (isPostgres) {
+            try (ResultSet rs = metaData.getColumns(null, "public", tableName, columnName)) {
+                if (rs.next()) return true;
+            }
+            try (ResultSet rs = metaData.getColumns(null, "public", tableName.toLowerCase(), columnName.toLowerCase())) {
+                if (rs.next()) return true;
+            }
+        }
+
+        try (ResultSet rs = metaData.getColumns(null, null, tableName, columnName)) {
+            if (rs.next()) return true;
+        }
+        try (ResultSet rs = metaData.getColumns(null, null, tableName.toLowerCase(), columnName.toLowerCase())) {
+            return rs.next();
+        }
+    }
+
     private static String createSettingsTableSql() {
         return "CREATE TABLE IF NOT EXISTS settings (" +
                 "guild_id TEXT PRIMARY KEY," +
                 "log_channel_id TEXT," +
-                "transcript_channel_id TEXT" +
+                "transcript_channel_id TEXT," +
+                "support_role_id TEXT" +
                 ");";
     }
 

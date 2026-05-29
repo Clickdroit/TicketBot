@@ -43,7 +43,7 @@ public class Main {
 
         // 2. Services Métier
         TicketStore ticketStore = new TicketStore();
-        TicketService ticketService = new TicketService(ticketStore);
+        TicketService ticketService = new TicketService(ticketStore, settingsManager);
         
         // 3. Listener de Logs de Tickets
         TicketLogListener ticketLogListener = new TicketLogListener(settingsManager);

@@ -31,7 +31,8 @@ public class CommandManager extends ListenerAdapter {
         // Liste des commandes à enregistrer
         List<ICommand> commandList = List.of(
             new TicketPanelCommand(ctx.ticketService()),
-            new TicketCommand(ctx.ticketService())
+            new TicketCommand(ctx.ticketService()),
+            new fr.sakura.bot.commands.ticket.TicketConfigCommand(ctx.settings())
         );
 
         for (ICommand command : commandList) {
