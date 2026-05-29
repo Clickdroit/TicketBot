@@ -4,9 +4,11 @@ import fr.sakura.bot.core.util.EmbedStyle;
 import fr.sakura.bot.database.SettingsManager;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
 import net.dv8tion.jda.api.components.selections.EntitySelectMenu;
@@ -17,7 +19,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Gère les interactions boutons et menus de sélection d'entités de JDA 5 pour la configuration interactive de TicketBot.
+ * Gère les interactions dynamiques JDA 5 pour le panneau de configuration (/ticketconfig).
+ * Actualise l'embed en temps réel sur le même message, remplaçant temporairement les boutons par des menus de sélection.
  */
 public class TicketConfigListener extends ListenerAdapter {
 
@@ -43,7 +46,7 @@ public class TicketConfigListener extends ListenerAdapter {
             return;
         }
 
-        // Vérification des droits d'administrateur
+        // Seuls les administrateurs peuvent interagir
         if (!event.getMember().hasPermission(Permission.MANAGE_SERVER)) {
             event.reply("❌ Seul un administrateur du serveur peut modifier la configuration.").setEphemeral(true).queue();
             return;
@@ -57,10 +60,13 @@ public class TicketConfigListener extends ListenerAdapter {
                     .setChannelTypes(ChannelType.TEXT)
                     .build();
 
-            event.reply("Sélectionnez le salon où envoyer les logs d'activité de tickets :")
+            // Remplacement dynamique des boutons par le menu déroulant sur le même embed
+            event.editMessageEmbeds(event.getMessage().getEmbeds().get(0))
                     .setComponents(ActionRow.of(menu))
-                    .setEphemeral(true)
-                    .queue();
+                    .queue(
+                            success -> logger.info("Bouton logs cliqué : affichage du menu déroulant sur le panneau d'origine"),
+                            error -> logger.error("Échec édition message pour menu logs", error)
+                    );
             return;
         }
 
@@ -70,10 +76,12 @@ public class TicketConfigListener extends ListenerAdapter {
                     .setChannelTypes(ChannelType.TEXT)
                     .build();
 
-            event.reply("Sélectionnez le salon où envoyer les fichiers de transcription des tickets clos :")
+            event.editMessageEmbeds(event.getMessage().getEmbeds().get(0))
                     .setComponents(ActionRow.of(menu))
-                    .setEphemeral(true)
-                    .queue();
+                    .queue(
+                            success -> logger.info("Bouton transcriptions cliqué : affichage du menu déroulant sur le panneau d'origine"),
+                            error -> logger.error("Échec édition message pour menu transcripts", error)
+                    );
             return;
         }
 
@@ -82,10 +90,12 @@ public class TicketConfigListener extends ListenerAdapter {
                     .setPlaceholder("👥 Sélectionnez le rôle de support")
                     .build();
 
-            event.reply("Sélectionnez le rôle à ping à l'ouverture d'un ticket :")
+            event.editMessageEmbeds(event.getMessage().getEmbeds().get(0))
                     .setComponents(ActionRow.of(menu))
-                    .setEphemeral(true)
-                    .queue();
+                    .queue(
+                            success -> logger.info("Bouton support cliqué : affichage du menu déroulant sur le panneau d'origine"),
+                            error -> logger.error("Échec édition message pour menu support-role", error)
+                    );
         }
     }
 
@@ -102,77 +112,80 @@ public class TicketConfigListener extends ListenerAdapter {
 
         String menuId = event.getComponentId();
         String guildId = event.getGuild().getId();
+        boolean updated = false;
 
         if (SELECT_LOGS.equals(menuId)) {
-            if (event.getValues().isEmpty()) return;
-            GuildChannel channel = event.getMentions().getChannels().get(0);
-            
-            settingsManager.setLogChannelId(guildId, channel.getId());
-
-            EmbedBuilder embed = EmbedStyle.newActionEmbed("⚙️", "Configuration des Logs");
-            embed.setDescription("Le salon des logs de tickets a été configuré avec succès !\n\n" +
-                    EmbedStyle.detailLine("Nouveau Salon", channel.getAsMention()) + "\n" +
-                    EmbedStyle.detailLine("Configuré par", event.getUser().getAsMention()));
-
-            event.replyEmbeds(embed.build()).setEphemeral(true).queue(
-                    success -> {
-                        logger.info("Logs configurés via menu interactif guildId={} channelId={}", guildId, channel.getId());
-                        updateConfigPanelMessage(event);
-                    }
-            );
-            return;
+            if (!event.getValues().isEmpty()) {
+                GuildChannel channel = event.getMentions().getChannels().get(0);
+                settingsManager.setLogChannelId(guildId, channel.getId());
+                logger.info("Logs configurés via menu interactif guildId={} channelId={}", guildId, channel.getId());
+                updated = true;
+            }
+        } else if (SELECT_TRANSCRIPTS.equals(menuId)) {
+            if (!event.getValues().isEmpty()) {
+                GuildChannel channel = event.getMentions().getChannels().get(0);
+                settingsManager.setTranscriptChannelId(guildId, channel.getId());
+                logger.info("Transcriptions configurées via menu interactif guildId={} channelId={}", guildId, channel.getId());
+                updated = true;
+            }
+        } else if (SELECT_SUPPORT_ROLE.equals(menuId)) {
+            if (!event.getValues().isEmpty()) {
+                Role role = event.getMentions().getRoles().get(0);
+                settingsManager.setSupportRoleId(guildId, role.getId());
+                logger.info("Rôle support configuré via menu interactif guildId={} roleId={}", guildId, role.getId());
+                updated = true;
+            }
         }
 
-        if (SELECT_TRANSCRIPTS.equals(menuId)) {
-            if (event.getValues().isEmpty()) return;
-            GuildChannel channel = event.getMentions().getChannels().get(0);
+        if (updated) {
+            // Reconstruction de l'embed mis à jour
+            EmbedBuilder updatedEmbed = buildConfigEmbed(event.getGuild(), settingsManager);
 
-            settingsManager.setTranscriptChannelId(guildId, channel.getId());
+            // Rétablissement des boutons d'origine avec l'embed mis à jour
+            Button btnLogs = Button.secondary(BTN_LOGS, "📝 Salon de Logs");
+            Button btnTranscripts = Button.secondary(BTN_TRANSCRIPTS, "📂 Salon Transcriptions");
+            Button btnSupportRole = Button.secondary(BTN_SUPPORT_ROLE, "👥 Rôle Support");
 
-            EmbedBuilder embed = EmbedStyle.newActionEmbed("⚙️", "Configuration des Transcriptions");
-            embed.setDescription("Le salon de transcription des tickets clos a été configuré avec succès !\n\n" +
-                    EmbedStyle.detailLine("Nouveau Salon", channel.getAsMention()) + "\n" +
-                    EmbedStyle.detailLine("Configuré par", event.getUser().getAsMention()));
-
-            event.replyEmbeds(embed.build()).setEphemeral(true).queue(
-                    success -> {
-                        logger.info("Transcriptions configurées via menu interactif guildId={} channelId={}", guildId, channel.getId());
-                        updateConfigPanelMessage(event);
-                    }
-            );
-            return;
-        }
-
-        if (SELECT_SUPPORT_ROLE.equals(menuId)) {
-            if (event.getValues().isEmpty()) return;
-            Role role = event.getMentions().getRoles().get(0);
-
-            settingsManager.setSupportRoleId(guildId, role.getId());
-
-            EmbedBuilder embed = EmbedStyle.newActionEmbed("⚙️", "Configuration du Rôle Support");
-            embed.setDescription("Le rôle de support à ping a été configuré avec succès !\n\n" +
-                    EmbedStyle.detailLine("Nouveau Rôle", role.getAsMention()) + "\n" +
-                    EmbedStyle.detailLine("Configuré par", event.getUser().getAsMention()));
-
-            event.replyEmbeds(embed.build()).setEphemeral(true).queue(
-                    success -> {
-                        logger.info("Rôle support configuré via menu interactif guildId={} roleId={}", guildId, role.getId());
-                        updateConfigPanelMessage(event);
-                    }
-            );
+            event.editMessageEmbeds(updatedEmbed.build())
+                    .setComponents(ActionRow.of(btnLogs, btnTranscripts, btnSupportRole))
+                    .queue(
+                            success -> logger.info("Message d'embed mis à jour avec succès après sélection"),
+                            error -> logger.error("Échec de l'actualisation de l'embed après sélection", error)
+                    );
         }
     }
 
     /**
-     * Tâche de fignolage haut de gamme (WOW factor) :
-     * Met à jour dynamiquement le message d'origine (le panel) avec les nouvelles valeurs
-     * de configuration dès que l'administrateur fait sa sélection !
+     * Reconstruit l'embed de configuration dynamique.
      */
-    private void updateConfigPanelMessage(EntitySelectInteractionEvent event) {
-        if (event.getMessage() == null || event.getGuild() == null) return;
+    public static EmbedBuilder buildConfigEmbed(Guild guild, SettingsManager settingsManager) {
+        String guildId = guild.getId();
+
+        String logsChannelMention = settingsManager.getLogChannelId(guildId)
+                .map(id -> "<#" + id + ">")
+                .orElse("❌ *Non configuré*");
+
+        String transcriptsChannelMention = settingsManager.getTranscriptChannelId(guildId)
+                .map(id -> "<#" + id + ">")
+                .orElse("❌ *Non configuré*");
+
+        String supportRoleMention = settingsManager.getSupportRoleId(guildId)
+                .map(id -> "<@&" + id + ">")
+                .orElse("⚠️ *Détection automatique (fallback)*");
+
+        EmbedBuilder embed = EmbedStyle.newInfoEmbed("⚙️", "Configuration de TicketBot");
+        embed.setAuthor("Panneau d'Administration • " + guild.getName(), null, guild.getIconUrl());
         
-        // Comme les menus de sélection d'entités s'affichent sur des messages éphémères de transition,
-        // nous n'éditons pas le message d'origine directement ici car event.getMessage() cible le menu éphémère.
-        // C'est un comportement JDA 5 standard qui préserve l'état de l'écran principal.
+        embed.setDescription("Bienvenue dans le panneau de configuration interactif de votre système de support.\n" +
+                "Cliquez sur les boutons ci-dessous pour modifier les salons de logs, de transcriptions ou configurer le rôle de support à ping.\n\n" +
+                EmbedStyle.sectionHeader("🔧", "Paramètres des salons") + "\n" +
+                EmbedStyle.detailLine("Salon de Logs", logsChannelMention) + "\n" +
+                EmbedStyle.detailLine("Salon Transcriptions", transcriptsChannelMention) + "\n\n" +
+                EmbedStyle.sectionHeader("👥", "Rôles de support") + "\n" +
+                EmbedStyle.detailLine("Rôle à ping", supportRoleMention) + "\n\n" +
+                "💡 *Les boutons ci-dessous afficheront des menus de sélection privés et sécurisés.*");
+
+        EmbedStyle.setFooter(embed, "TicketBot Administration", guild.getIconUrl());
+        return embed;
     }
 }

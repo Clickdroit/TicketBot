@@ -50,33 +50,7 @@ public class TicketConfigCommand implements ICommand {
             return;
         }
 
-        String guildId = event.getGuild().getId();
-
-        String logsChannelMention = settingsManager.getLogChannelId(guildId)
-                .map(id -> "<#" + id + ">")
-                .orElse("❌ *Non configuré*");
-
-        String transcriptsChannelMention = settingsManager.getTranscriptChannelId(guildId)
-                .map(id -> "<#" + id + ">")
-                .orElse("❌ *Non configuré*");
-
-        String supportRoleMention = settingsManager.getSupportRoleId(guildId)
-                .map(id -> "<@&" + id + ">")
-                .orElse("⚠️ *Détection automatique (fallback)*");
-
-        EmbedBuilder embed = EmbedStyle.newInfoEmbed("⚙️", "Configuration de TicketBot");
-        embed.setAuthor("Panneau d'Administration • " + event.getGuild().getName(), null, event.getGuild().getIconUrl());
-        
-        embed.setDescription("Bienvenue dans le panneau de configuration interactif de votre système de support.\n" +
-                "Cliquez sur les boutons ci-dessous pour modifier les salons de logs, de transcriptions ou configurer le rôle de support à ping.\n\n" +
-                EmbedStyle.sectionHeader("🔧", "Paramètres des salons") + "\n" +
-                EmbedStyle.detailLine("Salon de Logs", logsChannelMention) + "\n" +
-                EmbedStyle.detailLine("Salon Transcriptions", transcriptsChannelMention) + "\n\n" +
-                EmbedStyle.sectionHeader("👥", "Rôles de support") + "\n" +
-                EmbedStyle.detailLine("Rôle à ping", supportRoleMention) + "\n\n" +
-                "💡 *Les boutons ci-dessous afficheront des menus de sélection privés et sécurisés.*");
-
-        EmbedStyle.setFooter(embed, "TicketBot Administration", event.getGuild().getIconUrl());
+        EmbedBuilder embed = fr.sakura.bot.listeners.TicketConfigListener.buildConfigEmbed(event.getGuild(), settingsManager);
 
         // Création des boutons interactifs de JDA 5
         Button btnLogs = Button.secondary("config:logs", "📝 Salon de Logs");
@@ -86,8 +60,8 @@ public class TicketConfigCommand implements ICommand {
         event.replyEmbeds(embed.build())
                 .setComponents(ActionRow.of(btnLogs, btnTranscripts, btnSupportRole))
                 .queue(
-                        success -> logger.info("Panneau ticketconfig affiché guildId={} par userId={}", guildId, event.getUser().getId()),
-                        error -> logger.error("Échec affichage panneau ticketconfig guildId={}", guildId, error)
+                        success -> logger.info("Panneau ticketconfig affiché guildId={} par userId={}", event.getGuild().getId(), event.getUser().getId()),
+                        error -> logger.error("Échec affichage panneau ticketconfig guildId={}", event.getGuild().getId(), error)
                 );
     }
 }
