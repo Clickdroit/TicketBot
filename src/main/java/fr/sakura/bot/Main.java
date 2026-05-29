@@ -57,6 +57,7 @@ public class Main {
         // 5. Listeners d'Événements
         SecurityListener securityListener = new SecurityListener(commandManager);
         TicketListener ticketListener = new TicketListener(ticketService, ticketLogListener, settingsManager);
+        fr.sakura.bot.listeners.TicketConfigListener ticketConfigListener = new fr.sakura.bot.listeners.TicketConfigListener(settingsManager);
 
         // 6. Lancement JDA
         net.dv8tion.jda.api.JDA jda = JDABuilder.createLight(token)
@@ -68,7 +69,8 @@ public class Main {
                 .addEventListeners(
                         securityListener, 
                         commandManager, 
-                        ticketListener
+                        ticketListener,
+                        ticketConfigListener
                 )
                 .setActivity(Activity.playing("Gérer vos tickets de support"))
                 .build();
