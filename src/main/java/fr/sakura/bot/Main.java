@@ -17,7 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Point d'entrée principal de TicketBot standalone.
+ * Point d'entrée principal de TicketBot standalone (multi-serveur).
  * Orchestre l'initialisation du système de tickets, de la base de données et de JDA.
  */
 public class Main {
@@ -28,7 +28,6 @@ public class Main {
         Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
 
         String token            = dotenv.get("DISCORD_TOKEN");
-        String guildId          = dotenv.get("GUILD_ID");
         String databaseUrl       = dotenv.get("DATABASE_URL");
 
         if (token == null || token.isEmpty()) {
@@ -36,12 +35,7 @@ public class Main {
             return;
         }
 
-        if (guildId == null || guildId.isEmpty()) {
-            logger.error("GUILD_ID absent ou vide dans le fichier .env");
-            return;
-        }
-
-        logger.info("🚀 Démarrage de TicketBot pour la guilde {}", guildId);
+        logger.info("🚀 Démarrage de TicketBot...");
 
         // 1. Infrastructure BDD
         DatabaseManager.initialize(databaseUrl);
@@ -56,12 +50,12 @@ public class Main {
 
         // 4. Contexte et Commandes
         BotContext botContext = new BotContext(
-                guildId, settingsManager, ticketService, ticketLogListener
+                settingsManager, ticketService, ticketLogListener
         );
         CommandManager commandManager = new CommandManager(botContext);
 
         // 5. Listeners d'Événements
-        SecurityListener securityListener = new SecurityListener(guildId, commandManager);
+        SecurityListener securityListener = new SecurityListener(commandManager);
         TicketListener ticketListener = new TicketListener(ticketService, ticketLogListener, settingsManager);
 
         // 6. Lancement JDA

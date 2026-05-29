@@ -3,7 +3,6 @@ package fr.sakura.bot.commands;
 import fr.sakura.bot.commands.ticket.TicketCommand;
 import fr.sakura.bot.commands.ticket.TicketPanelCommand;
 import fr.sakura.bot.core.util.MdcContext;
-import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.MessageContextInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -18,17 +17,16 @@ import java.util.*;
 
 /**
  * Routeur central des commandes pour TicketBot (Slash, Auto-complete, Context Menus).
+ * Supporte le fonctionnement multi-serveur.
  */
 public class CommandManager extends ListenerAdapter {
 
     private static final Logger logger = LoggerFactory.getLogger(CommandManager.class);
 
-    private final String guildId;
     private final Map<String, ICommand> commands = new HashMap<>();
 
     public CommandManager(BotContext ctx) {
-        this.guildId = ctx.guildId();
-        logger.info("Initialisation CommandManager guildId={}", guildId);
+        logger.info("Initialisation CommandManager (mode multi-serveur)");
 
         // Liste des commandes à enregistrer
         List<ICommand> commandList = List.of(
@@ -42,17 +40,15 @@ public class CommandManager extends ListenerAdapter {
         }
     }
 
-    public void registerCommands(Guild guild) {
+    public void registerGlobalCommands(net.dv8tion.jda.api.JDA jda) {
         List<CommandData> commandDataList = new ArrayList<>();
         for (ICommand command : commands.values()) {
             commandDataList.add(command.getCommandData());
         }
 
-        guild.updateCommands().addCommands(commandDataList).queue(
-                success -> logger.info("{} commandes enregistrées pour {} ({})",
-                        commands.size(), guild.getName(), guild.getId()),
-                error -> logger.error("Échec enregistrement commandes pour {} ({})",
-                        guild.getName(), guild.getId(), error)
+        jda.updateCommands().addCommands(commandDataList).queue(
+                success -> logger.info("{} commandes globales enregistrées avec succès", commands.size()),
+                error -> logger.error("Échec de l'enregistrement des commandes globales", error)
         );
     }
 
@@ -91,7 +87,7 @@ public class CommandManager extends ListenerAdapter {
         }, event.getId());
     }
 
-    private void handleInteraction(String name, Guild guild, net.dv8tion.jda.api.entities.User user, String channelId, Runnable action, String interactionId) {
+    private void handleInteraction(String name, net.dv8tion.jda.api.entities.Guild guild, net.dv8tion.jda.api.entities.User user, String channelId, Runnable action, String interactionId) {
         if (guild == null) return;
 
         String cid = interactionId + "-" + UUID.randomUUID().toString().substring(0, 8);
@@ -101,8 +97,6 @@ public class CommandManager extends ListenerAdapter {
                 "guildId", guild.getId(),
                 "userId", user.getId()
         )) {
-            if (!guild.getId().equals(guildId)) return;
-
             logger.info("Interaction reçue: cmd={}, guildId={}, userId={}, channelId={}",
                     name, guild.getId(), user.getId(), channelId);
 
