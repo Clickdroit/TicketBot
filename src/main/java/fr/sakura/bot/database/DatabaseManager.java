@@ -20,7 +20,7 @@ public class DatabaseManager {
     private static final Logger logger = LoggerFactory.getLogger(DatabaseManager.class);
     
     private static final String DB_FOLDER = "data";
-    private static final String DB_FILE = "sakura.db";
+    private static final String DB_FILE = "ticketbot.db";
     private static final String DEFAULT_DB_URL = "jdbc:sqlite:" + DB_FOLDER + "/" + DB_FILE;
     
     private static HikariDataSource dataSource;

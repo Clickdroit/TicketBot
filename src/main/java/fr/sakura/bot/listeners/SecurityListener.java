@@ -1,7 +1,6 @@
 package fr.sakura.bot.listeners;
 
 import fr.sakura.bot.commands.CommandManager;
-import fr.sakura.bot.core.service.RolesPanelService;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.events.guild.GuildJoinEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
@@ -21,12 +20,10 @@ public class SecurityListener extends ListenerAdapter {
 
     private final String guildId;
     private final CommandManager commandManager;
-    private final RolesPanelService rolesPanelService;
 
-    public SecurityListener(String guildId, CommandManager commandManager, RolesPanelService rolesPanelService) {
+    public SecurityListener(String guildId, CommandManager commandManager) {
         this.guildId = guildId;
         this.commandManager = commandManager;
-        this.rolesPanelService = rolesPanelService;
     }
 
     @Override
@@ -52,7 +49,6 @@ public class SecurityListener extends ListenerAdapter {
                     for (Guild guild : event.getJDA().getGuilds()) {
                         if (checkAndLeaveUnauthorizedGuilds(guild)) {
                             commandManager.registerCommands(guild);
-                            rolesPanelService.rebuildPanels(guild);
                         }
                     }
                 },

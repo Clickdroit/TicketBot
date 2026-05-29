@@ -31,7 +31,7 @@ public class HikariPoolFactory {
             config.setJdbcUrl(dbUrl);
         }
 
-        config.setPoolName("SakuraPool");
+        config.setPoolName("TicketBotPool");
         config.setMaximumPoolSize(10);
         config.setMinimumIdle(2);
         config.setIdleTimeout(300000);

@@ -1,7 +1,7 @@
 package fr.sakura.bot.listeners;
 
 import fr.sakura.bot.core.util.EmbedStyle;
-import fr.sakura.bot.listeners.log.ModerationLogListener;
+import fr.sakura.bot.listeners.log.TicketLogListener;
 import fr.sakura.bot.core.model.TicketEntry;
 import fr.sakura.bot.core.service.TicketService;
 import fr.sakura.bot.core.util.MdcContext;
@@ -36,12 +36,12 @@ public class TicketListener extends ListenerAdapter {
     private static final String CATEGORY_ID = "ticket:category";
 
     private final TicketService ticketService;
-    private final ModerationLogListener moderationLogListener;
+    private final TicketLogListener ticketLogListener;
     private final fr.sakura.bot.database.SettingsManager settingsManager;
 
-    public TicketListener(TicketService ticketService, ModerationLogListener moderationLogListener, fr.sakura.bot.database.SettingsManager settingsManager) {
+    public TicketListener(TicketService ticketService, TicketLogListener ticketLogListener, fr.sakura.bot.database.SettingsManager settingsManager) {
         this.ticketService = ticketService;
-        this.moderationLogListener = moderationLogListener;
+        this.ticketLogListener = ticketLogListener;
         this.settingsManager = settingsManager;
     }
 
@@ -200,7 +200,7 @@ public class TicketListener extends ListenerAdapter {
                         .queue();
 
                 event.getHook().sendMessage("✅ Ticket créé : " + channel.getAsMention()).queue();
-                moderationLogListener.logAction(guild, "TICKET_CREATE", requester, requester, "Ticket ouvert (" + categoryLabel + ")", "Sujet: " + subject);
+                ticketLogListener.logAction(guild, "TICKET_CREATE", requester, requester, "Ticket ouvert (" + categoryLabel + ")", "Sujet: " + subject);
                 logger.info("Ticket créé avec sujet et description");
             }, error -> {
                 logger.error("Echec creation ticket", error);
@@ -234,7 +234,7 @@ public class TicketListener extends ListenerAdapter {
         
         Member ownerMember = guild.getMemberById(ticket.userId());
         if (ownerMember != null) {
-            moderationLogListener.logAction(guild, "TICKET_CLAIM", event.getMember(), ownerMember, "Ticket pris en charge", channel.getId());
+            ticketLogListener.logAction(guild, "TICKET_CLAIM", event.getMember(), ownerMember, "Ticket pris en charge", channel.getId());
         }
 
         if (claimed != null) {
@@ -268,7 +268,7 @@ public class TicketListener extends ListenerAdapter {
         
         Member ownerMember = guild.getMemberById(ticket.userId());
         if (ownerMember != null) {
-            moderationLogListener.logAction(guild, "TICKET_CLOSE", event.getMember(), ownerMember, "Ticket fermé", channel.getId());
+            ticketLogListener.logAction(guild, "TICKET_CLOSE", event.getMember(), ownerMember, "Ticket fermé", channel.getId());
         }
 
         String details = "🔒 Ticket clôturé par " + event.getUser().getAsMention();

@@ -1,10 +1,7 @@
 package fr.sakura.bot.commands;
 
-import fr.sakura.bot.commands.info.*;
-import fr.sakura.bot.commands.moderation.*;
-import fr.sakura.bot.commands.staff.*;
-import fr.sakura.bot.commands.ticket.*;
-import fr.sakura.bot.commands.xp.*;
+import fr.sakura.bot.commands.ticket.TicketCommand;
+import fr.sakura.bot.commands.ticket.TicketPanelCommand;
 import fr.sakura.bot.core.util.MdcContext;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
@@ -20,7 +17,7 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 
 /**
- * Routeur central des commandes (Slash, Auto-complete, Context Menus).
+ * Routeur central des commandes pour TicketBot (Slash, Auto-complete, Context Menus).
  */
 public class CommandManager extends ListenerAdapter {
 
@@ -35,44 +32,8 @@ public class CommandManager extends ListenerAdapter {
 
         // Liste des commandes à enregistrer
         List<ICommand> commandList = List.of(
-            new PingCommand(),
-            new HelpCommand(Collections.unmodifiableMap(commands)),
-            new AvatarCommand(),
-            new UserInfoCommand(ctx.levelService(), ctx.warningService(), ctx.ticketService()),
-            new LookupCommand(),
-            new ServerInfoCommand(),
-            new SoulmateCommand(),
-            
-            new ClearCommand(ctx.moderationLog()),
-            new KickCommand(ctx.moderationLog()),
-            new BanCommand(ctx.moderationLog(), ctx.tempBanService()),
-            new TimeoutCommand(ctx.moderationLog()),
-            new UntimeoutCommand(ctx.moderationLog()),
-            new UnbanCommand(ctx.moderationLog()),
-            new WarnCommand(ctx.moderationLog(), ctx.warningService(), ctx.staffNoteService(), ctx.settings()),
-            new LockCommand(ctx.moderationLog()),
-            new UnlockCommand(ctx.moderationLog()),
-            new SlowmodeCommand(ctx.moderationLog()),
-            new UnquarantineCommand(ctx.protectSettings()),
-            
-            new XpAdminCommand(ctx.levelService(), ctx.settings()),
-            new XpCommand(ctx.levelService(), ctx.settings()),
-            
             new TicketPanelCommand(ctx.ticketService()),
-            new TicketCommand(ctx.ticketService()),
-            
-            new ConfigCommand(ctx.settings()),
-            new ProtectCommand(ctx.protectSettings()),
-            new StatusCommand(),
-            new MessageCommand(ctx.moderationLog()),
-            new DmCommand(ctx.moderationLog()),
-            new RoleCommand(ctx.tempRoleService()),
-            new RolesPanelCommand(ctx.rolesPanelService()),
-            new AutoModCommand(ctx.autoModRuleStore()),
-            new IdCommand(),
-            new PermissionsCommand(),
-            new ViewProfileContext(ctx.levelService(), ctx.warningService()),
-            new ReportMessageContext(ctx.moderationLog())
+            new TicketCommand(ctx.ticketService())
         );
 
         for (ICommand command : commandList) {
