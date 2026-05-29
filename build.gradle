@@ -47,7 +47,7 @@ application {
 }
 
 shadowJar {
-    archiveFileName = 'sakura-bot.jar'
+    archiveFileName = 'ticketbot.jar'
 }
 
 tasks.withType(JavaCompile) {

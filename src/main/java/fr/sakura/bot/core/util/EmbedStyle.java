@@ -31,7 +31,7 @@ public final class EmbedStyle {
     private static final DateTimeFormatter MODERATION_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy à HH:mm:ss");
 
     // ── Marques ────────────────────────────────────────────────────────────────────
-    private static final String APP_MARK = "🌸 Sakura";
+    private static final String APP_MARK = "🎫 TicketBot";
     private static final String UNKNOWN  = "Inconnu";
     private static final String ELLIPSIS = "...";
 

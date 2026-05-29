@@ -65,4 +65,4 @@ Pour configurer les salons de logs et de transcription dans la base de données 
 La charte graphique des embeds (couleurs roses Sakura, emojis, séparateurs) est centralisée dans la classe `fr.sakura.bot.core.util.EmbedStyle`. Vous pouvez y éditer les couleurs et les signatures des embeds pour adapter le bot à vos préférences esthétiques.
 
 ---
-*Développé avec 🌸 par l'équipe Sakura.*
+*Développé par Clickdroit.*
