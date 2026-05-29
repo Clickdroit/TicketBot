@@ -97,4 +97,56 @@ public class SettingsManager {
     public void setSupportRoleId(String guildId, String roleId) { 
         setStringSetting(guildId, "support_role_id", roleId); 
     }
+
+    public java.util.List<String> getSupportRoles(String guildId, String category) {
+        if (isDbNotReady()) return java.util.Collections.emptyList();
+        java.util.List<String> roleIds = new java.util.ArrayList<>();
+        String sql = "SELECT role_id FROM ticket_support_roles WHERE guild_id = ? AND category = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, guildId);
+            pstmt.setString(2, category);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    roleIds.add(rs.getString("role_id"));
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur lecture support_roles guildId={}, category={}", guildId, category, e);
+        }
+        return roleIds;
+    }
+
+    public void setSupportRoles(String guildId, String category, java.util.List<String> roleIds) {
+        if (isDbNotReady()) return;
+        String deleteSql = "DELETE FROM ticket_support_roles WHERE guild_id = ? AND category = ?";
+        String insertSql = "INSERT INTO ticket_support_roles (guild_id, category, role_id) VALUES (?, ?, ?)";
+        try (Connection conn = DatabaseManager.getConnection()) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement deleteStmt = conn.prepareStatement(deleteSql);
+                 PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
+                
+                deleteStmt.setString(1, guildId);
+                deleteStmt.setString(2, category);
+                deleteStmt.executeUpdate();
+                
+                for (String roleId : roleIds) {
+                    insertStmt.setString(1, guildId);
+                    insertStmt.setString(2, category);
+                    insertStmt.setString(3, roleId);
+                    insertStmt.addBatch();
+                }
+                insertStmt.executeBatch();
+                conn.commit();
+                logger.info("Mise a jour support_roles reussi guildId={}, category={}, count={}", guildId, category, roleIds.size());
+            } catch (SQLException e) {
+                conn.rollback();
+                logger.error("Erreur rollback lors de l'update de support_roles", e);
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur BDD support_roles guildId={}", guildId, e);
+        }
+    }
 }

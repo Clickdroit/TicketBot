@@ -67,20 +67,42 @@ public class TicketService {
                 .orElse(null);
     }
 
-    public List<Role> resolveSupportRoles(Guild guild) {
+    public List<Role> resolveSupportRoles(Guild guild, String categoryId) {
         if (guild == null) return List.of();
         
-        // 1. Essayer de récupérer le rôle configuré explicitement en base de données
-        String configuredRoleId = settingsManager.getSupportRoleId(guild.getId()).orElse(null);
-        if (configuredRoleId != null) {
-            Role role = guild.getRoleById(configuredRoleId);
-            if (role != null) {
-                return List.of(role);
+        String cleanCategory = categoryId != null ? categoryId.replace("ticket:", "") : "global";
+        
+        // 1. Essayer de récupérer les rôles de la catégorie spécifique
+        List<String> roleIds = settingsManager.getSupportRoles(guild.getId(), cleanCategory);
+        
+        // 2. Fallback sur la catégorie globale si aucun rôle n'est configuré pour la catégorie spécifique
+        if (roleIds.isEmpty() && !"global".equals(cleanCategory)) {
+            roleIds = settingsManager.getSupportRoles(guild.getId(), "global");
+        }
+        
+        // 3. Fallback sur le rôle historique unique support_role_id
+        if (roleIds.isEmpty()) {
+            String legacyRoleId = settingsManager.getSupportRoleId(guild.getId()).orElse(null);
+            if (legacyRoleId != null) {
+                roleIds = List.of(legacyRoleId);
+            }
+        }
+        
+        // Résoudre les rôles JDA
+        if (!roleIds.isEmpty()) {
+            List<Role> resolvedRoles = new ArrayList<>();
+            for (String rid : roleIds) {
+                Role role = guild.getRoleById(rid);
+                if (role != null) {
+                    resolvedRoles.add(role);
+                }
+            }
+            if (!resolvedRoles.isEmpty()) {
+                return resolvedRoles;
             }
         }
 
-        // 2. Fallback intelligent (uniquement les rôles contenant support, staff ou mod)
-        // Exclusion de la permission MANAGE_CHANNEL générique qui pingait tous les bots.
+        // 4. Fallback intelligent en dernier recours (staff keywords)
         List<Role> roles = new ArrayList<>();
         for (Role role : guild.getRoles()) {
             String lower = role.getName().toLowerCase(Locale.ROOT);
@@ -93,8 +115,8 @@ public class TicketService {
         return roles;
     }
 
-    public String supportMention(Guild guild) {
-        List<Role> roles = resolveSupportRoles(guild);
+    public String supportMention(Guild guild, String categoryId) {
+        List<Role> roles = resolveSupportRoles(guild, categoryId);
         if (roles.isEmpty()) return "l'équipe de support";
         return roles.stream().map(Role::getAsMention).collect(Collectors.joining(" "));
     }

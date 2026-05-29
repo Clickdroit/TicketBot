@@ -41,6 +41,12 @@ public class SchemaInitializer {
         applyMigration(conn, 3, "add support_role_id column to settings", () -> {
             addColumnIfMissing(conn, "settings", "support_role_id", "TEXT", isPostgres);
         });
+
+        applyMigration(conn, 4, "create ticket_support_roles table", () -> {
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute(createTicketSupportRolesTableSql());
+            }
+        });
     }
 
     private static void applyMigration(Connection conn, int version, String description, Migration migration) throws SQLException {
@@ -151,6 +157,15 @@ public class SchemaInitializer {
                 "closed_by TEXT," +
                 "closed_at TEXT," +
                 "close_reason TEXT" +
+                ");";
+    }
+
+    private static String createTicketSupportRolesTableSql() {
+        return "CREATE TABLE IF NOT EXISTS ticket_support_roles (" +
+                "guild_id TEXT NOT NULL," +
+                "category TEXT NOT NULL," +
+                "role_id TEXT NOT NULL," +
+                "PRIMARY KEY (guild_id, category, role_id)" +
                 ");";
     }
 

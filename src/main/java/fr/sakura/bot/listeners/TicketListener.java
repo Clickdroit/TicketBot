@@ -101,7 +101,7 @@ public class TicketListener extends ListenerAdapter {
             String description = event.getValue("description").getAsString();
             String categoryLabel = getCategoryName(categoryId);
             
-            handleCreate(event, categoryLabel, subject, description);
+            handleCreate(event, categoryId, categoryLabel, subject, description);
         }
     }
 
@@ -134,7 +134,7 @@ public class TicketListener extends ListenerAdapter {
         };
     }
 
-    private void handleCreate(ModalInteractionEvent event, String categoryLabel, String subject, String description) {
+    private void handleCreate(ModalInteractionEvent event, String categoryId, String categoryLabel, String subject, String description) {
         Member requester = event.getMember();
         var guild = event.getGuild();
         if (guild == null || requester == null) return;
@@ -143,8 +143,8 @@ public class TicketListener extends ListenerAdapter {
         event.deferReply(true).queue(ignored -> {
             String channelName = ticketService.ticketChannelName(requester);
             Category category = ticketService.resolveTicketCategory(guild);
-            List<net.dv8tion.jda.api.entities.Role> supportRoles = ticketService.resolveSupportRoles(guild);
-            String supportMention = ticketService.supportMention(guild);
+            List<net.dv8tion.jda.api.entities.Role> supportRoles = ticketService.resolveSupportRoles(guild, categoryId);
+            String supportMention = ticketService.supportMention(guild, categoryId);
             Member selfMember = guild.getSelfMember();
 
             if (category != null && !selfMember.hasPermission(category, Permission.MANAGE_CHANNEL)) {
