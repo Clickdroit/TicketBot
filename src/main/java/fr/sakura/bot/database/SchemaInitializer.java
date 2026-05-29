@@ -47,6 +47,19 @@ public class SchemaInitializer {
                 stmt.execute(createTicketSupportRolesTableSql());
             }
         });
+
+        applyMigration(conn, 5, "create ticket_categories table and add premium setting", () -> {
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute(createTicketCategoriesTableSql());
+            }
+            addColumnIfMissing(conn, "settings", "premium", "INTEGER NOT NULL DEFAULT 0", isPostgres);
+        });
+
+        applyMigration(conn, 6, "create ticket_panels table", () -> {
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute(createTicketPanelsTableSql());
+            }
+        });
     }
 
     private static void applyMigration(Connection conn, int version, String description, Migration migration) throws SQLException {
@@ -166,6 +179,26 @@ public class SchemaInitializer {
                 "category TEXT NOT NULL," +
                 "role_id TEXT NOT NULL," +
                 "PRIMARY KEY (guild_id, category, role_id)" +
+                ");";
+    }
+
+    private static String createTicketCategoriesTableSql() {
+        return "CREATE TABLE IF NOT EXISTS ticket_categories (" +
+                "guild_id TEXT NOT NULL," +
+                "category_id TEXT NOT NULL," +
+                "label TEXT NOT NULL," +
+                "description TEXT," +
+                "emoji TEXT," +
+                "PRIMARY KEY (guild_id, category_id)" +
+                ");";
+    }
+
+    private static String createTicketPanelsTableSql() {
+        return "CREATE TABLE IF NOT EXISTS ticket_panels (" +
+                "guild_id TEXT NOT NULL," +
+                "channel_id TEXT NOT NULL," +
+                "message_id TEXT NOT NULL," +
+                "PRIMARY KEY (guild_id, channel_id, message_id)" +
                 ");";
     }
 

@@ -188,7 +188,11 @@ public class TicketConfigListener extends ListenerAdapter {
             event.editMessageEmbeds(updatedEmbed.build())
                     .setComponents(ActionRow.of(btnLogs, btnTranscripts, btnSupportRole))
                     .queue(
-                            success -> logger.info("Message d'embed mis à jour après configuration multi-rôles"),
+                            success -> {
+                                logger.info("Message d'embed mis à jour après configuration multi-rôles");
+                                // Actualiser aussi tous les panels de tickets actifs sur le serveur
+                                fr.sakura.bot.commands.ticket.TicketPanelCommand.updateAllGuildPanels(event.getGuild(), settingsManager);
+                            },
                             error -> logger.error("Échec actualisation embed après configuration", error)
                     );
         }

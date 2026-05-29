@@ -14,6 +14,7 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.GenericComponentInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.components.textinput.TextInput;
 import net.dv8tion.jda.api.components.textinput.TextInputStyle;
@@ -99,7 +100,7 @@ public class TicketListener extends ListenerAdapter {
             String categoryId = event.getModalId().substring("ticket:modal:".length());
             String subject = event.getValue("subject").getAsString();
             String description = event.getValue("description").getAsString();
-            String categoryLabel = getCategoryName(categoryId);
+            String categoryLabel = getCategoryName(event.getGuild().getId(), categoryId);
             
             handleCreate(event, categoryId, categoryLabel, subject, description);
         }
@@ -123,15 +124,16 @@ public class TicketListener extends ListenerAdapter {
         }
     }
 
-    private String getCategoryName(String id) {
-        return switch (id) {
-            case "ticket:partnership" -> "Partenariat";
-            case "ticket:report" -> "Signalement";
-            case "ticket:support" -> "Support";
-            case "ticket:suggestion" -> "Suggestion";
-            case "ticket:other" -> "Autre";
+    private String getCategoryName(String guildId, String id) {
+        String cleanId = id != null ? id.replace("ticket:", "") : "support";
+        return settingsManager.getCategoryLabel(guildId, cleanId).orElseGet(() -> switch (cleanId) {
+            case "partnership" -> "Partenariat";
+            case "report" -> "Signalement";
+            case "support" -> "Support";
+            case "suggestion" -> "Suggestion";
+            case "other" -> "Autre";
             default -> "Support";
-        };
+        });
     }
 
     private void handleCreate(ModalInteractionEvent event, String categoryId, String categoryLabel, String subject, String description) {
@@ -230,15 +232,25 @@ public class TicketListener extends ListenerAdapter {
         }
 
         TicketEntry claimed = ticketService.claimTicket(guild.getId(), channel.getId(), event.getUser().getId());
-        event.reply("✅ Ticket pris en charge par " + event.getUser().getAsMention()).setEphemeral(true).queue();
         
-        Member ownerMember = guild.getMemberById(ticket.userId());
-        if (ownerMember != null) {
-            ticketLogListener.logAction(guild, "TICKET_CLAIM", event.getMember(), ownerMember, "Ticket pris en charge", channel.getId());
-        }
-
         if (claimed != null) {
+            // Mettre à jour les boutons sur le message d'origine : désactiver claim et renommer
+            event.editComponents(ActionRow.of(
+                Button.success("ticket:claim", "✅ Pris en charge par " + event.getUser().getEffectiveName()).asDisabled(),
+                ticketService.closeButton()
+            )).queue(
+                success -> logger.info("Bouton de prise en charge mis à jour avec succès dans le salon {}", channel.getName()),
+                error -> logger.error("Échec de la mise à jour des boutons lors de la prise en charge", error)
+            );
+
             channel.sendMessage("✅ " + event.getUser().getAsMention() + " prend en charge ce ticket.").queue();
+            
+            Member ownerMember = guild.getMemberById(ticket.userId());
+            if (ownerMember != null) {
+                ticketLogListener.logAction(guild, "TICKET_CLAIM", event.getMember(), ownerMember, "Ticket pris en charge", channel.getId());
+            }
+        } else {
+            event.reply("❌ Impossible de prendre en charge le ticket.").setEphemeral(true).queue();
         }
 
         logger.info("Ticket claim");
@@ -264,21 +276,36 @@ public class TicketListener extends ListenerAdapter {
         String closeReason = isOwner ? "Fermé par le demandeur" : "Fermé par le support";
         TicketEntry closed = ticketService.closeTicket(guild.getId(), channel.getId(), event.getUser().getId(), closeReason);
 
-        event.reply("🔒 Ticket fermé. Le salon sera supprimé dans 10 secondes.").setEphemeral(true).queue();
-        
-        Member ownerMember = guild.getMemberById(ticket.userId());
-        if (ownerMember != null) {
-            ticketLogListener.logAction(guild, "TICKET_CLOSE", event.getMember(), ownerMember, "Ticket fermé", channel.getId());
-        }
+        if (closed != null) {
+            // Mettre à jour les boutons sur le message d'origine pour désactiver et indiquer la fermeture
+            Button claimBtn = closed.claimedBy() != null
+                ? Button.success("ticket:claim", "✅ Pris en charge").asDisabled()
+                : Button.success("ticket:claim", "✅ Prendre en charge").asDisabled();
 
-        String details = "🔒 Ticket clôturé par " + event.getUser().getAsMention();
-        if (closed != null && closed.claimedBy() != null) {
-            details += "\n👤 Pris en charge par <@" + closed.claimedBy() + ">";
-        }
-        channel.sendMessage(details).queue();
+            event.editComponents(ActionRow.of(
+                claimBtn,
+                Button.danger("ticket:close", "🔒 Fermeture en cours...").asDisabled()
+            )).queue(
+                success -> logger.info("Boutons de fermeture mis à jour avec succès dans le salon {}", channel.getName()),
+                error -> logger.error("Échec de la mise à jour des boutons lors de la fermeture", error)
+            );
 
-        // Transcription
-        generateAndSendTranscript(guild, (TextChannel) channel, ticket, closed);
+            channel.sendMessage("🔒 Ticket fermé par " + event.getUser().getAsMention() + ". Le salon sera supprimé dans 10 secondes.").queue();
+            
+            Member ownerMember = guild.getMemberById(ticket.userId());
+            if (ownerMember != null) {
+                ticketLogListener.logAction(guild, "TICKET_CLOSE", event.getMember(), ownerMember, "Ticket fermé", channel.getId());
+            }
+
+            String details = "🔒 Ticket clôturé par " + event.getUser().getAsMention();
+            if (closed.claimedBy() != null) {
+                details += "\n👤 Pris en charge par <@" + closed.claimedBy() + ">";
+            }
+            // Transcription
+            generateAndSendTranscript(guild, (TextChannel) channel, ticket, closed);
+        } else {
+            event.reply("❌ Impossible de fermer le ticket.").setEphemeral(true).queue();
+        }
 
         if (channel instanceof TextChannel textChannel) {
             textChannel.delete().queueAfter(10, TimeUnit.SECONDS);

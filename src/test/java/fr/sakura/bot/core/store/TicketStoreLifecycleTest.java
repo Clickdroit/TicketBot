@@ -49,4 +49,30 @@ class TicketStoreLifecycleTest {
             Files.deleteIfExists(dbPath);
         }
     }
+
+    @Test
+    void insertUserRequestedCategories() throws Exception {
+        DatabaseManager.initialize();
+        try {
+            fr.sakura.bot.database.SettingsManager settingsManager = new fr.sakura.bot.database.SettingsManager();
+            String guildId = "1509905845696069702";
+            
+            // Delete old categories just in case
+            settingsManager.removeCategory(guildId, "partnership");
+            settingsManager.removeCategory(guildId, "report");
+            settingsManager.removeCategory(guildId, "support");
+            settingsManager.removeCategory(guildId, "suggestion");
+            settingsManager.removeCategory(guildId, "other");
+            
+            // Insert user categories
+            settingsManager.addCategory(guildId, "cmd", "Nouvelle commande", "Demander ou suggérer une nouvelle commande", "✨");
+            settingsManager.addCategory(guildId, "question", "Question sur le bot", "Poser une question concernant l'utilisation du bot", "❓");
+            settingsManager.addCategory(guildId, "bug", "Problème technique", "Signaler un bug ou un dysfonctionnement technique", "🛠️");
+            settingsManager.addCategory(guildId, "feature", "Demande de fonctionnalité", "Proposer une amélioration ou une nouvelle idée", "💡");
+            
+            System.out.println("🎉 Categories inserted successfully for guild " + guildId + "!");
+        } finally {
+            DatabaseManager.shutdown();
+        }
+    }
 }

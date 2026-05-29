@@ -149,4 +149,181 @@ public class SettingsManager {
             logger.error("Erreur BDD support_roles guildId={}", guildId, e);
         }
     }
+
+    public boolean isGuildPremium(String guildId) {
+        if (isDbNotReady()) return false;
+        ensureGuildExists(guildId);
+        String sql = "SELECT premium FROM settings WHERE guild_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, guildId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("premium") == 1;
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur lecture premium guildId={}", guildId, e);
+        }
+        return false;
+    }
+
+    public void setGuildPremium(String guildId, boolean premium) {
+        if (isDbNotReady()) return;
+        ensureGuildExists(guildId);
+        String sql = "UPDATE settings SET premium = ? WHERE guild_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, premium ? 1 : 0);
+            pstmt.setString(2, guildId);
+            pstmt.executeUpdate();
+            logger.info("Statut premium={} mis a jour pour guildId={}", premium, guildId);
+        } catch (SQLException e) {
+            logger.error("Erreur update premium guildId={}", guildId, e);
+        }
+    }
+
+    public java.util.List<fr.sakura.bot.core.model.TicketCategory> getCategories(String guildId) {
+        if (isDbNotReady()) return getDefaultCategories();
+        java.util.List<fr.sakura.bot.core.model.TicketCategory> list = new java.util.ArrayList<>();
+        String sql = "SELECT category_id, label, description, emoji FROM ticket_categories WHERE guild_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, guildId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    list.add(new fr.sakura.bot.core.model.TicketCategory(
+                            rs.getString("category_id"),
+                            rs.getString("label"),
+                            rs.getString("description"),
+                            rs.getString("emoji")
+                    ));
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur lecture categories guildId={}", guildId, e);
+        }
+
+        if (list.isEmpty()) {
+            return getDefaultCategories();
+        }
+        return list;
+    }
+
+    public Optional<String> getCategoryLabel(String guildId, String categoryId) {
+        if (isDbNotReady()) return Optional.empty();
+        String sql = "SELECT label FROM ticket_categories WHERE guild_id = ? AND category_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, guildId);
+            pstmt.setString(2, categoryId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(rs.getString("label"));
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur lecture label categorie guildId={}, categoryId={}", guildId, categoryId, e);
+        }
+        return Optional.empty();
+    }
+
+    public void addCategory(String guildId, String categoryId, String label, String description, String emoji) {
+        if (isDbNotReady()) return;
+        String sql = DatabaseManager.isPostgres()
+                ? "INSERT INTO ticket_categories (guild_id, category_id, label, description, emoji) VALUES (?, ?, ?, ?, ?) " +
+                  "ON CONFLICT (guild_id, category_id) DO UPDATE SET label = EXCLUDED.label, description = EXCLUDED.description, emoji = EXCLUDED.emoji"
+                : "INSERT OR REPLACE INTO ticket_categories (guild_id, category_id, label, description, emoji) VALUES (?, ?, ?, ?, ?)";
+
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, guildId);
+            pstmt.setString(2, categoryId.toLowerCase());
+            pstmt.setString(3, label);
+            pstmt.setString(4, description);
+            pstmt.setString(5, emoji);
+            pstmt.executeUpdate();
+            logger.info("Categorie ajoutee/mise a jour : {} pour guildId={}", categoryId, guildId);
+        } catch (SQLException e) {
+            logger.error("Erreur ajout categorie guildId={}, categoryId={}", guildId, categoryId, e);
+        }
+    }
+
+    public void removeCategory(String guildId, String categoryId) {
+        if (isDbNotReady()) return;
+        String sql = "DELETE FROM ticket_categories WHERE guild_id = ? AND category_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, guildId);
+            pstmt.setString(2, categoryId.toLowerCase());
+            pstmt.executeUpdate();
+            logger.info("Categorie supprimee : {} pour guildId={}", categoryId, guildId);
+        } catch (SQLException e) {
+            logger.error("Erreur suppression categorie guildId={}, categoryId={}", guildId, categoryId, e);
+        }
+    }
+
+    private java.util.List<fr.sakura.bot.core.model.TicketCategory> getDefaultCategories() {
+        return java.util.List.of(
+            new fr.sakura.bot.core.model.TicketCategory("partnership", "Partenariat", "Proposer un partenariat avec le serveur", "🤝"),
+            new fr.sakura.bot.core.model.TicketCategory("report", "Signalement", "Signaler un utilisateur ou un comportement", "🚨"),
+            new fr.sakura.bot.core.model.TicketCategory("support", "Support", "Aide technique ou questions générales", "🛠️"),
+            new fr.sakura.bot.core.model.TicketCategory("suggestion", "Suggestion", "Proposer une idée pour le serveur", "💡"),
+            new fr.sakura.bot.core.model.TicketCategory("other", "Autre", "Toute autre demande", "❓")
+        );
+    }
+
+    public void savePanel(String guildId, String channelId, String messageId) {
+        if (isDbNotReady()) return;
+        String sql = DatabaseManager.isPostgres()
+                ? "INSERT INTO ticket_panels (guild_id, channel_id, message_id) VALUES (?, ?, ?) ON CONFLICT (guild_id, channel_id, message_id) DO NOTHING"
+                : "INSERT OR IGNORE INTO ticket_panels (guild_id, channel_id, message_id) VALUES (?, ?, ?)";
+
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, guildId);
+            pstmt.setString(2, channelId);
+            pstmt.setString(3, messageId);
+            pstmt.executeUpdate();
+            logger.info("Panel de ticket enregistre : channelId={}, messageId={}", channelId, messageId);
+        } catch (SQLException e) {
+            logger.error("Erreur enregistrement panel guildId={}", guildId, e);
+        }
+    }
+
+    public void deletePanel(String guildId, String channelId, String messageId) {
+        if (isDbNotReady()) return;
+        String sql = "DELETE FROM ticket_panels WHERE guild_id = ? AND channel_id = ? AND message_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, guildId);
+            pstmt.setString(2, channelId);
+            pstmt.setString(3, messageId);
+            pstmt.executeUpdate();
+            logger.info("Panel de ticket supprime des enregistrements : channelId={}, messageId={}", channelId, messageId);
+        } catch (SQLException e) {
+            logger.error("Erreur suppression panel guildId={}", guildId, e);
+        }
+    }
+
+    public java.util.List<fr.sakura.bot.core.model.PanelEntry> getPanels(String guildId) {
+        if (isDbNotReady()) return java.util.Collections.emptyList();
+        java.util.List<fr.sakura.bot.core.model.PanelEntry> list = new java.util.ArrayList<>();
+        String sql = "SELECT channel_id, message_id FROM ticket_panels WHERE guild_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, guildId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    list.add(new fr.sakura.bot.core.model.PanelEntry(
+                            rs.getString("channel_id"),
+                            rs.getString("message_id")
+                    ));
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur lecture panels guildId={}", guildId, e);
+        }
+        return list;
+    }
 }
