@@ -86,15 +86,39 @@ public class TicketConfigListener extends ListenerAdapter {
 
         if (BTN_SUPPORT_ROLE.equals(buttonId)) {
             // Etape 1 : Renvoyer un StringSelectMenu pour choisir la catégorie à configurer
-            StringSelectMenu categoryMenu = StringSelectMenu.create(MENU_SELECT_CATEGORY)
+            String guildId = event.getGuild().getId();
+            List<fr.sakura.bot.core.model.TicketCategory> categories = settingsManager.getCategories(guildId);
+            
+            StringSelectMenu.Builder categoryMenuBuilder = StringSelectMenu.create(MENU_SELECT_CATEGORY)
                     .setPlaceholder("📂 Choisissez la catégorie de ticket à configurer")
-                    .addOption("🌍 Par défaut / Global", "config:cat:global", "Rôles de support par défaut pour tous les tickets", net.dv8tion.jda.api.entities.emoji.Emoji.fromUnicode("🌍"))
-                    .addOption("🤝 Partenariat", "config:cat:partnership", "Rôles de support pour les partenariats", net.dv8tion.jda.api.entities.emoji.Emoji.fromUnicode("🤝"))
-                    .addOption("🚨 Signalement", "config:cat:report", "Rôles de support pour les signalements", net.dv8tion.jda.api.entities.emoji.Emoji.fromUnicode("🚨"))
-                    .addOption("🛠️ Support Général", "config:cat:support", "Rôles de support général", net.dv8tion.jda.api.entities.emoji.Emoji.fromUnicode("🛠️"))
-                    .addOption("💡 Suggestion", "config:cat:suggestion", "Rôles de support pour les suggestions", net.dv8tion.jda.api.entities.emoji.Emoji.fromUnicode("💡"))
-                    .addOption("❓ Autre", "config:cat:other", "Rôles de support pour les autres demandes", net.dv8tion.jda.api.entities.emoji.Emoji.fromUnicode("❓"))
-                    .build();
+                    .addOption("🌍 Par défaut / Global", "config:cat:global", "Rôles de support par défaut pour tous les tickets", net.dv8tion.jda.api.entities.emoji.Emoji.fromUnicode("🌍"));
+
+            int optionCount = 1;
+            for (fr.sakura.bot.core.model.TicketCategory cat : categories) {
+                if (optionCount >= 25) break;
+                if ("global".equalsIgnoreCase(cat.categoryId())) continue;
+
+                net.dv8tion.jda.api.entities.emoji.Emoji emojiObj = null;
+                if (cat.emoji() != null && !cat.emoji().isBlank()) {
+                    try {
+                        emojiObj = net.dv8tion.jda.api.entities.emoji.Emoji.fromUnicode(cat.emoji());
+                    } catch (Exception ignored) {}
+                }
+
+                String label = cat.label();
+                if (label.length() > 25) {
+                    label = label.substring(0, 22) + "...";
+                }
+                String desc = cat.description() != null ? cat.description() : "";
+                if (desc.length() > 50) {
+                    desc = desc.substring(0, 47) + "...";
+                }
+
+                categoryMenuBuilder.addOption(label, "config:cat:" + cat.categoryId(), desc, emojiObj);
+                optionCount++;
+            }
+
+            StringSelectMenu categoryMenu = categoryMenuBuilder.build();
 
             event.editMessageEmbeds(event.getMessage().getEmbeds().get(0))
                     .setComponents(ActionRow.of(categoryMenu))
@@ -117,7 +141,8 @@ public class TicketConfigListener extends ListenerAdapter {
             if (event.getValues().isEmpty()) return;
             
             String selectedCategory = event.getValues().get(0).replace("config:cat:", "");
-            String categoryLabel = getCategoryLabel(selectedCategory);
+            String categoryLabel = settingsManager.getCategoryLabel(event.getGuild().getId(), selectedCategory)
+                    .orElseGet(() -> getCategoryLabel(selectedCategory));
 
             // Etape 2 : Envoyer le menu de rôles JDA 5 avec sélection multiple (1 à 10 rôles !)
             EntitySelectMenu roleMenu = EntitySelectMenu.create(SELECT_SUPPORT_ROLE_PREFIX + selectedCategory, EntitySelectMenu.SelectTarget.ROLE)
@@ -236,13 +261,8 @@ public class TicketConfigListener extends ListenerAdapter {
                 .map(id -> "<#" + id + ">")
                 .orElse("❌ *Non configuré*");
 
-        // Récupérer la liste des rôles par catégorie
+        // Récupérer la liste des rôles pour la catégorie globale
         String globalRoles = formatRolesList(guild, settingsManager.getSupportRoles(guildId, "global"));
-        String partnershipRoles = formatRolesList(guild, settingsManager.getSupportRoles(guildId, "partnership"));
-        String reportRoles = formatRolesList(guild, settingsManager.getSupportRoles(guildId, "report"));
-        String supportRoles = formatRolesList(guild, settingsManager.getSupportRoles(guildId, "support"));
-        String suggestionRoles = formatRolesList(guild, settingsManager.getSupportRoles(guildId, "suggestion"));
-        String otherRoles = formatRolesList(guild, settingsManager.getSupportRoles(guildId, "other"));
 
         // Fallback sur le rôle historique unique support_role_id pour la catégorie globale
         if (globalRoles.contains("Hérite")) {
@@ -255,21 +275,31 @@ public class TicketConfigListener extends ListenerAdapter {
             }
         }
 
+        // Récupérer et construire dynamiquement la liste des rôles pour toutes les catégories actives
+        StringBuilder supportRolesSb = new StringBuilder();
+        supportRolesSb.append(EmbedStyle.detailLine("🌍 Par défaut / Global", globalRoles)).append("\n");
+
+        List<fr.sakura.bot.core.model.TicketCategory> categories = settingsManager.getCategories(guildId);
+        for (fr.sakura.bot.core.model.TicketCategory cat : categories) {
+            if ("global".equalsIgnoreCase(cat.categoryId())) continue;
+            String emojiStr = cat.emoji() != null && !cat.emoji().isBlank() ? cat.emoji() : "🎫";
+            String roles = formatRolesList(guild, settingsManager.getSupportRoles(guildId, cat.categoryId()));
+            supportRolesSb.append(EmbedStyle.detailLine(emojiStr + " " + cat.label(), roles)).append("\n");
+        }
+
+        boolean isPremium = settingsManager.isGuildPremium(guildId);
+
         EmbedBuilder embed = EmbedStyle.newInfoEmbed("⚙️", "Configuration de TicketBot");
         embed.setAuthor("Panneau d'Administration • " + guild.getName(), null, guild.getIconUrl());
         
         embed.setDescription("Bienvenue dans le panneau de configuration interactif de votre système de support.\n" +
                 "Cliquez sur les boutons ci-dessous pour modifier les salons de logs/transcriptions ou attribuer des **rôles de support à ping par catégorie**.\n\n" +
+                "👑 **Abonnement :** " + (isPremium ? "🟢 **Premium**" : "⚪ **Gratuit** (Max 3 catégories personnalisées)") + "\n\n" +
                 EmbedStyle.sectionHeader("🔧", "Paramètres des salons") + "\n" +
                 EmbedStyle.detailLine("Logs d'activité", logsChannelMention) + "\n" +
                 EmbedStyle.detailLine("Transcriptions clos", transcriptsChannelMention) + "\n\n" +
                 EmbedStyle.sectionHeader("👥", "Rôles de support à ping") + "\n" +
-                EmbedStyle.detailLine("🌍 Par défaut / Global", globalRoles) + "\n" +
-                EmbedStyle.detailLine("🤝 Partenariats", partnershipRoles) + "\n" +
-                EmbedStyle.detailLine("🚨 Signalements", reportRoles) + "\n" +
-                EmbedStyle.detailLine("🛠️ Support Général", supportRoles) + "\n" +
-                EmbedStyle.detailLine("💡 Suggestions", suggestionRoles) + "\n" +
-                EmbedStyle.detailLine("❓ Autres demandes", otherRoles) + "\n\n" +
+                supportRolesSb.toString() + "\n" +
                 "💡 *Vous pouvez sélectionner de 1 à 10 rôles en même temps pour chaque catégorie.*");
 
         EmbedStyle.setFooter(embed, "TicketBot Administration", guild.getIconUrl());

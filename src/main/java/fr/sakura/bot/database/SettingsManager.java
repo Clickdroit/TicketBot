@@ -263,6 +263,23 @@ public class SettingsManager {
         }
     }
 
+    public int getCustomCategoryCount(String guildId) {
+        if (isDbNotReady()) return 0;
+        String sql = "SELECT COUNT(*) FROM ticket_categories WHERE guild_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, guildId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur comptage categories guildId={}", guildId, e);
+        }
+        return 0;
+    }
+
     private java.util.List<fr.sakura.bot.core.model.TicketCategory> getDefaultCategories() {
         return java.util.List.of(
             new fr.sakura.bot.core.model.TicketCategory("partnership", "Partenariat", "Proposer un partenariat avec le serveur", "🤝"),

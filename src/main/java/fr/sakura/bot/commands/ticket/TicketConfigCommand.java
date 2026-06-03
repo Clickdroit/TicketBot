@@ -54,16 +54,16 @@ public class TicketConfigCommand implements ICommand {
                         new SubcommandData("panel", "Affiche le panneau de configuration interactif"),
                         new SubcommandData("premium-set", "Active/Désactive le statut Premium pour ce serveur (Founder only)")
                                 .addOptions(new OptionData(OptionType.BOOLEAN, "active", "Activer ou non le Premium", true)),
-                        new SubcommandData("category-add", "Ajoute ou modifie une catégorie de tickets (Premium)")
+                        new SubcommandData("category-add", "Ajoute ou modifie une catégorie de tickets (Gratuit: max 3, Premium: max 20)")
                                 .addOptions(
                                         new OptionData(OptionType.STRING, "id", "ID unique de la catégorie (ex: bug, vip)", true),
                                         new OptionData(OptionType.STRING, "nom", "Nom affiché (ex: Rapport de bug)", true),
                                         new OptionData(OptionType.STRING, "description", "Description de la catégorie", true),
                                         new OptionData(OptionType.STRING, "emoji", "Emoji Unicode associé (ex: 🐛)", false)
                                 ),
-                        new SubcommandData("category-remove", "Supprime une catégorie de tickets (Premium)")
+                        new SubcommandData("category-remove", "Supprime une catégorie de tickets")
                                 .addOptions(new OptionData(OptionType.STRING, "id", "ID unique de la catégorie à supprimer", true)),
-                        new SubcommandData("category-list", "Affiche toutes vos catégories actives (Premium)")
+                        new SubcommandData("category-list", "Affiche toutes vos catégories actives")
                 );
     }
 
@@ -120,12 +120,7 @@ public class TicketConfigCommand implements ICommand {
     }
 
     private void handleCategoryAdd(SlashCommandInteractionEvent event, String guildId, String userId) {
-        if (!isPremium(guildId, userId)) {
-            sendPremiumAlert(event);
-            return;
-        }
-
-        String id = event.getOption("id", OptionMapping::getAsString);
+        String id = event.getOption("id", OptionMapping::getAsString).toLowerCase();
         String nom = event.getOption("nom", OptionMapping::getAsString);
         String description = event.getOption("description", OptionMapping::getAsString);
         String emoji = event.getOption("emoji", OptionMapping::getAsString);
@@ -135,17 +130,28 @@ public class TicketConfigCommand implements ICommand {
             return;
         }
 
+        boolean premium = isPremium(guildId, userId);
+        int count = settingsManager.getCustomCategoryCount(guildId);
+        boolean isEdit = settingsManager.getCategoryLabel(guildId, id).isPresent();
+
+        if (!isEdit) {
+            if (!premium && count >= 3) {
+                event.reply("❌ La version gratuite est limitée à **3 catégories personnalisées**.\n" +
+                        "👉 *Souscrivez à l'offre Premium (2.99€/mois) pour en ajouter jusqu'à 20 et soutenir le bot !*").setEphemeral(true).queue();
+                return;
+            }
+            if (premium && count >= 20) {
+                event.reply("❌ Vous avez atteint la limite de **20 catégories personnalisées** (limite technique Discord).").setEphemeral(true).queue();
+                return;
+            }
+        }
+
         settingsManager.addCategory(guildId, id, nom, description, emoji);
         TicketPanelCommand.updateAllGuildPanels(event.getGuild(), settingsManager);
-        event.reply("✅ Catégorie **" + nom + "** (`" + id.toLowerCase() + "`) ajoutée/mise à jour avec succès !").setEphemeral(true).queue();
+        event.reply("✅ Catégorie **" + nom + "** (`" + id + "`) ajoutée/mise à jour avec succès !").setEphemeral(true).queue();
     }
 
     private void handleCategoryRemove(SlashCommandInteractionEvent event, String guildId, String userId) {
-        if (!isPremium(guildId, userId)) {
-            sendPremiumAlert(event);
-            return;
-        }
-
         String id = event.getOption("id", OptionMapping::getAsString);
         settingsManager.removeCategory(guildId, id);
         TicketPanelCommand.updateAllGuildPanels(event.getGuild(), settingsManager);
@@ -153,11 +159,6 @@ public class TicketConfigCommand implements ICommand {
     }
 
     private void handleCategoryList(SlashCommandInteractionEvent event, String guildId, String userId) {
-        if (!isPremium(guildId, userId)) {
-            sendPremiumAlert(event);
-            return;
-        }
-
         List<TicketCategory> categories = settingsManager.getCategories(guildId);
         EmbedBuilder embed = EmbedStyle.newInfoEmbed("📂", "Catégories de tickets actives");
         embed.setAuthor("Panneau Catégories • " + event.getGuild().getName(), null, event.getGuild().getIconUrl());
@@ -182,8 +183,8 @@ public class TicketConfigCommand implements ICommand {
     }
 
     private void sendPremiumAlert(SlashCommandInteractionEvent event) {
-        event.reply("❌ La personnalisation des catégories est une **fonctionnalité Premium**.\n" +
-                "👉 *Rejoignez notre serveur de support ou souscrivez à l'offre à 2.99€/mois pour débloquer cette option !*")
+        event.reply("❌ La personnalisation complète des catégories est une **fonctionnalité Premium**.\n" +
+                "👉 *Rejoignez notre serveur de support ou souscrivez à l'offre à 2.99€/mois pour débloquer jusqu'à 20 catégories !*")
                 .setEphemeral(true)
                 .queue();
     }
